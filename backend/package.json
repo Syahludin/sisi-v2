@@ -1,0 +1,8 @@
+{
+  "name": "sisi-v2-backend",
+  "private": true,
+  "scripts": {
+    "push:staging": "node scripts/push.js staging",
+    "push:production": "node scripts/push.js production --yakin"
+  }
+}

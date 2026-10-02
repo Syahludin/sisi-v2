@@ -1,0 +1,13 @@
+node_modules/
+backend/.clasp.json
+.clasprc.json
+mobile/env/staging.json
+mobile/env/production.json
+*.keystore
+*.jks
+key.properties
+local.properties
+.env
+.env.*
+.DS_Store
+Thumbs.db

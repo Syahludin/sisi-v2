@@ -1,0 +1,4 @@
+{
+  "SISI_ENV": "staging",
+  "SISI_API_URL": "https://script.google.com/macros/s/ISI_DEPLOYMENT_ID_STAGING/exec"
+}

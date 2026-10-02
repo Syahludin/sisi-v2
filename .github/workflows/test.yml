@@ -1,0 +1,31 @@
+name: test
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm test
+      - name: Tidak ada ID Google di kode
+        run: |
+          if grep -RInE "[0-9A-Za-z_-]{40,}" backend/src mobile/lib --include=*.js --include=*.dart --include=*.json | grep -viE "regexp|test" ; then
+            echo "Ada string mirip ID/secret di kode. Pindahkan ke Script Properties atau env."; exit 1; fi
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

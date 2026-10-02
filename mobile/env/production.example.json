@@ -1,0 +1,4 @@
+{
+  "SISI_ENV": "production",
+  "SISI_API_URL": "https://script.google.com/macros/s/ISI_DEPLOYMENT_ID_PRODUCTION/exec"
+}

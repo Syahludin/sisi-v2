@@ -1,0 +1,10 @@
+{
+  "name": "sisi-v2",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/backend.test.js",
+    "push:staging": "npm --prefix backend run push:staging",
+    "push:production": "npm --prefix backend run push:production"
+  },
+  "engines": { "node": ">=20" }
+}
