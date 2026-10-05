@@ -128,6 +128,9 @@ Banyak eksekusi lama tidak punya induk yang benar (Kode Pekerjaan kosong/salah, 
    (atau sisa yang memang diterima + `MIG_IZINKAN_KARANTINA=TRUE`).
 3b. Foto lama AppSheet: isi Script Property `MIG_FOTO_AKAR_ID` = ID folder Drive "AppSheet SiSi - ULP Toboali"
    (atau induknya), lalu `ADMIN_migrasiCekFoto` (hanya baca) sampai semua foto `ADA` di `mig_CekFoto`.
+   v0.59: bisa dilanjutkan (posisi di Script Property `MIG_CEKFOTO_POS`, hasil ditambahkan). Data besar: `ADMIN_migrasiCekFotoOtomatis`
+   (tiap 5 menit, berhenti sendiri saat selesai), `ADMIN_migrasiCekFotoBerhenti`, `ADMIN_migrasiCekFotoUlang` (mulai dari awal).
+   Tahap A jangan dipotong per periode (MIG_DARI / MIG_SAMPAI): baris bulan sebelumnya tidak ada di rencana bulan berikutnya = MIG_RENCANA_BERUBAH.
    URL lama `appsheet.com/image/getimageurl?...&fileName=<path>` dibaca jadi path relatif, dicari per nama folder.
 4. `ADMIN_migrasiJalan` (tahap A): header → realisasi → eksekusi ditulis urut Timestamp naik, hitungan 0, WA kosong,
    foto kosong. Menulis `mig_Peta`, menambah antrean `mig_Foto`, mereset penunjuk jendela. Boleh dijalankan ulang

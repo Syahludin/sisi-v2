@@ -1876,3 +1876,50 @@ test('UIW section: satu = nama lengkap, banyak = awal section urutan terendah - 
   const r = x.getUiw(x.admin);
   assert.ok(r.waText.includes('TIM ROW 01\n- Penyulang : TB-01\n- Section : Kampung Baru - Rias\n- Realisasi\n> Rabas : 1 Gawang\n> Tebang : 2 Batang'), r.waText);
 });
+
+test('ADMIN_migrasiCekFoto v0.59: bisa dilanjutkan per jalan, data lama bertambah tidak mengulang, selesai = posisi + pemicu dihapus', () => {
+  const g = buatKonteks({ ...PROPS, ROW_SHEET_ID: 'r', MIG_SUMBER_ID: 'lama', MIG_FOTO_AKAR_ID: 'akar' });
+  let jam = 0;
+  g.Date = class extends Date { static now() { return jam; } };
+  g.pastikanPemilik_ = () => {};
+  const isi = [];
+  const sheet = { getLastRow: () => isi.length, getRange: (r, c, n) => ({ setValues: (v) => { assert.strictEqual(r, isi.length + 1); assert.strictEqual(v.length, n); isi.push(...v); } }) };
+  g.tulisSheetMig_ = (_ss, _n, kepala, baris) => { isi.length = 0; isi.push(kepala, ...baris); return sheet; };
+  let foto = Array.from({ length: 7 }, (_, i) => ({ foto_id: 'f' + i, kode_eksekusi: 'E' + i, slot: 'FOTO_1', sumber_path: 'a/' + i + '.jpg' }));
+  g.siapkanMigrasi_ = () => ({ c: { ULP_NAMA: 'Toboali' }, p: g.PropertiesService.getScriptProperties(), ssRow: { getSheetByName: () => sheet } });
+  g.analisisMigrasi_ = () => ({});
+  g.rencanaMigrasi_ = () => ({ foto });
+  g.DriveApp = { getFolderById: () => ({ getName: () => 'AppSheet SiSi' }) };
+  g.fileDariPathMig_ = (_a, path) => { jam += 100000; return path === 'a/3.jpg' ? null : { getName: () => path }; };   // 3 foto per jalan (BATAS 270 s)
+  const pemicu = [{ getHandlerFunction: () => 'ADMIN_migrasiCekFoto' }, { getHandlerFunction: () => 'ADMIN_buatBarisHarian' }];
+  g.ScriptApp = { getProjectTriggers: () => pemicu, deleteTrigger: (t) => pemicu.splice(pemicu.indexOf(t), 1) };
+  const props = g.PropertiesService.getScriptProperties();
+  const jalan = () => { jam = 0; g.ADMIN_migrasiCekFoto(); };
+  jalan();
+  assert.deepStrictEqual(isi.slice(1).map((b) => b[0]), ['E0', 'E1', 'E2']);
+  assert.strictEqual(JSON.parse(props.getProperty('MIG_CEKFOTO_POS')).terakhir, 'f2');
+  assert.strictEqual(props.getProperty('MIG_CEKFOTO_SIBUK'), null, 'kunci jalan dilepas');
+  foto = [...foto, { foto_id: 'f7', kode_eksekusi: 'E7', slot: 'FOTO_1', sumber_path: 'a/7.jpg' }];   // app lama menambah data
+  jalan();
+  assert.deepStrictEqual(isi.slice(1).map((b) => b[0]), ['E0', 'E1', 'E2', 'E3', 'E4', 'E5'], 'lanjut, tidak mengulang');
+  assert.deepStrictEqual(Array.from(isi[4].slice(3)), ['TIDAK', ''], 'tidak ketemu dicatat');
+  props.setProperty('MIG_CEKFOTO_SIBUK', '0');   // sisa jalan macet lama (> 6 menit) tidak memblok
+  jam = 0;
+  props.setProperty('MIG_CEKFOTO_SIBUK', String(-400000));
+  g.ADMIN_migrasiCekFoto();
+  assert.strictEqual(isi.length, 1 + 8, 'semua 8 foto tercatat sekali');
+  assert.strictEqual(props.getProperty('MIG_CEKFOTO_POS'), null, 'selesai = posisi dihapus');
+  assert.deepStrictEqual(pemicu.map((t) => t.getHandlerFunction()), ['ADMIN_buatBarisHarian'], 'hanya pemicu cek foto yang dihapus');
+  // jalan lain masih berlangsung (< 6 menit) = dilewati, tidak menulis
+  props.setProperty('MIG_CEKFOTO_SIBUK', String(-1000));
+  jam = 0;
+  const sebelum = isi.length;
+  g.ADMIN_migrasiCekFoto();
+  assert.strictEqual(isi.length, sebelum);
+  // posisi yang tidak ada lagi di rencana = mulai ulang dari awal
+  props.deleteProperty('MIG_CEKFOTO_SIBUK');
+  props.setProperty('MIG_CEKFOTO_POS', JSON.stringify({ terakhir: 'hilang', ada: 9, hilang: 9, jalan: 9 }));
+  jalan();
+  assert.deepStrictEqual(isi.slice(1).map((b) => b[0]), ['E0', 'E1', 'E2']);
+  assert.strictEqual(JSON.parse(props.getProperty('MIG_CEKFOTO_POS')).ada, 3);
+});

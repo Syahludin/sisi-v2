@@ -651,32 +651,108 @@ function ADMIN_migrasiCek() {
 }
 
 /**
- * Editor (hanya baca): cek file foto lama sebelum tahap A. Path AppSheet dicari di folder MIG_FOTO_AKAR_ID,
- * ID Drive dicek bisa dibuka. Maks ~4,5 menit; hasil ke sheet mig_CekFoto (kode_eksekusi, slot, sumber, ada, keterangan).
+ * Editor / pemicu: cek foto lama SEBELUM tahap B (hanya baca, aman selagi app lama jalan). Path AppSheet dicari
+ * di MIG_FOTO_AKAR_ID, ID Drive dicek bisa dibuka. v0.59: BISA DILANJUTKAN. Tiap jalan ~4,5 menit, posisi disimpan
+ * di Script Property MIG_CEKFOTO_POS (foto_id terakhir + hitungan), hasil DITAMBAHKAN ke mig_CekFoto. Data lama yang
+ * bertambah (app lama masih dipakai) tidak mengulang dari awal: lanjut setelah foto_id terakhir. foto_id terakhir tidak
+ * ada lagi di rencana = mulai ulang. Selesai = posisi dihapus + pemicu otomatis dihapus.
+ * Otomatis: ADMIN_migrasiCekFotoOtomatis (tiap 5 menit). Ulang dari awal: ADMIN_migrasiCekFotoUlang.
  */
+var MIG_CEKFOTO_POS_ = 'MIG_CEKFOTO_POS';
+var MIG_CEKFOTO_SIBUK_ = 'MIG_CEKFOTO_SIBUK';
+var MIG_CEKFOTO_KEPALA_ = ['kode_eksekusi', 'slot', 'sumber', 'ada', 'keterangan'];
+
 function ADMIN_migrasiCekFoto() {
   pastikanPemilik_();
   var mulai = Date.now(), BATAS = 270000;
-  var x = siapkanMigrasi_();
-  var r = analisisMigrasi_(x.S, x.M, x.opsi);
-  var rencana = rencanaMigrasi_(r, { ulpNama: x.c.ULP_NAMA, sekarang: new Date() });
-  var akarId = String(x.p.getProperty('MIG_FOTO_AKAR_ID') || '').trim();
-  var akar = akarId ? DriveApp.getFolderById(akarId) : null;
-  var cache = {}, ada = 0, hilang = 0, belum = 0, baris = [];
-  rencana.foto.forEach(function (q) {
-    if (Date.now() - mulai > BATAS) { belum++; return; }
-    var file = null, ket = '';
-    try {
-      if (q.sumber_drive_id) file = DriveApp.getFileById(q.sumber_drive_id);
-      else if (!akar) ket = 'MIG_FOTO_AKAR_ID belum diisi';
-      else file = fileDariPathMig_(akar, q.sumber_path, cache);
-    } catch (e) { ket = String(e && e.message || e).slice(0, 120); }
-    if (file) ada++; else hilang++;
-    baris.push([q.kode_eksekusi, q.slot, q.sumber_drive_id || q.sumber_path, file ? 'ADA' : 'TIDAK', file ? file.getName() : ket]);
+  var p = PropertiesService.getScriptProperties();
+  var sibuk = Number(p.getProperty(MIG_CEKFOTO_SIBUK_) || 0);
+  if (sibuk && mulai - sibuk < 360000) { console.log('CEK FOTO: jalan lain masih berlangsung, dilewati.'); return; }
+  p.setProperty(MIG_CEKFOTO_SIBUK_, String(mulai));
+  try {
+    var x = siapkanMigrasi_();
+    var r = analisisMigrasi_(x.S, x.M, x.opsi);
+    var foto = rencanaMigrasi_(r, { ulpNama: x.c.ULP_NAMA, sekarang: new Date() }).foto;
+    var detikRencana = Math.round((Date.now() - mulai) / 1000);
+    var pos = null;
+    try { pos = JSON.parse(p.getProperty(MIG_CEKFOTO_POS_) || 'null'); } catch (e) { pos = null; }
+    var dari = 0;
+    if (pos && pos.terakhir) {
+      var idx = -1;
+      for (var k = 0; k < foto.length; k++) { if (foto[k].foto_id === pos.terakhir) { idx = k; break; } }
+      if (idx === -1) { console.log('CEK FOTO: posisi lama tidak ada di rencana sekarang, mulai ulang.'); pos = null; } else dari = idx + 1;
+    }
+    var sh;
+    if (!pos) {
+      pos = { terakhir: '', ada: 0, hilang: 0, jalan: 0 };
+      sh = tulisSheetMig_(x.ssRow, 'mig_CekFoto', MIG_CEKFOTO_KEPALA_, []);
+    } else {
+      sh = x.ssRow.getSheetByName('mig_CekFoto') || tulisSheetMig_(x.ssRow, 'mig_CekFoto', MIG_CEKFOTO_KEPALA_, []);
+    }
+    var akarId = String(x.p.getProperty('MIG_FOTO_AKAR_ID') || '').trim();
+    var akar = akarId ? DriveApp.getFolderById(akarId) : null;
+    var cache = {}, baris = [], i = dari;
+    for (; i < foto.length; i++) {
+      if (Date.now() - mulai > BATAS) break;
+      var q = foto[i], file = null, ket = '';
+      try {
+        if (q.sumber_drive_id) file = DriveApp.getFileById(q.sumber_drive_id);
+        else if (!akar) ket = 'MIG_FOTO_AKAR_ID belum diisi';
+        else file = fileDariPathMig_(akar, q.sumber_path, cache);
+      } catch (e) { ket = String(e && e.message || e).slice(0, 120); }
+      if (file) pos.ada++; else pos.hilang++;
+      baris.push([q.kode_eksekusi, q.slot, q.sumber_drive_id || q.sumber_path, file ? 'ADA' : 'TIDAK', file ? file.getName() : ket]);
+      pos.terakhir = q.foto_id;
+    }
+    if (baris.length) {
+      sh.getRange(sh.getLastRow() + 1, 1, baris.length, MIG_CEKFOTO_KEPALA_.length)
+        .setValues(baris.map(function (b) { return b.map(amanSheet_); }));
+    }
+    pos.jalan++;
+    var sisa = foto.length - i;
+    var ring = 'ada ' + pos.ada + ', tidak ketemu ' + pos.hilang + ', sudah dicek ' + (foto.length - sisa) + ' dari ' + foto.length +
+      ' | jalan ke-' + pos.jalan + ' (+' + baris.length + ', rencana ' + detikRencana + ' s) | akar "' + (akar ? akar.getName() : '-') + '"';
+    if (sisa > 0) {
+      p.setProperty(MIG_CEKFOTO_POS_, JSON.stringify(pos));
+      console.log('CEK FOTO LAMA (LANJUT): ' + ring + ' | sisa ' + sisa + '. Jalankan lagi atau ADMIN_migrasiCekFotoOtomatis.');
+    } else {
+      p.deleteProperty(MIG_CEKFOTO_POS_);
+      hapusPemicuCekFoto_();
+      console.log('CEK FOTO LAMA SELESAI: ' + ring + ' | detail di mig_CekFoto (filter kolom ada = TIDAK).');
+    }
+  } finally {
+    p.deleteProperty(MIG_CEKFOTO_SIBUK_);
+  }
+}
+
+function hapusPemicuCekFoto_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'ADMIN_migrasiCekFoto') ScriptApp.deleteTrigger(t);
   });
-  tulisSheetMig_(x.ssRow, 'mig_CekFoto', ['kode_eksekusi', 'slot', 'sumber', 'ada', 'keterangan'], baris);
-  console.log('CEK FOTO LAMA: ada ' + ada + ', tidak ketemu ' + hilang + (belum ? ', belum dicek (waktu habis) ' + belum : '') +
-    ' dari ' + rencana.foto.length + ' | akar "' + (akar ? akar.getName() : '-') + '" | detail di mig_CekFoto');
+}
+
+/** Editor: jalankan ADMIN_migrasiCekFoto otomatis tiap 5 menit sampai semua foto dicek (pemicu dihapus sendiri). */
+function ADMIN_migrasiCekFotoOtomatis() {
+  pastikanPemilik_();
+  hapusPemicuCekFoto_();
+  ScriptApp.newTrigger('ADMIN_migrasiCekFoto').timeBased().everyMinutes(5).create();
+  console.log('Pemicu ADMIN_migrasiCekFoto tiap 5 menit dipasang. Pantau log / mig_CekFoto; berhenti: ADMIN_migrasiCekFotoBerhenti.');
+}
+
+/** Editor: hentikan pemicu cek foto (posisi tetap disimpan, bisa dilanjutkan). */
+function ADMIN_migrasiCekFotoBerhenti() {
+  pastikanPemilik_();
+  hapusPemicuCekFoto_();
+  console.log('Pemicu ADMIN_migrasiCekFoto dihapus. Posisi tetap disimpan.');
+}
+
+/** Editor: lupakan posisi cek foto; jalan berikutnya mulai dari foto pertama (mig_CekFoto dikosongkan). */
+function ADMIN_migrasiCekFotoUlang() {
+  pastikanPemilik_();
+  var p = PropertiesService.getScriptProperties();
+  p.deleteProperty(MIG_CEKFOTO_POS_);
+  p.deleteProperty(MIG_CEKFOTO_SIBUK_);
+  console.log('Posisi cek foto dihapus. ADMIN_migrasiCekFoto berikutnya mulai dari awal.');
 }
 
 var MIG_FOTO_KOLOM_ = ['foto_id', 'eksekusi_id', 'kode_eksekusi', 'slot', 'sumber_drive_id', 'sumber_path', 'status', 'percobaan',
