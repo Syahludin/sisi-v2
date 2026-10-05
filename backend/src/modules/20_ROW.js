@@ -59,18 +59,3 @@ function klasifikasiJenis_(diameter, daftarJenis) {
   if (!cocok.length) throw new SisiError_('DIAMETER_DI_LUAR_KATEGORI', String(diameter));
   return cocok[0];
 }
-
-/**
- * DRAF - belum diimplementasikan. Kontrak: docs/API-CONTRACT.md (syncRow).
- * Per operasi, semuanya di dalam satu denganLock_():
- *  1. validasi_ isi sesuai jenis (header / realisasi / eksekusi)
- *  2. kepemilikan: PETUGAS hanya tim sendiri; admin TIDAK membuat header atas nama sub-tim
- *  3. idempotensi: UUID sudah ada dengan isi sama -> DUPLIKAT (kembalikan data tersimpan)
- *  4. kode: cekKodeHeaderRow_ / parseKodeAnak_; kode dipakai UUID lain -> KODE_BENTROK (tidak menimpa)
- *  5. induk wajib sudah ada / ada lebih dulu di batch yang sama (Header -> PNY -> EKS)
- *  6. ubah: cek revision -> KONFLIK_REVISION; batal: status BATAL, nomor tetap terpakai
- *  7. tulis, auditLog_, kembalikan { opId, status, kode, revision }
- */
-function syncRow_(sesi, data, platform) {
-  throw new SisiError_('BELUM_DIIMPLEMENTASI', 'syncRow');
-}

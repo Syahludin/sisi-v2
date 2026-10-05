@@ -1,5 +1,8 @@
 node_modules/
 backend/.clasp.json
+backend/.clasp.staging.json
+backend/.clasp.production.json
+backend/.deploy.json
 .clasprc.json
 mobile/env/staging.json
 mobile/env/production.json

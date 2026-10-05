@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/local_db.dart';
@@ -16,7 +17,9 @@ class RowOutbox {
 
   static String uuidBaru() => _uuid.v4();
 
+  /// `ex` = transaksi pemanggil (supaya baris lokal + outbox tersimpan bersama atau tidak sama sekali).
   Future<String> tambah({
+    DatabaseExecutor? ex,
     required String userId,
     required String jenis,
     required String aksi,
@@ -29,7 +32,7 @@ class RowOutbox {
     final urutan = urutanJenis[jenis];
     if (urutan == null) throw ArgumentError.value(jenis, 'jenis');
     final opId = uuidBaru();
-    await _db.db.insert('outbox', {
+    await (ex ?? _db.db).insert('outbox', {
       'op_id': opId,
       'user_id': userId,
       'jenis': jenis,
@@ -44,6 +47,16 @@ class RowOutbox {
     });
     return opId;
   }
+
+  /// Operasi TERTUNDA untuk satu data (buat/ubah yang belum terkirim), untuk digabung.
+  Future<Map<String, Object?>?> tertundaUntuk(DatabaseExecutor ex, String userId, String id, String aksi) async {
+    final r = await ex.query('outbox',
+        where: 'user_id = ? AND id = ? AND aksi = ? AND status = ?', whereArgs: [userId, id, aksi, 'TERTUNDA'], limit: 1);
+    return r.isEmpty ? null : r.first;
+  }
+
+  Future<void> gantiIsi(DatabaseExecutor ex, String opId, Map<String, dynamic> isi) =>
+      ex.update('outbox', {'isi': jsonEncode(isi)}, where: 'op_id = ?', whereArgs: [opId]);
 
   /// Maks 50, induk dulu, lalu urutan dibuat.
   Future<List<Map<String, Object?>>> tertunda(String userId, {int batas = 50}) {

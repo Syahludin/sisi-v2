@@ -1,0 +1,4 @@
+{
+  "staging": "ISI_DEPLOYMENT_ID_STAGING",
+  "production": "ISI_DEPLOYMENT_ID_PRODUCTION"
+}

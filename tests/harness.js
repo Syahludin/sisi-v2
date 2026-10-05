@@ -11,7 +11,8 @@ const crypto = require('crypto');
 const keSigned = (buf) => Array.from(buf, (b) => (b > 127 ? b - 256 : b));
 const keBuffer = (v) => (typeof v === 'string' ? Buffer.from(v, 'utf8') : Buffer.from(v.map((b) => b & 0xff)));
 
-function buatKonteks(props = {}) {
+function buatKonteks(propsAwal = {}) {
+  const props = { ...propsAwal };
   const cache = new Map();
   const ctx = {
     console,
@@ -25,12 +26,21 @@ function buatKonteks(props = {}) {
       base64Encode: (b) => keBuffer(b).toString('base64'),
       base64Decode: (s) => keSigned(Buffer.from(s, 'base64')),
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperties: () => ({ ...props }) }) },
+    PropertiesService: {
+      getScriptProperties: () => ({
+        getProperties: () => ({ ...props }),
+        getProperty: (k) => (Object.prototype.hasOwnProperty.call(props, k) ? props[k] : null),
+        setProperty: (k, v) => { props[k] = String(v); },
+        deleteProperty: (k) => { delete props[k]; },
+      }),
+    },
     CacheService: {
       getScriptCache: () => ({
         get: (k) => (cache.has(k) ? cache.get(k) : null),
         put: (k, v) => cache.set(k, v),
         remove: (k) => cache.delete(k),
+        removeAll: (ks) => ks.forEach((k) => cache.delete(k)),
+        putAll: (o) => Object.keys(o).forEach((k) => cache.set(k, o[k])),
       }),
     },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },

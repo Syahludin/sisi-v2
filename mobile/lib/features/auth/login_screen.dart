@@ -1,0 +1,308 @@
+import 'package:flutter/material.dart';
+
+import 'package:geolocator/geolocator.dart';
+
+import '../../core/api_client.dart';
+import '../../core/cek_lokasi.dart';
+import '../../core/deps.dart';
+import '../../core/env.dart';
+import '../../core/kode_error.dart';
+import '../../core/sesi.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/mock_gps_warning_dialog.dart';
+import '../../widgets/sisi_brand.dart';
+
+/// Login (desain lama): halaman brand + tombol Login, form di bottom sheet.
+/// PRD Alur B: login -> getMaster -> getKodeRow -> dashboard.
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key, required this.deps, required this.onMasuk});
+  final Deps deps;
+  final void Function(Sesi) onMasuk;
+
+  Future<void> _bukaForm(BuildContext context) async {
+    final s = await showModalBottomSheet<Sesi>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FormLogin(deps: deps),
+    );
+    if (s == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: AppColors.navy950.withValues(alpha: .72),
+      builder: (c) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (c.mounted) Navigator.of(c).pop();
+        });
+        return _DialogBerhasil(sesi: s);
+      },
+    );
+    onMasuk(s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Stack(children: [
+          const Positioned(top: 16, right: 16, child: PlnBadge()),
+          Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SisiBrand(),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: AppColors.navy100, borderRadius: BorderRadius.circular(100)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.location_on, size: 12, color: AppColors.amber600),
+                  SizedBox(width: 4),
+                  Text('PLN ULP TOBOALI',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.navy700)),
+                ]),
+              ),
+              if (Env.isStaging) ...[
+                const SizedBox(height: 8),
+                const Text('STAGING', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.accent700)),
+              ],
+              const SizedBox(height: 40),
+              SizedBox(
+                width: 260,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: () => _bukaForm(context),
+                  icon: const Icon(Icons.login, size: 18),
+                  label: const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.navy700,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 16,
+            child: Text('Sistem Integrasi © 2026 · PLN ULP Toboali',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _FormLogin extends StatefulWidget {
+  const _FormLogin({required this.deps});
+  final Deps deps;
+
+  @override
+  State<_FormLogin> createState() => _FormLoginState();
+}
+
+class _FormLoginState extends State<_FormLogin> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _proses = false;
+  bool _lihat = false;
+  String? _pesan;
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _masuk() async {
+    setState(() {
+      _proses = true;
+      _pesan = null;
+    });
+    try {
+      // Guard fake GPS (v0.38): cek lokasi dulu, lokasi palsu / GPS mati / tanpa izin = tidak lanjut ke server.
+      final lokasi = await CekLokasi.sebelumLogin();
+      if (lokasi != StatusLokasi.aman) {
+        if (lokasi == StatusLokasi.palsu) {
+          await widget.deps.auth.laporGpsPalsu(_username.text);
+          if (mounted) await tampilkanMockGpsWarning(context, catatan: 'Lokasi palsu terdeteksi. Login ditolak.');
+        } else if (lokasi == StatusLokasi.izinDitolakPermanen) {
+          await Geolocator.openAppSettings();
+        } else if (lokasi == StatusLokasi.gpsMati) {
+          await Geolocator.openLocationSettings();
+        }
+        if (mounted) setState(() => _pesan = CekLokasi.pesan(lokasi));
+        return;
+      }
+      final s = await widget.deps.auth.login(_username.text, _password.text);
+      await widget.deps.master.segarkan(s);
+      // Wajib sebelum input ROW (PRD F-ROW-INPUT), hanya untuk petugas ROW. v0.56.1: dulu dipanggil untuk semua akun,
+      // jadi ADMIN / SUPER / ADMIN_ES / petugas non-ROW gagal login dengan AKSES_DITOLAK (getKodeRow khusus petugas ROW).
+      if (s.petugasRow) await widget.deps.sync.tarikKode(s);
+      if (mounted) Navigator.pop(context, s);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _pesan = KodeError.pesan(e.kode));
+    } catch (_) {
+      if (mounted) setState(() => _pesan = 'Tidak bisa terhubung. Cek sinyal.');
+    } finally {
+      if (mounted) setState(() => _proses = false);
+    }
+  }
+
+  InputDecoration _dek(String label, String hint, IconData ikon, Color aksen, {Widget? suffix}) {
+    OutlineInputBorder b(double w) =>
+        OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: aksen, width: w));
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(ikon, color: aksen),
+      suffixIcon: suffix,
+      isDense: true,
+      filled: true,
+      fillColor: aksen.withValues(alpha: .06),
+      border: b(1.5),
+      enabledBorder: b(1.5),
+      focusedBorder: b(1.8),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Center(
+            child: Container(
+                width: 40, height: 4, decoration: BoxDecoration(color: AppColors.neutral300, borderRadius: BorderRadius.circular(4))),
+          ),
+          const SizedBox(height: 14),
+          Row(children: [
+            const Expanded(child: Text('Masuk ke akun', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(minimumSize: const Size(32, 32), backgroundColor: AppColors.neutral100, shape: const CircleBorder()),
+                onPressed: _proses ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+            ),
+          ]),
+          const Text('Gunakan akun yang terdaftar di ULP kamu.', style: TextStyle(fontSize: 12.5, color: AppColors.neutral500)),
+          const SizedBox(height: 16),
+          if (_pesan != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.red100, borderRadius: BorderRadius.circular(11)),
+              child: Row(children: [
+                const Icon(Icons.error_outline, size: 18, color: AppColors.red600),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_pesan!, style: const TextStyle(fontSize: 12, color: AppColors.red700))),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: _username,
+            enabled: !_proses,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: _dek('Username (Kode Unit.Tim)', 'cth. 16130.row01', Icons.person_outline, AppColors.navy700),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _password,
+            enabled: !_proses,
+            obscureText: !_lihat,
+            onSubmitted: (_) => _proses ? null : _masuk(),
+            decoration: _dek('Kata sandi', 'Masukkan kata sandi', Icons.lock_outline, AppColors.amber600,
+                suffix: IconButton(
+                  icon: Icon(_lihat ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  onPressed: () => setState(() => _lihat = !_lihat),
+                )),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: _proses ? null : _masuk,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.amber600,
+                foregroundColor: AppColors.navy950,
+                // saat proses tombol nonaktif tapi warnanya tetap amber (bukan abu-abu)
+                disabledBackgroundColor: AppColors.amber600,
+                disabledForegroundColor: AppColors.navy950,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+              ),
+              child: _proses
+                  ? const Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.navy950)),
+                      SizedBox(width: 10),
+                      Text('Verifikasi Akun'),
+                    ])
+                  : const Text('Masuk'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Data kamu terenkripsi & hanya bisa diakses oleh tim yang berwenang.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _DialogBerhasil extends StatelessWidget {
+  const _DialogBerhasil({required this.sesi});
+  final Sesi sesi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: [AppColors.success600, AppColors.success700]),
+            ),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
+          ),
+          const SizedBox(height: 14),
+          const Text('LOGIN BERHASIL',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: AppColors.success700)),
+          const SizedBox(height: 4),
+          const Text('Selamat Datang! 👋', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(14)),
+            child: Column(children: [
+              Text(sesi.nama, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text('${sesi.username} · ${sesi.role}', style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(height: 8),
+          const Text('Mengalihkan ke dashboard...', style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
+        ]),
+      ),
+    );
+  }
+}

@@ -8,13 +8,10 @@ class Env {
 
   static void pastikanValid() {
     if (name != 'staging' && name != 'production') {
-      throw StateError(
-          'SISI_ENV tidak valid. Jalankan dengan --dart-define-from-file=env/<env>.json');
+      throw StateError('SISI_ENV tidak valid. Jalankan dengan --dart-define-from-file=env/<env>.json');
     }
     final uri = Uri.tryParse(apiUrl);
-    if (uri == null ||
-        uri.scheme != 'https' ||
-        uri.host != 'script.google.com') {
+    if (uri == null || uri.scheme != 'https' || uri.host != 'script.google.com') {
       throw StateError('SISI_API_URL tidak valid');
     }
   }

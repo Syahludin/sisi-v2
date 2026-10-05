@@ -23,7 +23,7 @@ class ApiClient {
     String action, {
     String? token,
     Map<String, dynamic> data = const {},
-    Duration timeout = const Duration(seconds: 30),
+    Duration timeout = const Duration(seconds: 60), // Apps Script ~3-9 s per panggilan (keputusan 3 Okt 2026)
   }) async {
     final req = http.Request('POST', Uri.parse(Env.apiUrl))
       ..followRedirects = false

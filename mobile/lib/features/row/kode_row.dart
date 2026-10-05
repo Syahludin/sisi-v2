@@ -15,13 +15,9 @@ class KodeRow {
 
   static final RegExp polaHeader = RegExp(r'^R(\d{2})-(\d{5})(\d{6})(\d{3})$');
   static final RegExp polaRealisasi = RegExp(r'^R\d{2}-\d{14}-PNY\.(\d{3})$');
-  static final RegExp polaEksekusi =
-      RegExp(r'^R\d{2}-\d{14}-PNY\.\d{3}-EKS\.(\d{3})$');
+  static final RegExp polaEksekusi = RegExp(r'^R\d{2}-\d{14}-PNY\.\d{3}-EKS\.(\d{3})$');
 
-  static String header(
-      {required String kodeSubTim,
-      required DateTime waktu,
-      required int urut}) {
+  static String header({required String kodeSubTim, required DateTime waktu, required int urut}) {
     if (!RegExp(r'^\d{2}$').hasMatch(kodeSubTim)) {
       throw ArgumentError.value(kodeSubTim, 'kodeSubTim', 'harus 2 digit');
     }
@@ -60,8 +56,16 @@ class KodeRow {
     return m == null ? null : int.parse(m.group(4)!);
   }
 
+  /// Urut PNY/EKS dari kode anak (3 digit terakhir). null kalau bukan kode anak.
+  static int? urutAnak(String kode) {
+    final m = RegExp(r'-(PNY|EKS)\.(\d{3})$').firstMatch(kode);
+    return m == null ? null : int.parse(m.group(2)!);
+  }
+
   static String _tiga(int n) {
-    if (n < 1 || n > urutMaks) throw RangeError.range(n, 1, urutMaks, 'urut');
+    if (n < 1 || n > urutMaks) {
+      throw RangeError.range(n, 1, urutMaks, 'urut');
+    }
     return n.toString().padLeft(3, '0');
   }
 }

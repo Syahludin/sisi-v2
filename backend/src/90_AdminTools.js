@@ -41,6 +41,21 @@ function skemaHeader_() {
       row_Foto: ['foto_id', 'eksekusi_id', 'slot', 'drive_file_id', 'sha256', 'ukuran_byte', 'mime', 'sumber_foto',
         'diambil_pada', 'lat', 'lng', 'akurasi_m', 'Timestamp', 'Timestamp Update',
         'status', 'revision', 'dibuat_oleh', 'waktu_perangkat', 'diubah_oleh']
+    },
+    // v0.51 (keputusan kvlar 4 Okt 2026): spreadsheet terpisah SiSi_Laporan. Kolom baca di depan, teknis snake_case di belakang.
+    LAPORAN_SHEET_ID: {
+      // v0.55 (keputusan kvlar 5 Okt 2026): laporan harian dipisah per laporan, masing-masing induk C4A-nya.
+      lap_Harian_UP3: ['No', 'Tanggal', 'Hari', 'ULP', 'Laporan UP3', 'Input Oleh', 'Timestamp', 'Timestamp Update',
+        'lap_id', 'status', 'revision', 'dibuat_oleh', 'diubah_oleh'],
+      lap_Harian_UIW: ['No', 'Tanggal', 'Hari', 'ULP', 'Cuaca', 'Tim ROW', 'Laporan UIW', 'Input Oleh', 'Timestamp',
+        'Timestamp Update', 'lap_id', 'status', 'revision', 'dibuat_oleh', 'diubah_oleh'],
+      // v0.52: C4A dipisah. UP3 = per penyulang, kmS diisi langsung. UIW (Care for Asset) = per section, kmS dari tiang.
+      // v0.53: Temuan, Tindak Lanjut, Eksekusi (tim pelaksana tindak lanjut) berupa teks.
+      lap_C4A_UP3: ['No', 'Tanggal', 'Penyulang', 'Realisasi kmS', 'Temuan', 'Tindak Lanjut', 'Eksekusi', 'Keterangan', 'Input Oleh',
+        'Timestamp', 'Timestamp Update', 'c4a_id', 'lap_id', 'status', 'revision', 'dibuat_oleh', 'diubah_oleh'],
+      lap_C4A_UIW: ['No', 'Tanggal', 'Penyulang', 'Section', 'Jumlah Tiang', 'Panjang kmS', 'Temuan Peralatan', 'Temuan ROW',
+        'Eksekusi', 'Keterangan', 'Input Oleh', 'Timestamp', 'Timestamp Update', 'c4a_id', 'lap_id', 'section_id',
+        'status', 'revision', 'dibuat_oleh', 'diubah_oleh']
     }
   };
 }
@@ -98,10 +113,12 @@ function sectionBersiklus_(daftar) {
 function ADMIN_cekKonfigurasi() {
   pastikanPemilik_();
   var c = cfg_();
-  console.log('ENV = ' + c.ENV + ', KODE_ULP = ' + c.KODE_ULP);
+  console.log('ENV = ' + c.ENV + ', KODE_ULP = ' + c.KODE_ULP + ', PBKDF2_ITERASI = ' + c.PBKDF2_ITERASI);
+  if (c.PBKDF2_ITERASI < PBKDF2_MIN_PRODUCTION_) console.warn('PBKDF2_ITERASI < ' + PBKDF2_MIN_PRODUCTION_ + ': hanya boleh di staging (production ditolak).');
   var skema = skemaHeader_(), masalah = 0;
   Object.keys(skema).forEach(function (idKey) {
     if (idKey === 'ROW_SHEET_ID' && !c.ROW_SHEET_ID) { console.log('ROW_SHEET_ID kosong, cek SiSi_ROW dilewati'); return; }
+    if (idKey === 'LAPORAN_SHEET_ID' && !c.LAPORAN_SHEET_ID) { console.log('LAPORAN_SHEET_ID kosong, cek SiSi_Laporan dilewati'); return; }
     Object.keys(skema[idKey]).forEach(function (nama) {
       try {
         var t = tabel_(idKey, nama);
@@ -117,6 +134,7 @@ function ADMIN_cekKonfigurasi() {
 /**
  * Lengkapi baris master yang diisi manual: ID UUID, revision, waktu, pengubah.
  * Juga cek username ganda dan parent_section_id yang tidak ada.
+ * db_Jaringan (v0.46): `urutan` kosong / 0 diisi kelipatan 20 per penyulang, setelah nomor terbesar.
  */
 function ADMIN_lengkapiMaster() {
   pastikanPemilik_();
@@ -133,7 +151,12 @@ function ADMIN_lengkapiMaster() {
         }
         return false;
       };
+      var polaUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       t.rows.forEach(function (r) {
+        var idLama = r[kolomId];
+        if (idLama !== '' && idLama !== null && idLama !== undefined && !polaUuid.test(String(idLama))) {
+          console.warn(nama + ' baris ' + r._baris + ': ' + kolomId + ' "' + idLama + '" bukan UUID. Kosongkan sel ini supaya diisi otomatis.');
+        }
         var ubah = tulis(r, kolomId, uuid_());
         ubah = tulis(r, 'revision', 1) || ubah;
         ubah = tulis(r, 'dibuat_pada', sekarangIso_()) || ubah;
@@ -172,6 +195,8 @@ function ADMIN_lengkapiMaster() {
           var u = String(r.username || '').trim().toLowerCase();
           if (!u) return console.warn('db_Users baris ' + r._baris + ': username kosong');
           if (/\s/.test(u)) console.warn('db_Users baris ' + r._baris + ': username mengandung spasi');
+          if (String(r.username).trim() !== u) console.warn('db_Users baris ' + r._baris + ': username harus huruf kecil semua');
+          if (u.indexOf(cfg_().KODE_ULP + '.') !== 0) console.warn('db_Users baris ' + r._baris + ': username "' + u + '" harus diawali ' + cfg_().KODE_ULP + '.');
           if (lihat[u]) console.warn('db_Users: username ganda "' + u + '" (baris ' + lihat[u] + ' & ' + r._baris + ')');
           lihat[u] = r._baris;
         });
@@ -202,11 +227,48 @@ function ADMIN_lengkapiMaster() {
         sectionBersiklus_(t.rows).forEach(function (id) {
           console.warn('db_Jaringan: section ' + id + ' ada di topologi melingkar (induk saling menunjuk)');
         });
+        // v0.46: urutan section per penyulang. Yang kosong / 0 diisi kelipatan 20 setelah nomor terbesar (urutan tetap).
+        var idxUrutan = t.header.indexOf('urutan');
+        if (idxUrutan === -1) console.warn('db_Jaringan: kolom urutan tidak ada');
+        else {
+          var rencana = rencanaUrutanSection_(t.rows);
+          rencana.peringatan.forEach(function (w) { console.warn(w); });
+          rencana.isi.forEach(function (x) {
+            t.sheet.getRange(x.baris, idxUrutan + 1).setValue(x.nilai);
+            console.log('db_Jaringan baris ' + x.baris + ': urutan ' + x.nilai + ' (' + x.penyulang + ' / ' + x.section + ')');
+          });
+          if (rencana.isi.length) diisi += rencana.isi.length;
+        }
       }
       console.log(nama + ': ' + diisi + ' baris dilengkapi');
     });
   });
-  CacheService.getScriptCache().remove('akses:v1');
+  CacheService.getScriptCache().removeAll(['akses:v1', 'master-row:v3']);
+}
+
+/**
+ * Lihat urutan section yang dipakai laporan, per penyulang (hanya baca, tidak menulis apa pun).
+ * Cek ini setelah mengubah kolom urutan db_Jaringan.
+ */
+function ADMIN_cekUrutanSection() {
+  pastikanPemilik_();
+  var t = tabel_('MASTER_SHEET_ID', 'db_Jaringan'), grup = {};
+  var jaringan = {};
+  t.rows.forEach(function (r) {
+    var p = String(r.penyulang || '').trim();
+    if (!p || !String(r.section || '').trim()) return;
+    var id = 'b' + r._baris;
+    jaringan[id] = { section: String(r.section).trim(), urutan: Number(r.urutan) || 0, baris: r._baris, aktif: isAktif_(r.aktif) };
+    (grup[p] = grup[p] || []).push(id);
+  });
+  Object.keys(grup).sort().forEach(function (p) {
+    var baris = grup[p].sort(urutSection_(jaringan)).map(function (id, i) {
+      var x = jaringan[id];
+      return (i + 1) + '. [' + (x.urutan || '-') + '] ' + x.section + (x.aktif ? '' : ' (nonaktif)');
+    });
+    console.log(p + ':\n' + baris.join('\n'));
+  });
+  rencanaUrutanSection_(t.rows).peringatan.forEach(function (w) { console.warn(w); });
 }
 
 /**
@@ -217,11 +279,15 @@ function ADMIN_lengkapiMaster() {
 function ADMIN_setPassword() {
   pastikanPemilik_();
   var props = PropertiesService.getScriptProperties();
-  var username = String(props.getProperty('SETPW_USERNAME') || '').trim().toLowerCase();
-  var password = String(props.getProperty('SETPW_PASSWORD') || '');
+  var semua = props.getProperties();
+  var mirip = Object.keys(semua).filter(function (k) { return /setpw/i.test(k); });
+  var username = String(semua.SETPW_USERNAME || '').trim().toLowerCase();
+  var adaPassword = Object.prototype.hasOwnProperty.call(semua, 'SETPW_PASSWORD');
+  var password = String(semua.SETPW_PASSWORD || '');
   try {
-    if (!username) throw new SisiError_('FIELD_WAJIB', 'SETPW_USERNAME');
-    if (password.length < 10) throw new SisiError_('PASSWORD_TERLALU_PENDEK', 'min 10 karakter');
+    if (!username) throw new SisiError_('FIELD_WAJIB', 'SETPW_USERNAME tidak ada. Property mirip: ' + (mirip.join(', ') || '-'));
+    if (!adaPassword) throw new SisiError_('FIELD_WAJIB', 'SETPW_PASSWORD tidak ada (cek ejaan nama property). Property mirip: ' + (mirip.join(', ') || '-'));
+    if (password.length < 10) throw new SisiError_('PASSWORD_TERLALU_PENDEK', 'terbaca ' + password.length + ' karakter, minimal 10');
     var c = cfg_();
     denganLock_(function () {
       var user = tabel_('MASTER_SHEET_ID', 'db_Users').rows
@@ -242,19 +308,110 @@ function ADMIN_setPassword() {
       perangkat.rows.forEach(function (r) {
         if (String(r.user_id) === String(user.user_id) && !r.dicabut_pada) {
           ubahBaris_(perangkat, 'device_id', r.device_id, { dicabut_pada: sekarangIso_() });
+          hapusSesiCache_(r.token_hash);   // audit 4 Okt 2026: tanpa ini token lama masih lolos sampai 5 menit
         }
       });
     });
     console.log('Password ' + username + ' diset. Semua sesi lama dicabut.');
   } finally {
-    props.deleteProperty('SETPW_USERNAME');
-    props.deleteProperty('SETPW_PASSWORD');
+    // Selalu dihapus, berhasil atau gagal, supaya password tidak tertinggal. Kalau gagal, isi ulang keduanya.
+    mirip.forEach(function (k) { props.deleteProperty(k); });
   }
 }
 
-/** Paksa aturan akses dibaca ulang (setelah edit db_Menu/db_Akses). */
+/**
+ * Paksa aturan akses, master ROW, dan SEMUA sesi dibaca ulang dari sheet. Jalankan setelah edit manual
+ * db_Menu / db_Akses / db_Users (mis. akun dinonaktifkan, role/tim diganti) / auth_Perangkat (dicabut_pada diisi),
+ * supaya berlaku seketika, bukan menunggu cache 5 menit habis.
+ */
 function ADMIN_bersihkanCache() {
   pastikanPemilik_();
-  CacheService.getScriptCache().remove('akses:v1');
-  console.log('Cache akses dibersihkan.');
+  var cache = CacheService.getScriptCache();
+  cache.removeAll(['akses:v1', 'master-row:v3', KUNCI_USERNAME_TERDAFTAR_]);
+  PropertiesService.getScriptProperties().setProperty('SESI_EPOCH', String(Date.now()));
+  console.log('Cache akses + master ROW dibersihkan. Semua sesi dicek ulang ke sheet di panggilan berikutnya.');
 }
+
+/**
+ * Buka kunci login satu akun (petugas terkunci karena salah password / dispam orang lain). Isi Script Property
+ * BUKA_USERNAME = username, lalu jalankan. Menghapus hitungan rem login (cache) dan kunci 5x gagal di auth_Password.
+ * Property selalu dihapus setelahnya. Password dan sesi tidak berubah.
+ */
+function ADMIN_bukaKunciLogin() {
+  pastikanPemilik_();
+  var props = PropertiesService.getScriptProperties();
+  var username = String(props.getProperty('BUKA_USERNAME') || '').trim().toLowerCase();
+  try {
+    if (!username) throw new SisiError_('FIELD_WAJIB', 'Script Property BUKA_USERNAME belum diisi');
+    denganLock_(function () {
+      var user = tabel_('MASTER_SHEET_ID', 'db_Users').rows
+        .filter(function (r) { return String(r.username).trim().toLowerCase() === username; })[0];
+      if (!user || !user.user_id) throw new SisiError_('USER_TIDAK_ADA', username);
+      var authT = tabel_('AUTH_SHEET_ID', 'auth_Password');
+      var auth = authT.rows.filter(function (r) { return String(r.user_id) === String(user.user_id); })[0];
+      if (auth && (Number(auth.gagal_login) || auth.terkunci_sampai)) ubahBarisDikenal_(authT, auth, { gagal_login: 0, terkunci_sampai: '' });
+      hapusGagalLogin_(username);
+      auditLog_({ username: 'ADMIN_EDITOR' }, 'BUKA_KUNCI_LOGIN', username, '', 'EDITOR');
+    });
+    console.log('Kunci login ' + username + ' dibuka. Petugas bisa login lagi sekarang.');
+  } finally {
+    props.deleteProperty('BUKA_USERNAME');
+  }
+}
+
+/**
+ * Cabut SEMUA sesi aktif satu akun seketika (HP hilang, petugas pindah/keluar). Isi Script Property
+ * CABUT_USERNAME = username, lalu jalankan. Property selalu dihapus setelahnya. Password tidak berubah.
+ */
+function ADMIN_cabutSesi() {
+  pastikanPemilik_();
+  var props = PropertiesService.getScriptProperties();
+  var username = String(props.getProperty('CABUT_USERNAME') || '').trim().toLowerCase();
+  try {
+    if (!username) throw new SisiError_('FIELD_WAJIB', 'Script Property CABUT_USERNAME belum diisi');
+    var n = denganLock_(function () {
+      var user = tabel_('MASTER_SHEET_ID', 'db_Users').rows
+        .filter(function (r) { return String(r.username).trim().toLowerCase() === username; })[0];
+      if (!user || !user.user_id) throw new SisiError_('USER_TIDAK_ADA', username);
+      var perangkat = tabel_('AUTH_SHEET_ID', 'auth_Perangkat');
+      var aktif = perangkat.rows.filter(function (r) { return String(r.user_id) === String(user.user_id) && !r.dicabut_pada; });
+      aktif.forEach(function (r) {
+        ubahBarisDikenal_(perangkat, r, { dicabut_pada: sekarangIso_() });
+        hapusSesiCache_(r.token_hash);
+      });
+      auditLog_({ username: 'ADMIN_EDITOR' }, 'CABUT_SESI', username, aktif.length + ' perangkat', 'EDITOR');
+      return aktif.length;
+    });
+    console.log('Sesi ' + username + ' dicabut: ' + n + ' perangkat. HP akan diminta login ulang.');
+  } finally {
+    props.deleteProperty('CABUT_USERNAME');
+  }
+}
+
+/**
+ * Ukur bagian yang lambat: hitung hash vs buka/baca sheet. Tidak menulis apa pun.
+ * Dipakai untuk menyetel PBKDF2_ITERASI (target login < 2 detik).
+ */
+function ADMIN_ukurWaktu() {
+  pastikanPemilik_();
+  var c = cfg_();
+  var ukur = function (label, fn) {
+    var t0 = Date.now(); fn(); var ms = Date.now() - t0;
+    console.log(label + ': ' + ms + ' ms');
+    return ms;
+  };
+  console.log('PBKDF2_ITERASI terbaca = ' + c.PBKDF2_ITERASI);
+  var salt = saltBaru_();
+  ukur('hash 1000 iterasi', function () { hashPassword_('contoh-password-uji', salt, 1000); });
+  var hash = ukur('hash ' + c.PBKDF2_ITERASI + ' iterasi (setting sekarang)', function () { hashPassword_('contoh-password-uji', salt, c.PBKDF2_ITERASI); });
+  var sheet = 0;
+  sheet += ukur('baca db_Users', function () { tabel_('MASTER_SHEET_ID', 'db_Users'); });
+  sheet += ukur('baca auth_Password', function () { tabel_('AUTH_SHEET_ID', 'auth_Password'); });
+  sheet += ukur('baca auth_Perangkat', function () { tabel_('AUTH_SHEET_ID', 'auth_Perangkat'); });
+  sheet += ukur('baca db_Tim + db_Menu + db_Akses', function () {
+    tabel_('MASTER_SHEET_ID', 'db_Tim'); tabel_('MASTER_SHEET_ID', 'db_Menu'); tabel_('MASTER_SHEET_ID', 'db_Akses');
+  });
+  console.log('Perkiraan login: hash ' + hash + ' ms + sheet ' + sheet + ' ms + tulis ~500 ms');
+  console.log('(Spreadsheet yang sama hanya dibuka sekali per eksekusi; baca berikutnya jauh lebih cepat.)');
+}
+

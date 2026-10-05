@@ -4,7 +4,9 @@
   "scripts": {
     "test": "node --test tests/backend.test.js",
     "push:staging": "npm --prefix backend run push:staging",
-    "push:production": "npm --prefix backend run push:production"
+    "push:production": "npm --prefix backend run push:production",
+    "deploy:staging": "npm --prefix backend run deploy:staging --",
+    "deploy:production": "npm --prefix backend run deploy:production --"
   },
   "engines": { "node": ">=20" }
 }

@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "push:staging": "node scripts/push.js staging",
-    "push:production": "node scripts/push.js production --yakin"
+    "push:production": "node scripts/push.js production --yakin",
+    "deploy:staging": "node scripts/deploy.js staging",
+    "deploy:production": "node scripts/deploy.js production --yakin"
   }
 }

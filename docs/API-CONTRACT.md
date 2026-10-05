@@ -12,5 +12,19 @@ Ringkasan cepat (detail tetap di PRD):
 | cekSesi | Ada | sesi |
 | logout | Ada | sesi |
 | getMaster | Ada | sesi |
-| syncRow | Stub (BELUM_DIIMPLEMENTASI) | ROW_EKSEKUSI, UBAH |
-| getKodeRow, uploadFotoRow, getLaporanRow | Belum ada | lihat PRD |
+| syncRow | Ada (v0.12, staging) | ROW_EKSEKUSI, UBAH |
+| getKodeRow | Ada (v0.13, staging) | ROW_EKSEKUSI |
+| uploadFotoRow | Ada (v0.14, staging) | ROW_EKSEKUSI, UBAH |
+| getLaporanRow | Ada (v0.17, staging) | ROW_LAPORAN |
+| getLaporanUp3 | Ada (v0.57) | OPS_LAP_UP3 (bukan PETUGAS) |
+| simpanLaporanUp3 | Ada (v0.57) | OPS_LAP_UP3, UBAH, ADMIN/SUPER, hari ini |
+| getLaporanUiw | Ada (v0.57) | OPS_LAP_UIW (bukan PETUGAS) |
+| simpanLaporanUiw | Ada (v0.57) | OPS_LAP_UIW, UBAH, ADMIN/SUPER, hari ini |
+| getLaporanUp3Uiw / simpanLaporanUp3Uiw | Dihapus v0.57 (AKSI_TIDAK_DIKENAL) | - |
+
+## Laporan UP3 / UIW (v0.57)
+
+- `getLaporanUp3` / `getLaporanUiw` `{tanggal}` -> `{bagian, tanggal, sumber: LIVE|ARSIP, hariIni, bisaUbah, laporan, revision, c4a, statusTim, row, waText, cuaca (UIW saja)}`. Tanggal > 7 hari = ARSIP (salinan tersimpan, revision null).
+- `simpanLaporanUp3` `{tanggal, revision, c4a: [{id, penyulang, realisasiKms, temuan?, tindakLanjut?, eksekusi?, keterangan?}]}`.
+- `simpanLaporanUiw` `{tanggal, revision, cuaca?, c4a: [{id, sectionId, jumlahTiang, temuanPeralatan, temuanRow, eksekusi, keterangan?}]}`.
+- Respons simpan = respons get untuk hari itu. Error: HANYA_HARI_INI, KONFLIK_REVISION, ID_GANDA, DATA_GANDA, FIELD_TIDAK_DIKENAL.

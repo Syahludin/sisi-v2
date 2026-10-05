@@ -2,7 +2,8 @@
  * Validasi berbasis allowlist. Field yang tidak ada di skema DITOLAK.
  *
  * tipe: teks | angka | bool | uuid | tanggal | waktu | koordinat | pilihan
- * opsi: wajib, maks (teks), mentah (teks tanpa trim, mis. password),
+ * opsi: wajib, maks (teks), mentah (teks tanpa trim / tanpa pembersihan, mis. password),
+ *       multiBaris + maksBaris (teks boleh baris baru; default teks = satu baris),
  *       pola (RegExp), min, max, bulat (angka), pilihan (array), area (koordinat)
  */
 var AREA_BABEL_ = { latMin: -3.6, latMax: -1.3, lngMin: 105.0, lngMax: 109.0 };
@@ -26,12 +27,27 @@ function validasi_(data, skema) {
   return hasil;
 }
 
+/**
+ * v0.47 (audit 4 Okt 2026): buang karakter kontrol (kecuali baris baru di teks multiBaris) supaya teks petugas
+ * tidak bisa menyisip baris palsu ke WA / sheet. Teks satu baris: baris baru & tab jadi spasi.
+ */
+function bersihTeks_(v, a) {
+  var s = String(v).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000B-\u001F\u007F\u2028\u2029]/g, '');
+  if (a.multiBaris) {
+    s = s.replace(/\t/g, ' ').split('\n').map(function (b) { return b.trim(); }).filter(function (b) { return b; }).join('\n');
+  } else {
+    s = s.replace(/[\n\t]+/g, ' ').replace(/ {2,}/g, ' ');
+  }
+  return s.trim();
+}
+
 function cekTipe_(k, v, a) {
   switch (a.tipe) {
     case 'teks': {
       if (typeof v !== 'string') throw new SisiError_('TIPE_SALAH', k);
-      var s = a.mentah ? v : v.trim();
+      var s = a.mentah ? v : bersihTeks_(v, a);
       if (s.length > (a.maks || 500)) throw new SisiError_('TERLALU_PANJANG', k);
+      if (a.multiBaris && s.split('\n').length > (a.maksBaris || 5)) throw new SisiError_('TERLALU_BANYAK_BARIS', k);
       if (a.pola && !a.pola.test(s)) throw new SisiError_('FORMAT_SALAH', k);
       return s;
     }

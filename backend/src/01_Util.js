@@ -14,6 +14,14 @@ function ROLE_VALID_() { return ['SUPER', 'ADMIN', 'ADMIN_ES', 'PETUGAS']; }
 function uuid_() { return Utilities.getUuid(); }
 function sekarangIso_() { return new Date().toISOString(); }
 
+/** Stopwatch per langkah. catat('x') = ms sejak langkah sebelumnya. Hanya dikirim ke klien di staging. */
+function stopwatch_() {
+  var awal = Date.now(), lalu = awal, hasil = {};
+  var catat = function (label) { var n = Date.now(); hasil[label] = n - lalu; lalu = n; };
+  catat.ringkas = function () { hasil.total = Date.now() - awal; return hasil; };
+  return catat;
+}
+
 /** Tanggal yyyy-MM-dd di Asia/Jakarta (UTC+7, tanpa DST). */
 function tglJakarta_(d) {
   return new Date(d.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);

@@ -51,9 +51,19 @@ Di GitHub: Settings > Branches > lindungi `main` (wajib PR + check `test` hijau)
 
 ## 3. Apps Script (staging)
 
-1. Buat project Apps Script baru (standalone), salin Script ID ke `backend/.clasp.staging.json`.
+1. Buat project Apps Script baru (standalone). Salin `backend/.clasp.staging.example.json` jadi `backend/.clasp.staging.json`, isi Script ID. File ini lokal (tidak ikut git/zip).
 2. Project Settings > Script Properties, isi sesuai PRD **7. Staging** (ENV, MASTER_SHEET_ID, AUTH_SHEET_ID, KODE_ULP, ADMIN_EMAIL; ROW_* boleh kosong dulu; PBKDF2_ITERASI opsional, default 5000).
 3. `npm run push:staging`
+
+### Redeploy (URL /exec tetap)
+
+Sekali saja: salin `backend/.deploy.example.json` jadi `backend/.deploy.json`, isi deployment ID (bagian di antara `/s/` dan `/exec` di URL). Lalu setiap rilis:
+
+```powershell
+npm run deploy:staging -- "staging v0.20 · cek platform"
+```
+
+Perintah ini push kode lalu `clasp deploy -i <ID>` ke deployment yang sama. Production: `npm run deploy:production -- "deskripsi"` (sudah memakai --yakin).
 4. Di editor Apps Script jalankan berurutan:
    - `ADMIN_cekKonfigurasi`
    - isi master di Sheet, lalu `ADMIN_lengkapiMaster` (isi UUID, revision, dll)

@@ -1,6 +1,7 @@
 /** Catat aksi penting ke SiSi_Auth > log_Audit (tidak disinkron ke HP). */
-function auditLog_(siapa, aksi, target, detail, platform) {
-  var t = tabel_('AUTH_SHEET_ID', 'log_Audit');
+/** tLog opsional: hasil headerTabel_ yang sudah dibaca lebih dulu (agar tidak ada baca setelah tulis). */
+function auditLog_(siapa, aksi, target, detail, platform, tLog) {
+  var t = tLog || headerTabel_('AUTH_SHEET_ID', 'log_Audit');   // header saja, bukan seluruh log
   tambahBaris_(t, {
     waktu: sekarangIso_(),
     user_id: siapa ? siapa.userId || '' : '',
