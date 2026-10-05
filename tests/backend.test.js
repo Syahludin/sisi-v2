@@ -1923,3 +1923,92 @@ test('ADMIN_migrasiCekFoto v0.59: bisa dilanjutkan per jalan, data lama bertamba
   assert.deepStrictEqual(isi.slice(1).map((b) => b[0]), ['E0', 'E1', 'E2']);
   assert.strictEqual(JSON.parse(props.getProperty('MIG_CEKFOTO_POS')).ada, 3);
 });
+
+// ---------- v0.60: ADMIN_migrasiFoto pakai checksum Drive API ----------
+function siapkanMigFoto({ api = true, shaSalinBeda = false } = {}) {
+  const g = buatKonteks({ ...PROPS, ROW_SHEET_ID: 'r', ROW_FOTO_FOLDER_ID: 'akarV2', MIG_FOTO_AKAR_ID: 'akarLama' });
+  g.pastikanPemilik_ = () => {};
+  const hitung = { blob: 0, getFoldersByName: 0, getFilesByName: 0, getFiles: 0, apiGet: 0, apiCopy: 0, makeCopy: 0 };
+  const it = (arr) => { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; };
+  const files = {}; let n = 0;
+  const buatFile = (folder, nama, bytes) => {
+    const id = 'F' + (++n);
+    const o = { id, nama, bytes, folder, trash: false,
+      getId: () => id, getName: () => nama, getMimeType: () => 'image/jpeg',
+      getBlob: () => { hitung.blob++; return { getBytes: () => Array.from(bytes, (b) => (b > 127 ? b - 256 : b)) }; },
+      getSharingAccess: () => 'PRIVATE', setTrashed: () => { o.trash = true; delete folder.file[nama]; },
+      makeCopy: (nm, tujuan) => { hitung.makeCopy++; return buatFile(tujuan._f, nm, bytes); } };
+    folder.file[nama] = o; files[id] = o; return o;
+  };
+  const folders = {};
+  const fold = (id, nama) => {
+    const f = folders[id] = folders[id] || { id, nama, anak: {}, file: {} };
+    const api = { _f: f, getId: () => id, getName: () => nama,
+      getFoldersByName: (nm) => { hitung.getFoldersByName++; return it(f.anak[nm] ? [fold(f.anak[nm], nm)] : []); },
+      createFolder: (nm) => { const nid = 'D' + (++n); f.anak[nm] = nid; return fold(nid, nm); },
+      getFilesByName: (nm) => { hitung.getFilesByName++; return it(f.file[nm] ? [f.file[nm]] : []); },
+      getFiles: () => { hitung.getFiles++; return it(Object.values(f.file)); } };
+    return api;
+  };
+  g.DriveApp = { getFolderById: (id) => fold(id, id === 'akarLama' ? 'AppSheet SiSi' : id), getFileById: (id) => { if (!files[id]) throw new Error('tidak ada'); return files[id]; },
+    Access: { PRIVATE: 'PRIVATE' }, Permission: { NONE: 'NONE' } };
+  const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
+  if (api) {
+    g.Drive = { Files: {
+      get: (id) => { hitung.apiGet++; const f = files[id]; return { size: String(f.bytes.length), sha256Checksum: (shaSalinBeda && f.folder.id !== 'Dsumber' ? sha(Buffer.from('rusak')) : sha(f.bytes)).toUpperCase(), mimeType: 'image/jpeg' }; },
+      copy: (res, id) => { hitung.apiCopy++; const s = files[id]; const c = buatFile(folders[res.parents[0]], res.name, s.bytes);
+        return { id: c.id, size: String(c.bytes.length), sha256Checksum: shaSalinBeda ? sha(Buffer.from('rusak')) : sha(c.bytes) }; } } };
+  }
+  // sumber lama: akar/Eksekusi ROW/<kode lama>/<3 foto>
+  const akar = folders.akarLama = { id: 'akarLama', nama: 'AppSheet SiSi', anak: { 'Eksekusi ROW': 'Deks' }, file: {} };
+  folders.Deks = { id: 'Deks', nama: 'Eksekusi ROW', anak: { '9e90a393': 'Dsumber' }, file: {} };
+  folders.Dsumber = { id: 'Dsumber', nama: '9e90a393', anak: {}, file: {} };
+  const isi = {};
+  ['SEBELUM', 'PEKERJAAN', 'SESUDAH'].forEach((s, i) => { isi[s] = Buffer.from('jpeg-' + s + '-' + i); buatFile(folders.Dsumber, '9e90a393.Foto ' + s + '.jpg', isi[s]); });
+  void akar;
+  const eksId = U(), kodeE = 'R01-16130261003001-PNY.001-EKS.001';
+  const eks = { eksekusi_id: eksId, 'Kode Eksekusi': kodeE, Tim: 'ROW 01', Penyulang: 'TB-01', _baris: 2 };
+  const kolomF = ['foto_id', 'eksekusi_id', 'kode_eksekusi', 'slot', 'sumber_drive_id', 'sumber_path', 'status', 'percobaan', 'drive_file_id', 'pesan', 'diubah_pada'];
+  const antre = ['SEBELUM', 'PEKERJAAN', 'SESUDAH'].map((s, i) => ({ foto_id: 'foto' + i, eksekusi_id: eksId, kode_eksekusi: kodeE, slot: s, sumber_drive_id: '',
+    sumber_path: 'AppSheet SiSi/Eksekusi ROW/9e90a393/9e90a393.Foto ' + s + '.jpg', status: 'ANTRE', percobaan: 0, _baris: i + 2 }));
+  const ditulis = { rowFoto: [], eks: null, mig: null };
+  g.bukaSpreadsheet_ = () => ({ getSheetByName: () => ({}) });
+  g.bacaSumberMig_ = () => ({ rows: antre, kolom: kolomF });
+  g.tabel_ = (_id, nama) => (nama === 'row_Eksekusi' ? { rows: [eks], header: [] } : { rows: [], header: [] });
+  const headerF = ['foto_id', 'eksekusi_id', 'slot', 'drive_file_id', 'sha256', 'ukuran_byte', 'mime', 'sumber_foto', 'status'];
+  g.headerTabel_ = () => ({ header: headerF, sheet: { getLastRow: () => 1, getRange: () => ({ setValues: (v) => ditulis.rowFoto.push(...v) }) } });
+  g.tulisKolomBerubah_ = (t, rows) => { const salin = Array.from(rows, (r) => ({ ...r._ubah })); if (t.sheet) ditulis.mig = salin; else ditulis.eks = salin; };
+  g.ScriptApp = { getProjectTriggers: () => [], deleteTrigger: () => {} };
+  return { g, hitung, ditulis, isi, sha, folders };
+}
+
+test('ADMIN_migrasiFoto v0.60: checksum Drive API (tanpa download), salinan diverifikasi, folder & isi folder tidak dicari ulang', () => {
+  const x = siapkanMigFoto();
+  x.g.ADMIN_migrasiFoto();
+  assert.strictEqual(x.hitung.blob, 0, 'tidak ada foto yang di-download');
+  assert.deepStrictEqual([x.hitung.apiCopy, x.hitung.makeCopy], [3, 0]);
+  assert.strictEqual(x.hitung.getFiles, 2, 'isi folder sumber + tujuan masing-masing didaftar sekali');
+  assert.strictEqual(x.hitung.getFilesByName, 0, 'tidak cari file per nama');
+  assert.ok(x.hitung.getFoldersByName <= 2 + 6, 'path tujuan 6 tingkat ditelusuri sekali untuk 3 foto: ' + x.hitung.getFoldersByName);
+  assert.deepStrictEqual(x.ditulis.mig.map((q) => q.status), ['SELESAI', 'SELESAI', 'SELESAI']);
+  const kol = { sha: 4, ukuran: 5, sumber: 7 };
+  assert.deepStrictEqual(x.ditulis.rowFoto.map((r) => r[kol.sha]), ['SEBELUM', 'PEKERJAAN', 'SESUDAH'].map((s) => x.sha(x.isi[s])), 'sha256 hex kecil = isi file');
+  assert.deepStrictEqual(x.ditulis.rowFoto.map((r) => r[kol.ukuran]), ['SEBELUM', 'PEKERJAAN', 'SESUDAH'].map((s) => x.isi[s].length));
+  assert.strictEqual(x.ditulis.eks[0].foto_lengkap, true);
+  const tujuan = Object.values(x.folders).find((f) => f.nama === 'R01-16130261003001-PNY.001-EKS.001');
+  assert.deepStrictEqual(Object.keys(tujuan.file).sort(), ['foto0.jpg', 'foto1.jpg', 'foto2.jpg']);
+});
+
+test('ADMIN_migrasiFoto v0.60: checksum salinan beda = dibuang + ULANG; tanpa Drive API = cara lama (download + hitung)', () => {
+  const x = siapkanMigFoto({ shaSalinBeda: true });
+  x.g.ADMIN_migrasiFoto();
+  assert.deepStrictEqual(x.ditulis.mig.map((q) => q.status), ['ULANG', 'ULANG', 'ULANG']);
+  assert.strictEqual(x.ditulis.rowFoto.length, 0, 'salinan rusak tidak pernah dicatat');
+  const tujuan = Object.values(x.folders).find((f) => f.nama === 'R01-16130261003001-PNY.001-EKS.001');
+  assert.deepStrictEqual(Object.keys(tujuan.file), [], 'salinan rusak dibuang');
+  const y = siapkanMigFoto({ api: false });
+  y.g.ADMIN_migrasiFoto();
+  assert.deepStrictEqual(y.ditulis.mig.map((q) => q.status), ['SELESAI', 'SELESAI', 'SELESAI']);
+  assert.deepStrictEqual([y.hitung.makeCopy, y.hitung.blob], [3, 6], 'sumber + salinan di-download');
+  assert.deepStrictEqual(y.ditulis.rowFoto.map((r) => r[4]), ['SEBELUM', 'PEKERJAAN', 'SESUDAH'].map((s) => y.sha(y.isi[s])), 'sha sama dengan jalur API');
+});

@@ -37,18 +37,26 @@ function ukuranJpeg_(b) {
 }
 
 /** Folder anak berdasarkan nama (buat kalau belum ada). ID di-cache 6 jam. */
-function folderFoto_(akarId, bagian) {
+function folderFoto_(akarId, bagian, memo) {
+  // memo (opsional, v0.60) = { kunci path -> Folder } untuk satu jalan: path induk yang sama tidak ditelusuri ulang.
   var cache = CacheService.getScriptCache();
-  var kunci = 'folder:' + akarId + ':' + bagian.join('/');
+  var kunciDari = function (n) { return 'folder:' + akarId + ':' + bagian.slice(0, n).join('/'); };
+  var kunci = kunciDari(bagian.length);
+  if (memo && memo[kunci]) return memo[kunci];
   var ada = cache.get(kunci);
   if (ada) {
-    try { return DriveApp.getFolderById(ada); } catch (e) { cache.remove(kunci); }
+    try { var fc = DriveApp.getFolderById(ada); if (memo) memo[kunci] = fc; return fc; } catch (e) { cache.remove(kunci); }
   }
-  var f = DriveApp.getFolderById(akarId);
-  bagian.forEach(function (nama) {
-    var it = f.getFoldersByName(nama);
-    f = it.hasNext() ? it.next() : f.createFolder(nama);
-  });
+  var f = null, mulai = 0;
+  if (memo) {
+    for (var i = bagian.length - 1; i >= 1; i--) { if (memo[kunciDari(i)]) { f = memo[kunciDari(i)]; mulai = i; break; } }
+  }
+  if (!f) f = DriveApp.getFolderById(akarId);
+  for (var j = mulai; j < bagian.length; j++) {
+    var it = f.getFoldersByName(bagian[j]);
+    f = it.hasNext() ? it.next() : f.createFolder(bagian[j]);
+    if (memo) memo[kunciDari(j + 1)] = f;
+  }
   cache.put(kunci, f.getId(), 21600);
   return f;
 }

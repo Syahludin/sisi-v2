@@ -778,8 +778,24 @@ function fileDariPathMig_(akar, path, cache) {
     }
     f = cache[kunci];
   }
+  // v0.60: isi folder didaftar sekali per jalan (folder AppSheet = 1 folder per eksekusi, 3 foto), bukan cari per foto.
+  var isi = isiFolderMig_(f, '@' + kunci, cache);
+  if (isi) return isi[namaFile] || null;
   var itF = f.getFilesByName(namaFile);
   return itF.hasNext() ? itF.next() : null;
+}
+
+/** { nama -> File } isi satu folder, di-cache per jalan. Folder besar (> 300 file) = null (pakai cari per nama). */
+function isiFolderMig_(folder, kunci, cache) {
+  if (Object.prototype.hasOwnProperty.call(cache, kunci)) return cache[kunci];
+  if (typeof folder.getFiles !== 'function') return (cache[kunci] = null);
+  var peta = {}, n = 0, it = folder.getFiles();
+  while (it.hasNext()) {
+    if (++n > 300) return (cache[kunci] = null);
+    var x = it.next(), nm = x.getName();
+    if (!peta[nm]) peta[nm] = x;
+  }
+  return (cache[kunci] = peta);
 }
 
 /**
@@ -889,6 +905,7 @@ function ADMIN_migrasiFoto() {
     akar = DriveApp.getFolderById(akarId);
   }
   var fotoBaru = [], ubahEks = {}, selesai = 0, gagal = 0, ulang = 0;
+  var memoFolder = {}, memoIsi = {}, nUkur = { api: 0 }, detikAwal = Math.round((Date.now() - mulai) / 1000);
   for (var n = 0; n < todo.length && Date.now() - mulai < BATAS; n++) {
     var q = todo[n];
     var tandai = function (status, pesan, driveId) {
@@ -904,24 +921,36 @@ function ADMIN_migrasiFoto() {
       if (fotoAda[String(q.foto_id)]) { tandai('SELESAI', 'sudah ada di row_Foto', fotoAda[String(q.foto_id)].drive_file_id); continue; }
       var src = q.sumber_drive_id ? DriveApp.getFileById(String(q.sumber_drive_id)) : fileDariPathMig_(akar, String(q.sumber_path), cacheFolder);
       if (!src) { tandai('GAGAL', 'FILE_LAMA_TIDAK_ADA (' + String(q.sumber_path).slice(-80) + ')'); q.percobaan = 3; continue; }
-      var bS = src.getBlob().getBytes();
-      var shaS = bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bS));
-      var folder = folderFoto_(c.ROW_FOTO_FOLDER_ID, pathFotoEksekusi_(eks));
+      // v0.60: sha256 + ukuran dari metadata Drive (dihitung Google dari isi file), tanpa download. Tanpa Drive API /
+      // checksum kosong = cara lama (download + hitung sendiri). Salinan tetap diverifikasi terpisah dari sumbernya.
+      var mS = metaFotoMig_(src.getId());
+      var bS = null;
+      if (!mS) { bS = src.getBlob().getBytes(); mS = { sha: bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bS)), ukuran: bS.length, mime: src.getMimeType() }; }
+      var shaS = mS.sha;
+      var folder = folderFoto_(c.ROW_FOTO_FOLDER_ID, pathFotoEksekusi_(eks), memoFolder);
       var nama = String(q.foto_id) + '.jpg';
-      var it = folder.getFilesByName(nama);
-      var salin = it.hasNext() ? it.next() : src.makeCopy(nama, folder);
-      var bC = salin.getBlob().getBytes();
-      var shaC = bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bC));
-      if (shaC !== shaS || bC.length !== bS.length) { salin.setTrashed(true); tandai('ULANG', 'SALINAN_BEDA (sha/ukuran)'); continue; }
+      var isiTujuan = isiFolderMig_(folder, '#' + folder.getId(), memoIsi);
+      var salin = isiTujuan ? (isiTujuan[nama] || null) : null;
+      if (!isiTujuan) { var it = folder.getFilesByName(nama); salin = it.hasNext() ? it.next() : null; }
+      var mC = null;
+      if (!salin) {
+        var hasilSalin = salinFotoMig_(src, nama, folder);
+        salin = hasilSalin.file; mC = hasilSalin.meta;
+        if (isiTujuan) isiTujuan[nama] = salin;
+      }
+      if (!mC) mC = metaFotoMig_(salin.getId());
+      if (!mC) { var bC = salin.getBlob().getBytes(); mC = { sha: bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bC)), ukuran: bC.length }; }
+      if (mC.sha !== shaS || mC.ukuran !== mS.ukuran) { salin.setTrashed(true); if (isiTujuan) delete isiTujuan[nama]; tandai('ULANG', 'SALINAN_BEDA (sha/ukuran)'); continue; }
+      nUkur.api += mS.api ? 1 : 0;
       var akses = null;
       try { akses = salin.getSharingAccess(); } catch (e1) { akses = null; }
       if (akses !== null && akses !== DriveApp.Access.PRIVATE) {
         try { salin.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); akses = salin.getSharingAccess(); } catch (e2) { /* shared drive */ }
       }
-      if (akses !== null && akses !== DriveApp.Access.PRIVATE) { salin.setTrashed(true); tandai('ULANG', 'SALINAN_TIDAK_PRIVAT (' + akses + ')'); continue; }
+      if (akses !== null && akses !== DriveApp.Access.PRIVATE) { salin.setTrashed(true); if (isiTujuan) delete isiTujuan[nama]; tandai('ULANG', 'SALINAN_TIDAK_PRIVAT (' + akses + ')'); continue; }
       var sekarang = new Date();
       fotoBaru.push({ foto_id: String(q.foto_id), eksekusi_id: String(q.eksekusi_id), slot: String(q.slot), drive_file_id: salin.getId(),
-        sha256: shaS, ukuran_byte: bS.length, mime: src.getMimeType() || 'image/jpeg', sumber_foto: 'MIGRASI', diambil_pada: '',
+        sha256: shaS, ukuran_byte: mS.ukuran, mime: mS.mime || src.getMimeType() || 'image/jpeg', sumber_foto: 'MIGRASI', diambil_pada: '',
         lat: '', lng: '', akurasi_m: '', Timestamp: sekarang, 'Timestamp Update': sekarang, status: 'AKTIF', revision: 1,
         dibuat_oleh: 'MIGRASI', waktu_perangkat: '', diubah_oleh: 'MIGRASI' });
       var kol = SLOT_FOTO_[String(q.slot)];
@@ -957,8 +986,37 @@ function ADMIN_migrasiFoto() {
   }, 60000);
   var sisa = todo.length - selesai - gagal;
   console.log('MIGRASI FOTO: selesai ' + selesai + ', ulang ' + ulang + ', gagal ' + gagal + ', sisa antrean ~' + sisa +
-    ' | eksekusi tersentuh ' + Object.keys(ubahEks).length + ' | ' + Math.round((Date.now() - mulai) / 1000) + ' s');
+    ' | eksekusi tersentuh ' + Object.keys(ubahEks).length + ' | ' + Math.round((Date.now() - mulai) / 1000) + ' s (baca awal ' + detikAwal +
+    ' s, checksum Drive API ' + nUkur.api + '/' + selesai + ')');
   if (sisa <= 0) { hapusPemicuMigFoto_(); console.log('Antrean selesai. Lanjut ADMIN_migrasiHitung.'); }
+}
+
+/** Drive API (Advanced Service "Drive" v3) tersedia? */
+function adaDriveApi_() {
+  return typeof Drive !== 'undefined' && Drive && Drive.Files && typeof Drive.Files.get === 'function' && typeof Drive.Files.copy === 'function';
+}
+
+/** Metadata checksum file dari Drive API: { sha (hex kecil), ukuran, mime, api: true }. Tanpa API / checksum kosong = null. */
+function metaFotoMig_(id) {
+  if (!adaDriveApi_()) return null;
+  try {
+    var m = Drive.Files.get(String(id), { fields: 'size,sha256Checksum,mimeType', supportsAllDrives: true });
+    var sha = String(m && m.sha256Checksum || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(sha) || !(Number(m.size) > 0)) return null;
+    return { sha: sha, ukuran: Number(m.size), mime: m.mimeType || '', api: true };
+  } catch (e) { return null; }
+}
+
+/** Salin di sisi server. Drive API: satu panggilan sekaligus checksum salinan. Tanpa API: makeCopy (meta null). */
+function salinFotoMig_(src, nama, folder) {
+  if (adaDriveApi_()) {
+    var r = Drive.Files.copy({ name: nama, parents: [folder.getId()] }, src.getId(),
+      { supportsAllDrives: true, fields: 'id,size,sha256Checksum' });
+    var sha = String(r && r.sha256Checksum || '').toLowerCase();
+    var meta = /^[0-9a-f]{64}$/.test(sha) && Number(r.size) > 0 ? { sha: sha, ukuran: Number(r.size), api: true } : null;
+    return { file: DriveApp.getFileById(String(r.id)), meta: meta };
+  }
+  return { file: src.makeCopy(nama, folder), meta: null };
 }
 
 function hapusPemicuMigFoto_() {

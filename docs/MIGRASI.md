@@ -138,6 +138,11 @@ Banyak eksekusi lama tidak punya induk yang benar (Kode Pekerjaan kosong/salah, 
 5. `ADMIN_migrasiFoto` (tahap B) berulang sampai antrean habis, atau `ADMIN_migrasiFotoOtomatis` (tiap 10 menit,
    berhenti sendiri). Per foto: makeCopy → verifikasi sha256 + ukuran → wajib privat → baru row_Foto + kolom foto
    eksekusi ditulis (foto_lengkap TRUE kalau 3 slot). Gagal 3x = GAGAL, lihat kolom pesan.
+   v0.60: dengan Advanced Service Drive API v3 (appsscript.json) salin pakai `Drive.Files.copy` dan sha256 + ukuran
+   sumber / salinan dibaca dari metadata Drive (`sha256Checksum`, dihitung Google dari isi file), jadi foto tidak
+   di-download. Salinan tetap diverifikasi terpisah dari sumbernya; beda = dibuang + ULANG. Tanpa Drive API / checksum
+   kosong = cara lama (download + hitung). Isi folder sumber dan tujuan didaftar sekali per jalan, path folder tujuan
+   di-memo per jalan. Log: `baca awal`, `checksum Drive API n/selesai`.
 6. `ADMIN_migrasiHitung` (tahap C) per bulan: Section + Rabas/Sedang/Besar realisasi dan WA Text header dengan mesin v2.
    Jalankan ulang sampai log "selesai". Memegang lock, jadi jalankan di luar jam kerja.
 7. Rekonsiliasi per bulan per sub-tim: `mig_Ringkas` (baru_fotoLengkap) vs total row_Realisasi. Selisih wajib punya
