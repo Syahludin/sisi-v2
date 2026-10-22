@@ -122,12 +122,19 @@ function getKalenderTim_(sesi, data) {
   var d = validasi_(data, { bulan: { tipe: 'teks', wajib: true, maks: 7 } });
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(d.bulan)) throw new SisiError_('FORMAT_SALAH', 'bulan');
   var tim = kalenderTimSendiri_(sesi);
-  var kegiatan = []
-    .concat(tim ? bagianKalender_(function () { return pekerjaanKalender_(sesi, d.bulan); }) : [])
-    .concat(tim ? bagianKalender_(function () { return woKalender_(sesi, d.bulan); }) : [])
-    .concat(bagianKalender_(function () { return padamKalender_(d.bulan); }))
+  // v1.0.20 (rekonstruksi): Beranda membuka kalender tiap kali tampil; isi per tim / umum + bulan di-cache 60 detik
+  var kegiatan = cacheJson_('kalender:v1:' + (tim ? 'tim:' + sesi.timId : 'umum') + ':' + d.bulan, 60, function () {
+    return kegiatanKalender_(sesi, d.bulan, tim);
+  });
+  return { bulan: d.bulan, jenisTim: sesi.jenisTim || '', timSendiri: tim, kegiatan: kegiatan };
+}
+
+function kegiatanKalender_(sesi, bulan, tim) {
+  return []
+    .concat(tim ? bagianKalender_(function () { return pekerjaanKalender_(sesi, bulan); }) : [])
+    .concat(tim ? bagianKalender_(function () { return woKalender_(sesi, bulan); }) : [])
+    .concat(bagianKalender_(function () { return padamKalender_(bulan); }))
     .sort(function (a, b) {
       return a.tanggal.localeCompare(b.tanggal) || String(a.jam || '').localeCompare(String(b.jam || '')) || a.jenis.localeCompare(b.jenis);
     });
-  return { bulan: d.bulan, jenisTim: sesi.jenisTim || '', timSendiri: tim, kegiatan: kegiatan };
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/deps.dart';
 import '../../core/kode_error.dart';
@@ -192,7 +193,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
       tampilPesan(context, alasan);
       return;
     }
-    final baru = await Navigator.push<P0Lokal>(
+    final baru = await bukaForm<P0Lokal>(
         context, MaterialPageRoute(builder: (_) => UbahLokasiP0Screen(deps: widget.deps, sesi: widget.sesi, p0: x)));
     if (baru == null || !mounted) return;
     setState(() => _p0 = baru);

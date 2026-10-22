@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -141,7 +142,7 @@ class BeritaAcaraScreen extends StatelessWidget {
         return;
       }
       final layar = j.nama == 'Penggantian Trafo' ? BaPenggantianScreen(deps: deps, sesi: sesi) : BaPengoperasianScreen(deps: deps, sesi: sesi);
-      final ok = await Navigator.push(context, MaterialPageRoute<bool>(builder: (_) => layar));
+      final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
       // v0.76.0: BA dikirim di latar belakang: langsung tampilkan Daftar BA (progres + PDF)
       if (ok == true && context.mounted) {
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => DaftarBaScreen(deps: deps, sesi: sesi)));

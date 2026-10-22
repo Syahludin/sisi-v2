@@ -103,7 +103,7 @@ class KartuGardu extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text(g.no, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+                  PilNoGardu(g.no), // v1.0.20: nomor gardu disorot
                   const SizedBox(width: 8),
                   BadgeKategori(g.kategori),
                   if (!g.aktif) ...[
@@ -121,6 +121,7 @@ class KartuGardu extends StatelessWidget {
                   _Metrik(Icons.bolt_rounded, '${angkaId(g.kva)} kVA'),
                   _Metrik(Icons.speed_rounded, g.arusMaks == null ? '- A' : '${angkaId(g.arusMaks)} A'),
                   _Metrik(Icons.event_rounded, g.tglUkur.isEmpty ? 'belum ukur' : tanggalPendek(g.tglUkur)),
+                  if (g.tglUkur.isNotEmpty) BadgePeriodeBeban(g.waktuBeban), // v1.0.20: LWBP / WBP ukur terakhir
                 ]),
               ]),
             ),
@@ -384,4 +385,58 @@ class _AksiKoordinat extends StatelessWidget {
           ),
         ),
       ]);
+}
+
+/// v1.0.20 (permintaan kvlar 23 Okt 2026): penanda periode pengukuran. WBP = Waktu Beban Puncak (17:00-21:59, ikon
+/// malam, oranye), LWBP = Luar Waktu Beban Puncak (ikon matahari, teal). Kosong = tidak tampil.
+class BadgePeriodeBeban extends StatelessWidget {
+  const BadgePeriodeBeban(this.periode, {super.key, this.lengkap = false});
+  final String periode;
+
+  /// true = label panjang (Beban Puncak / Luar Beban Puncak).
+  final bool lengkap;
+
+  static (IconData, Color, Color, String) gaya(String p) => p.trim().toUpperCase() == 'WBP'
+      ? (Icons.nights_stay_rounded, const Color(0xFFB4451B), const Color(0xFFFDEBE3), 'Beban Puncak')
+      : (Icons.wb_sunny_rounded, AppColors.brand700, AppColors.brand100, 'Luar Beban Puncak');
+
+  @override
+  Widget build(BuildContext context) {
+    final p = periode.trim().toUpperCase();
+    if (p != 'WBP' && p != 'LWBP') return const SizedBox.shrink();
+    final (ikon, warna, latar, panjang) = gaya(p);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(999), border: Border.all(color: warna.withValues(alpha: .25))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(ikon, size: 13, color: warna),
+        const SizedBox(width: 4),
+        Text(lengkap ? '$p · $panjang' : p, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: warna, letterSpacing: .3)),
+      ]),
+    );
+  }
+}
+
+/// v1.0.20: nomor gardu disorot (pil teal bergradien, teks putih tebal).
+class PilNoGardu extends StatelessWidget {
+  const PilNoGardu(this.no, {super.key, this.besar = false});
+  final String no;
+  final bool besar;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: EdgeInsets.symmetric(horizontal: besar ? 14 : 9, vertical: besar ? 6 : 3),
+        decoration: BoxDecoration(
+          gradient: besar ? null : const LinearGradient(colors: [AppColors.brand800, AppColors.brand600]),
+          color: besar ? AppColors.accent400 : null,
+          borderRadius: BorderRadius.circular(besar ? 12 : 8),
+        ),
+        child: Text(no,
+            style: TextStyle(
+                fontSize: besar ? 24 : 14,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .6,
+                color: besar ? AppColors.brand950 : Colors.white,
+                fontFeatures: const [FontFeature.tabularFigures()])),
+      );
 }

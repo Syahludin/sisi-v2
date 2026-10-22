@@ -172,17 +172,28 @@ class _KartuSync extends StatelessWidget {
   Widget build(BuildContext context) {
     final ctl = deps.syncCtl;
     final terakhir = ctl.terakhirBerhasil == null ? 'belum pernah' : DateFormat('HH:mm', 'id_ID').format(ctl.terakhirBerhasil!);
+    // v1.0.20: kartu sinkron bergaya Jaringan SiSi (ikon bergradien, kartu putih berbayang)
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.brand50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.brand100),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neutral200),
+        boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Icon(ctl.belumTerkirim == 0 ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined, color: AppColors.navy700),
-          const SizedBox(width: 10),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              gradient: ctl.belumTerkirim == 0 ? SisiMotif.gradien : const LinearGradient(colors: [AppColors.accent400, AppColors.accent600]),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(ctl.belumTerkirim == 0 ? Icons.cloud_done_rounded : Icons.cloud_upload_rounded,
+                color: ctl.belumTerkirim == 0 ? Colors.white : AppColors.brand950, size: 22),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(ctl.belumTerkirim == 0 ? 'Semua data terkirim' : '${ctl.belumTerkirim} data belum terkirim',

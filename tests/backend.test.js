@@ -3822,7 +3822,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     uploadTtdBaGardu: [], getTtdBaGardu: [], kirimEamBaGardu: [], updateMasterGarduBa: [], getFileArsipBaGardu: [],
     pesanNomorGardu: [], lepasNomorGardu: [],
     // v0.87.0: Hartek petugas, menu OPS_HARTEK_INPUT tidak ada di db_Menu uji = semua ditolak (fail closed)
-    getMaterialHartek: [], getHartekHarian: [], getJaringanHartek: [], getJenisPekerjaanHartek: [], buatHeaderHartek: [], ubahHeaderHartek: [], simpanPgHartek: [], ubahPgHartek: [], simpanPekerjaanHartek: [], ubahPekerjaanHartek: [],
+    getMaterialHartek: [], getHartekHarian: [], getJaringanHartek: [], getJenisPekerjaanHartek: [], buatHeaderHartek: [], ubahHeaderHartek: [], simpanPgHartek: [], simpanPekerjaanHartek: [], ubahPekerjaanHartek: [],
     simpanMaterialHartek: [], simpanGroundingHartek: [], simpanPemerataanHartek: [], uploadFotoHartek: [],
     // v1.0.0: OPS_INSJAR_INPUT / OPS_INPUT_TEMUAN tidak ada di db_Menu uji = semua ditolak (fail closed)
     getMasterInsJar: [], getInsJarHarian: [], buatHeaderInsJar: [], ubahHeaderInsJar: [], simpanRealisasiInsJar: [], ubahRealisasiInsJar: [], simpanTemuanInsJar: [], ubahTemuanInsJar: [], uploadFotoInsJar: [],
@@ -6535,20 +6535,9 @@ test('hartek header: guard (peran HARTEK paling awal, tim sendiri, hari ini, ID 
   assert.strictEqual(pohonLain.header, null, 'tim lain tidak melihat header tim pertama');
 });
 
-test('hartek PG: ubah (revision, hanya tim sendiri), ditolak kalau ada pekerjaan; hapus PG tidak ada lagi', () => {
+test('hartek PG: tidak ada ubah / hapus PG lewat endpoint (v1.0.20: ubahPgHartek tidak dipakai HP, dihapus)', () => {
   const x = konteksHartek();
-  const a = x.h.buatHeaderHartek_(x.sesi, {});
-  const pg = x.h.simpanPgHartek_(x.sesi, { headerId: a.headerId, jenisPekerjaan: 'Jaringan', penyulang: 'PNY-A', section: 'SEC-1', daerah: 'Toboali', jumlahGawang: 2 });
-  assert.strictEqual(kodeError(() => x.h.ubahPgHartek_(x.sesi, { pgId: pg.pgId, revision: 9, section: 'SEC-2' })), 'KONFLIK_REVISION');
-  assert.strictEqual(kodeError(() => x.h.ubahPgHartek_({ ...x.sesi, timId: 'tim-lain' }, { pgId: pg.pgId, revision: 1, section: 'SEC-2' })), 'BUKAN_MILIK_TIM');
-  assert.strictEqual(kodeError(() => x.h.ubahPgHartek_(x.sesi, { pgId: pg.pgId, revision: 1, section: 'SEC-X' })), 'SECTION_TIDAK_VALID');
-  const u = x.h.ubahPgHartek_(x.sesi, { pgId: pg.pgId, revision: 1, section: 'SEC-2', jumlahGawang: 5 });
-  assert.strictEqual(u.revision, 2);
-  const kol = x.h.HARTEK_HEADER_.db_Hartek_PenyulangGardu;
-  const row = x.sheets.h.db_Hartek_PenyulangGardu.data[1];
-  assert.deepStrictEqual([row[kol.indexOf('section')], row[kol.indexOf('jumlah_gawang')]], ['SEC-2', 5]);
-  x.h.simpanPekerjaanHartek_(x.sesi, { pgId: pg.pgId, jenisId: 'jh2', jumlahPekerjaan: 1 });
-  assert.strictEqual(kodeError(() => x.h.ubahPgHartek_(x.sesi, { pgId: pg.pgId, revision: 2, section: 'SEC-1' })), 'MASIH_ADA_ANAK');
+  assert.strictEqual(typeof x.h.ubahPgHartek_, 'undefined');
   assert.strictEqual(typeof x.h.hapusPgHartek_, 'undefined', 'hapus PG ditolak (fungsi hapus tidak ada)');
 });
 
@@ -6561,8 +6550,7 @@ test('hartek PG: gardu ganda hanya boleh GRD + NTK satu-satu dalam satu header',
   assert.strictEqual(ntk.kodePg, a.kodeHeader + '-NTK.001');
   assert.strictEqual(kodeError(() => x.h.simpanPgHartek_(x.sesi, { headerId: a.headerId, jenisPekerjaan: 'Non - Teknik', noGardu: 'TB0001' })), 'GARDU_GANDA', 'GRD + NTK + NTK ditolak');
   const grd2 = x.h.simpanPgHartek_(x.sesi, { headerId: a.headerId, jenisPekerjaan: 'Gardu', noGardu: 'TB0002' });
-  assert.strictEqual(kodeError(() => x.h.ubahPgHartek_(x.sesi, { pgId: grd2.pgId, revision: 1, noGardu: 'TB0001' })), 'GARDU_GANDA', 'pindah ke gardu yang sudah GRD+NTK = ditolak');
-  assert.strictEqual(x.h.ubahPgHartek_(x.sesi, { pgId: grd.pgId, revision: 1, daerah: 'Jl. Baru' }).revision, 2, 'ubah daerah saja boleh');
+  assert.ok(grd2.pgId && grd.pgId);
 });
 
 test('v0.91.0: kolom Hartek baru (koordinat PG, jenis_id, master_material_id, satuan master, no_gardu pemerataan) dan posisinya', () => {
@@ -6609,10 +6597,8 @@ test('v0.91.0: material lewat materialId, master_material_id + satuan master; gr
   const kpg = x.h.HARTEK_HEADER_.db_Hartek_PenyulangGardu;
   assert.match(String(x.sheets.h.db_Hartek_PenyulangGardu.data[1][kpg.indexOf('koordinat')]), /^-3\.0044/);
   assert.strictEqual(kodeError(() => x.h.simpanPgHartek_(x.sesi, { headerId: a.headerId, jenisPekerjaan: 'Jaringan', penyulang: 'PNY-A', section: 'SEC-2', koordinat: 'bukan' })), kodeError(() => x.h.validasi_({ k: 'bukan' }, { k: { tipe: 'koordinat' } })));
-  const u = x.h.ubahPgHartek_(x.sesi, { pgId: pg.pgId, revision: 1, koordinat: '-3.0159, 106.4983' });
-  assert.strictEqual(u.revision, 2);
   const o = x.h.getHartekHarian_(x.sesi, {}).objek[0];
-  assert.deepStrictEqual([o.koordinat.slice(0, 7), o.revision], ['-3.0159', 2]);
+  assert.deepStrictEqual([o.koordinat.slice(0, 7), o.revision], ['-3.0044', 1]);
   const pk = x.h.simpanPekerjaanHartek_(x.sesi, { pgId: pg.pgId, jenisId: 'jh4', jumlahPekerjaan: 1 });
   assert.strictEqual(kodeError(() => x.h.simpanMaterialHartek_(x.sesi, { pekerjaanId: pk.pekerjaanId, jumlah: 1 })), 'FIELD_WAJIB');
   assert.strictEqual(kodeError(() => x.h.simpanMaterialHartek_(x.sesi, { pekerjaanId: pk.pekerjaanId, materialId: 'mat-2', jumlah: 1, kepemilikan: 'PLN' })), 'MATERIAL_TIDAK_VALID', 'nonaktif');
@@ -9063,4 +9049,13 @@ test('v1.0.19 foto temuan: admin semua temuan, petugas InsJar hanya temuan timny
   assert.strictEqual(x.h.getFotoTemuanInsJar_(ins, { temuanId: id, slot: 'TEMUAN' }).slot, 'TEMUAN');
   assert.strictEqual(kodeError(() => x.h.getFotoTemuanInsJar_({ ...ins, timId: U() }, { temuanId: id, slot: 'TEMUAN' })), 'BUKAN_MILIK_TIM');
   assert.strictEqual(kodeError(() => x.h.getFotoTemuanInspeksi_(x.sesi, { temuanId: id, slot: 'TEMUAN' })), 'AKSES_DITOLAK');
+});
+
+// ---------- v1.0.20 ----------
+
+test('v1.0.20 riwayat gardu: periode ukur selalu LWBP / WBP (isian baku dipakai, kosong = dari jam ukur WBP 17:00-21:59)', () => {
+  const x = konteksWo();
+  const p = x.h.periodeUkurRg_;
+  assert.deepStrictEqual([p('WBP', '10:00'), p('lwbp', '18:00'), p('', '17:00'), p('', '21:59'), p('', '22:00'), p('', '08:15'), p('', ''), p('Siang', '19:30')],
+    ['WBP', 'LWBP', 'WBP', 'WBP', 'LWBP', 'LWBP', '', 'WBP']);
 });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/deps.dart';
 import '../../core/kode_error.dart';
@@ -85,7 +86,7 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
   Future<void> _input() async {
     final r = _r;
     if (r == null) return;
-    final ok = await Navigator.push<bool>(
+    final ok = await bukaForm<bool>(
         context, MaterialPageRoute(builder: (_) => FormEksekusiScreen(deps: widget.deps, sesi: widget.sesi, realisasi: r)));
     if (ok == true) await _muat();
   }

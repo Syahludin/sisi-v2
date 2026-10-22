@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_client.dart';
@@ -154,7 +155,7 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
   }
 
   Future<void> _ubahHeader() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: _h)));
+    await bukaForm(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: _h)));
     await _muat();
   }
 

@@ -26,7 +26,10 @@ import '../../widgets/sisi_loader.dart';
 /// Diperbarui untuk v2: keputusan langsung ke server (point + rekap shift dihitung saat itu), lampiran Pengecekan
 /// Switching / Gardu (angka + foto) ikut di detail kartu, foto Drive privat dibaca lewat server.
 class ApprovalP0Screen extends StatefulWidget {
-  const ApprovalP0Screen({super.key, required this.deps, required this.sesi});
+  const ApprovalP0Screen({super.key, required this.deps, required this.sesi, this.tanggalAwal, this.p0Id});
+
+  /// v1.0.20: dibuka dari lonceng = langsung ke tanggal + P0 itu (terbuka, paling atas).
+  final String? tanggalAwal, p0Id;
   final Deps deps;
   final Sesi sesi;
 
@@ -36,7 +39,10 @@ class ApprovalP0Screen extends StatefulWidget {
 
 class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
   late final ApprovalP0Repository _repo = ApprovalP0Repository(widget.deps.api);
-  late DateTime _tgl = _hariIni();
+  late DateTime _tgl = () {
+    final t = DateTime.tryParse(widget.tanggalAwal ?? '');
+    return t == null ? _hariIni() : DateTime.utc(t.year, t.month, t.day);
+  }();
 
   DateTime _hariIni() {
     final w = Wib.dinding(widget.deps.jam.sekarang());
@@ -62,6 +68,7 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
   @override
   void initState() {
     super.initState();
+    if ((widget.p0Id ?? '').isNotEmpty) _buka.add(widget.p0Id!);
     unawaited(_ambil());
   }
 
@@ -76,7 +83,9 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
       if (!mounted || id != _minta) return;
       setState(() {
         _jumlah = r.jumlah;
-        _list = r.list;
+        // v1.0.20: P0 dari lonceng di paling atas
+        final tuju = widget.p0Id ?? '';
+        _list = [...r.list.where((x) => x.p0Id == tuju), ...r.list.where((x) => x.p0Id != tuju)];
       });
     } on ApiException catch (e) {
       if (mounted && id == _minta) setState(() => _error = KodeError.pesan(e.kode));

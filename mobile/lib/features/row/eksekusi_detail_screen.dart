@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../widgets/sisi_loader.dart';
 
@@ -193,7 +194,7 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     if (e == null) return;
     final r = await widget.deps.row.realisasi(e.realisasiId);
     if (r == null || !mounted) return;
-    final berubah = await Navigator.push<bool>(
+    final berubah = await bukaForm<bool>(
       context,
       MaterialPageRoute(builder: (_) => FormEksekusiScreen(deps: widget.deps, sesi: widget.sesi, realisasi: r, edit: e)),
     );

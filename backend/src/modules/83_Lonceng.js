@@ -28,13 +28,25 @@ function batasLonceng_() {
   return tglJakarta_(new Date(Date.now() - LONCENG_HARI_ * 864e5));
 }
 
+var LONCENG_CACHE_DETIK_ = 60;   // v1.0.20: lonceng dimuat tiap 3 menit per HP, isi sheet dibaca paling sering tiap 60 detik
+
+function kunciLihatLonceng_(userId) { return 'lonceng-lihat:v1:' + userId; }
+function kunciItemTimLonceng_(timId) { return 'lonceng-item:v1:tim:' + timId; }
+
+/** v1.0.20: WO dikirim / dipindah / ditarik = daftar lonceng tim terkait dihitung ulang (tidak menunggu cache habis). */
+function hapusCacheLoncengTim_(timIds) {
+  hapusCache_((timIds || []).filter(String).map(function (t) { return kunciItemTimLonceng_(t); }));
+}
+
 /** Kunci yang sudah dilihat akun ini. Tab belum ada = kosong. */
 function dilihatLonceng_(userId) {
-  var hasil = {};
-  try {
-    tabel_('AUTH_SHEET_ID', LONCENG_SHEET_).rows.forEach(function (r) { if (String(r.user_id) === String(userId)) hasil[String(r.kunci)] = true; });
-  } catch (e) { if (!e || e.kode !== 'SHEET_TIDAK_ADA') throw e; }
-  return hasil;
+  return cacheJson_(kunciLihatLonceng_(userId), 600, function () {
+    var hasil = {};
+    try {
+      tabel_('AUTH_SHEET_ID', LONCENG_SHEET_).rows.forEach(function (r) { if (String(r.user_id) === String(userId)) hasil[String(r.kunci)] = true; });
+    } catch (e) { if (!e || e.kode !== 'SHEET_TIDAK_ADA') throw e; }
+    return hasil;
+  });
 }
 
 /** Admin: P0 yang masih Menunggu approval. */
@@ -74,16 +86,23 @@ function itemWoLonceng_(sesi) {
 
 /** Semua item lonceng untuk sesi (tanpa status dilihat), terbaru dulu. Bagian yang sheet-nya belum diatur dilewati. */
 function itemLonceng_(sesi) {
-  var batas = batasLonceng_(), item = [];
+  var batas = batasLonceng_();
+  var urut = function (item) { return item.sort(function (a, b) { return String(b.waktu).localeCompare(String(a.waktu)); }).slice(0, LONCENG_MAKS_); };
   if (sesi.role === 'PETUGAS') {
-    if (adaMenuLonceng_(sesi, 'OPS_WO_TIM') && sesi.timId) item = item.concat(bagianKalender_(function () { return itemWoLonceng_(sesi); }));
-  } else {
-    if (adaMenuLonceng_(sesi, 'OPS_VERIFIKASI_P0')) item = item.concat(bagianKalender_(function () { return itemP0Lonceng_(batas); }));
-    if (adaMenuLonceng_(sesi, 'OPS_INPUT_TEMUAN') || adaMenuLonceng_(sesi, 'OPS_PENERUSAN_WO')) {
-      item = item.concat(bagianKalender_(function () { return itemTemuanLonceng_(batas); }));
-    }
+    if (!adaMenuLonceng_(sesi, 'OPS_WO_TIM') || !sesi.timId) return [];
+    return cacheJson_(kunciItemTimLonceng_(sesi.timId), LONCENG_CACHE_DETIK_, function () {
+      return urut(bagianKalender_(function () { return itemWoLonceng_(sesi); }));
+    });
   }
-  return item.sort(function (a, b) { return String(b.waktu).localeCompare(String(a.waktu)); }).slice(0, LONCENG_MAKS_);
+  // admin: isi sama untuk semua admin dengan hak menu yang sama
+  var p0 = adaMenuLonceng_(sesi, 'OPS_VERIFIKASI_P0');
+  var temuan = adaMenuLonceng_(sesi, 'OPS_INPUT_TEMUAN') || adaMenuLonceng_(sesi, 'OPS_PENERUSAN_WO');
+  return cacheJson_('lonceng-item:v1:admin:' + (p0 ? 1 : 0) + (temuan ? 1 : 0) + ':' + batas, LONCENG_CACHE_DETIK_, function () {
+    var item = [];
+    if (p0) item = item.concat(bagianKalender_(function () { return itemP0Lonceng_(batas); }));
+    if (temuan) item = item.concat(bagianKalender_(function () { return itemTemuanLonceng_(batas); }));
+    return urut(item);
+  });
 }
 
 function getNotifikasi_(sesi) {
@@ -116,6 +135,7 @@ function tandaiNotifikasi_(sesi, data) {
       var t = tabelLonceng_(), w = sekarangIso_();
       tambahBanyak_(t, baru.map(function (k) { return { user_id: sesi.userId, kunci: k, waktu: w }; }));
       baru.forEach(function (k) { lihat[k] = true; });
+      try { CacheService.getScriptCache().put(kunciLihatLonceng_(sesi.userId), JSON.stringify(lihat), 600); } catch (eC) { hapusCache_([kunciLihatLonceng_(sesi.userId)]); }
     }
     return { ditandai: baru.length, belum: Object.keys(aktif).filter(function (k) { return !lihat[k]; }).length };
   }, 15000);

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../../core/lonceng.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
@@ -73,13 +75,24 @@ class _WoTimScreenState extends State<WoTimScreen> {
     super.initState();
     _doc = _store.docInstan(_sesi);
     _store.addListener(_dengar);
+    Lonceng.i.tujuanWo.addListener(_bukaTujuan);
     unawaited(_bacaLokal());
   }
 
   @override
   void dispose() {
     _store.removeListener(_dengar);
+    Lonceng.i.tujuanWo.removeListener(_bukaTujuan);
     super.dispose();
+  }
+
+  /// v1.0.20: notifikasi WO diketuk = detail WO itu langsung dibuka (sesudah daftar dimuat kalau belum ada).
+  void _bukaTujuan() {
+    final id = Lonceng.i.tujuanWo.value;
+    if (id == null || !mounted) return;
+    if (!_wo.any((t) => teksWo(t['temuanId']) == id)) return; // dicoba lagi sesudah daftar diperbarui
+    Lonceng.i.tujuanWo.value = null;
+    unawaited(_bukaDetail(id));
   }
 
   void _dengar() {
@@ -114,6 +127,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     } finally {
       if (mounted) setState(() => _muat = false);
       unawaited(widget.deps.syncCtl.hitungUlang());
+      _bukaTujuan();
     }
   }
 

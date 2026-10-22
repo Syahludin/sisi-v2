@@ -538,60 +538,6 @@ function cekGarduGandaHartek_(rowsPg, headerId, garduId, tagBaru, kecualiPgId) {
   throw new SisiError_('GARDU_GANDA', String(ada[0].no_gardu || garduId));
 }
 
-/** Ubah PenyulangGardu hari ini. Revision wajib. Ditolak kalau sudah ada pekerjaan di bawahnya (MASIH_ADA_ANAK).
- *  Jenis objek (kode PNY / GRD / NTK) tidak bisa diubah: kode sudah dibuat. */
-function ubahPgHartek_(sesi, data) {
-  wajibPetugasHartek_(sesi);
-  var d = validasi_(data, {
-    pgId: { tipe: 'uuid', wajib: true }, revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 },
-    penyulang: { tipe: 'teks', maks: 80 }, section: { tipe: 'teks', maks: 80 },
-    noGardu: { tipe: 'teks', maks: 20 }, daerah: { tipe: 'teks', maks: 200 },
-    jumlahGawang: { tipe: 'angka', min: 0, max: 9999, bulat: true },
-    koordinat: { tipe: 'koordinat' }   // v0.91.0: titik lokasi PG (opsional)
-  });
-  return denganLock_(function () {
-    var t = tabelHartek_(HARTEK_SHEET_.PG);
-    var pg = indukHartekMilikTim_(t.rows, 'pg_id', d.pgId, sesi.timId, 'penyulang/gardu');
-    if (Number(pg.revision) !== d.revision) throw new SisiError_('KONFLIK_REVISION', d.pgId);
-    var anak = tabelHartek_(HARTEK_SHEET_.PEKERJAAN).rows.some(function (x) { return String(x.pg_id) === String(d.pgId); });
-    if (anak) throw new SisiError_('MASIH_ADA_ANAK', pg.kode_pg);
-    var tag = tagDariKodePgHartek_(pg.kode_pg);
-    var u = {};
-    if (tag === 'PNY') {
-      if (d.noGardu !== undefined) throw new SisiError_('FIELD_TIDAK_DIKENAL', 'noGardu');
-      var pen = d.penyulang !== undefined ? d.penyulang : String(pg.penyulang || '');
-      var sec = d.section !== undefined ? d.section : String(pg.section || '');
-      if (!pen || !sec) throw new SisiError_('FIELD_WAJIB', !pen ? 'penyulang' : 'section');
-      var masterP = jaringanAktifHartek_().filter(function (r) { return String(r.penyulang).trim() === pen.trim(); });
-      if (!masterP.length) throw new SisiError_('PENYULANG_TIDAK_VALID', pen);
-      var masterS = masterP.filter(function (r) { return String(r.section).trim() === sec.trim(); })[0];
-      if (!masterS) throw new SisiError_('SECTION_TIDAK_VALID', sec);
-      u.penyulang = String(masterS.penyulang).trim();
-      u.section = String(masterS.section).trim();
-      if (d.jumlahGawang !== undefined) u.jumlah_gawang = d.jumlahGawang;
-    } else {
-      if (d.penyulang !== undefined || d.section !== undefined || d.jumlahGawang !== undefined) throw new SisiError_('FIELD_TIDAK_DIKENAL', 'penyulang');
-      if (d.noGardu !== undefined) {
-        var nomor = String(d.noGardu).trim().toUpperCase();
-        var g = tabel_('GARDU_SHEET_ID', 'db_Gardu').rows.filter(function (r) { return String(r['No Gardu'] || '').trim().toUpperCase() === nomor; })[0];
-        if (!g) throw new SisiError_('GARDU_TIDAK_ADA', nomor);
-        cekGarduGandaHartek_(t.rows, pg.header_id, String(g.gardu_id || ''), tag, d.pgId);
-        u.gardu_id = String(g.gardu_id || ''); u.no_gardu = nomor;
-        u.penyulang = String(g.Penyulang || ''); u.section = String(g.Section || '');
-        if (d.daerah === undefined) u.daerah = String(g.Alamat || '');
-      }
-    }
-    if (d.daerah !== undefined) u.daerah = d.daerah;
-    if (d.koordinat !== undefined) u.koordinat = d.koordinat.teks;
-    if (!Object.keys(u).length) throw new SisiError_('FIELD_WAJIB', 'penyulang');
-    u.timestamp_update = sekarangIso_();
-    u.diubah_oleh = sesi.userId;
-    ubahBaris_(t, 'pg_id', d.pgId, u, d.revision);
-    auditLog_(sesi, 'HARTEK_PG_UBAH', pg.kode_pg, Object.keys(u).join(', '), 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
-    return { pgId: String(d.pgId), kodePg: String(pg.kode_pg), revision: d.revision + 1 };
-  }, 20000);
-}
-
 /** Tambah PenyulangGardu (objek). Jaringan = penyulang & section manual. Gardu / Non-Teknik = data dari db_Gardu. */
 function simpanPgHartek_(sesi, data) {
   wajibPetugasHartek_(sesi);

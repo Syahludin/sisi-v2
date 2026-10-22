@@ -9,6 +9,7 @@ import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/kartu_laporan_tim.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/wa_panel.dart';
 import '../gardu/gardu_model.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
@@ -904,54 +905,16 @@ class _HartekScreenState extends State<HartekScreen> {
 
   // ---------- halaman: belum ada laporan ----------
 
-  Widget _langkah(int n, String judul, String sub) => Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.brand100, shape: BoxShape.circle),
-            child: Text('$n', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.merek)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(judul, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
-              const SizedBox(height: 2),
-              Text(sub, style: HartekGaya.sekunder),
-            ]),
-          ),
-        ]),
-      );
-
+  /// v1.0.20 (permintaan kvlar 23 Okt 2026): belum ada laporan = kartu Mulai pekerjaan (pola Laporan ROW).
   List<Widget> _halamanAwal() => [
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(gradient: HartekGaya.gradien, borderRadius: BorderRadius.circular(20)),
-            child: const Icon(Icons.assignment_outlined, color: Colors.white, size: 30),
-          ),
+        const SizedBox(height: 4),
+        JudulSeksiSisi('Laporan hari ini', keterangan: tanggalHartek(_tanggal)),
+        KartuMulaiLaporan(
+          judul: 'Belum ada laporan Hartek hari ini',
+          ikon: Icons.engineering_rounded,
+          langkah: const ['Laporan Utama: KM + koordinat berangkat', 'Lokasi: penyulang, gardu, atau non-teknik', 'Pekerjaan + material yang dipakai'],
+          onMulai: _boleh && !_sibuk ? _buatHeader : null,
         ),
-        const SizedBox(height: 20),
-        const Text('Mulai hari kerja', style: HartekGaya.judulBesar),
-        const SizedBox(height: 8),
-        Text('Satu Laporan Utama menampung seluruh lokasi, pekerjaan, dan material tim hari ini.',
-            style: HartekGaya.sekunder.copyWith(fontSize: 15)),
-        const SizedBox(height: 22),
-        KartuHartek(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 2),
-          child: Column(children: [
-            _langkah(1, 'Laporan Utama', 'KM dan koordinat awal perjalanan.'),
-            _langkah(2, 'Lokasi pekerjaan', 'Jaringan, gardu, atau non-teknik.'),
-            _langkah(3, 'Pekerjaan & material', 'Hasil kerja dan material terpakai.'),
-          ]),
-        ),
-        const SizedBox(height: 18),
-        _aksiUtama('Buat Laporan Utama', _buatHeader, ikon: Icons.arrow_forward_rounded),
       ];
 
   // ---------- halaman: laporan hari ini ----------
@@ -1121,9 +1084,44 @@ class _HartekScreenState extends State<HartekScreen> {
           icon: const Icon(Icons.history_rounded, size: 18),
           label: Text('$_tanggalLain data hari sebelumnya tidak terkirim · Buang'),
         ),
-      const SizedBox(height: 6),
-      const Text('Ketuk angka jenis pekerjaan untuk rincian jenis itu, Total Pekerjaan untuk semuanya.',
-          textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: HartekGaya.redup)),
+      // v1.0.20: lokasi (penyulang / gardu) langsung di halaman laporan, berisi pekerjaan + material (pola ROW)
+      const SizedBox(height: 18),
+      JudulSeksiSisi('Lokasi pekerjaan',
+          keterangan: '${_objek.length} lokasi · $_jumlahPekerjaan pekerjaan',
+          aksi: _boleh
+              ? TextButton.icon(
+                  onPressed: _sibuk ? null : () => _tambahPg(),
+                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                  label: const Text('Lokasi'),
+                )
+              : null),
+      if (_objek.isEmpty)
+        const KosongHartek(
+            ikon: Icons.place_outlined, judul: 'Belum ada lokasi', petunjuk: 'Ketuk Lokasi (atau + di kartu) untuk mencatat jaringan, gardu, atau non-teknik.')
+      else
+        RincianHartek(
+          perLokasi: true,
+          objek: _objek,
+          kodeHeader: _teks(h['kodeHeader']),
+          terbuka: const <String>{},
+          lokasiTertutup: _lokasiTertutup,
+          boleh: _boleh,
+          sibuk: _sibuk,
+          onBukaTutup: (_) {},
+          onBukaTutupLokasi: (pgId) => setState(() {
+            if (!_lokasiTertutup.remove(pgId)) _lokasiTertutup.add(pgId);
+          }),
+          onBukaLokasi: (pgId) => _bukaDetail(pgId),
+          onBukaPekerjaan: (pgId, pkId) => _bukaDetail(pgId, pkId),
+          onTambahLokasi: () => _tambahPg(),
+          onTambahPekerjaan: _tambahPekerjaan,
+          onTambahMaterial: _tambahMaterial,
+          onCobaUlang: (id) => _cobaUlang(id),
+          onBuang: (id) => _buang(id),
+          onUbahPekerjaan: _boleh ? _ubahPekerjaan : null,
+          onCobaUlangUbah: (id) => unawaited(_store.cobaUlangUbahPekerjaan(_sesi, id).then((_) => _kirimLatar())),
+          onBuangUbah: (id) => unawaited(_store.buangUbahPekerjaan(_sesi, id)),
+        ),
     ];
   }
 

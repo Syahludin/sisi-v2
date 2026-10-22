@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
@@ -169,7 +170,7 @@ class _JadwalPadamScreenState extends State<JadwalPadamScreen> {
       _pesan('Master Daerah Padam belum termuat / kosong. Periksa sinyal atau isi db_Daerah_Padam.');
       return;
     }
-    final ok = await Navigator.push<bool>(
+    final ok = await bukaForm<bool>(
       context,
       MaterialPageRoute(builder: (_) => FormJadwalPadam(deps: widget.deps, sesi: _sesi, master: _master, jadwal: jadwal)),
     );
@@ -694,6 +695,23 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
   late final String _idBaris = _uuid.v4();
   bool _simpan = false;
 
+  /// v1.0.20: pilihan penyulang / section = db_Daerah_Padam, dimuat ulang saat form dibuka (baris master baru langsung muncul).
+  late List<Map<String, dynamic>> _master = widget.master;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_segarkanMaster());
+  }
+
+  Future<void> _segarkanMaster() async {
+    try {
+      final m = await widget.deps.api.call('getMasterJadwalPadam', token: widget.sesi.token, data: const {});
+      final baru = daftarJp(m['daerah']);
+      if (mounted && baru.isNotEmpty) setState(() => _master = baru);
+    } catch (_) {/* tanpa sinyal: master dari layar daftar */}
+  }
+
   @override
   void dispose() {
     _jenis.dispose();
@@ -702,7 +720,7 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
   }
 
   Map<String, dynamic>? get _daerah {
-    for (final d in widget.master) {
+    for (final d in _master) {
       if (teksJp(d['penyulang']) == _penyulang && teksJp(d['section']) == _section) return d;
     }
     return null;
@@ -757,8 +775,8 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
 
   @override
   Widget build(BuildContext context) {
-    final penyulang = ({for (final d in widget.master) teksJp(d['penyulang'])}..remove('')).toList()..sort();
-    final section = [for (final d in widget.master) if (teksJp(d['penyulang']) == _penyulang) teksJp(d['section'])]..sort();
+    final penyulang = ({for (final d in _master) teksJp(d['penyulang'])}..remove('')).toList()..sort();
+    final section = [for (final d in _master) if (teksJp(d['penyulang']) == _penyulang) teksJp(d['section'])]..sort();
     final d = _daerah;
     final durasi = durasiJamJp(jamTeksJp(_padam), jamTeksJp(_nyala));
     InputDecoration dekor(String l) => InputDecoration(
@@ -792,6 +810,10 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
               }),
               validator: (v) => (v ?? '').isEmpty ? 'Penyulang wajib dipilih' : null,
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text('${penyulang.length} penyulang dari db_Daerah_Padam', style: const TextStyle(fontSize: 11.5, color: HartekGaya.redup)),
+            ),
             const SizedBox(height: 14),
             KolomPilih(
               key: ValueKey('jp-section-$_penyulang'),
@@ -810,7 +832,8 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
               validator: (v) => (v ?? '').trim().isEmpty ? 'Jenis pekerjaan wajib diisi' : null,
             ),
             _tile('Tanggal', labelTanggalJp(isoHari(_tanggal)), Icons.calendar_today_outlined, () async {
-              final v = await showDatePicker(context: context, firstDate: DateTime(2024), lastDate: DateTime(2100), initialDate: _tanggal);
+              // v1.0.20: kalender bertitik merah di tanggal yang sudah punya jadwal padam + rincian di bawahnya
+              final v = await pilihTanggalJadwalPadam(context, widget.deps, widget.sesi, _tanggal, kecuali: teksJp(widget.jadwal?['jadwalId']));
               if (v != null) setState(() => _tanggal = v);
             }),
             Row(children: [
@@ -867,6 +890,134 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
             ),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// v1.0.20 (permintaan kvlar 23 Okt 2026): pemilih tanggal jadwal padam. Kalender satu bulan, titik merah = tanggal yang
+/// sudah punya jadwal padam (data getJadwalPadam bulan itu); ketuk tanggal = rincian jadwal tanggal itu di bawah kalender,
+/// tombol Pilih = pakai tanggal. [kecuali] = jadwal yang sedang diubah (tidak dihitung).
+Future<DateTime?> pilihTanggalJadwalPadam(BuildContext context, Deps deps, Sesi sesi, DateTime awal, {String kecuali = ''}) =>
+    showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useRootNavigator: true,
+      builder: (_) => _PemilihTanggalJp(deps: deps, sesi: sesi, awal: awal, kecuali: kecuali),
+    );
+
+class _PemilihTanggalJp extends StatefulWidget {
+  const _PemilihTanggalJp({required this.deps, required this.sesi, required this.awal, required this.kecuali});
+  final Deps deps;
+  final Sesi sesi;
+  final DateTime awal;
+  final String kecuali;
+
+  @override
+  State<_PemilihTanggalJp> createState() => _PemilihTanggalJpState();
+}
+
+class _PemilihTanggalJpState extends State<_PemilihTanggalJp> {
+  late DateTime _bulan = DateTime(widget.awal.year, widget.awal.month, 1);
+  late DateTime _hari = DateTime(widget.awal.year, widget.awal.month, widget.awal.day);
+  final Map<String, List<Map<String, dynamic>>> _perBulan = {};
+  bool _muat = false;
+  String? _galat;
+
+  String get _kunci => '${_bulan.year}-${_bulan.month}';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_muatBulan());
+  }
+
+  Future<void> _muatBulan() async {
+    final k = _kunci, b = _bulan;
+    if (_perBulan.containsKey(k)) return;
+    setState(() {
+      _muat = true;
+      _galat = null;
+    });
+    try {
+      final r = await widget.deps.api.call('getJadwalPadam', token: widget.sesi.token, data: {
+        'dari': isoHari(b),
+        'sampai': isoHari(DateTime(b.year, b.month + 1, 0)),
+      });
+      _perBulan[k] = [
+        for (final j in daftarJp(r['jadwal']))
+          if (teksJp(j['jadwalId']) != widget.kecuali && teksJp(j['status']) != StatusJadwalPadam.batal) j,
+      ];
+    } catch (_) {
+      _galat = 'Jadwal bulan ini belum termuat (butuh sinyal). Tanggal tetap bisa dipilih.';
+    } finally {
+      if (mounted) setState(() => _muat = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final jadwal = _perBulan[_kunci] ?? const <Map<String, dynamic>>[];
+    final per = <String, int>{};
+    for (final j in jadwal) {
+      per[teksJp(j['tanggal'])] = (per[teksJp(j['tanggal'])] ?? 0) + 1;
+    }
+    final hariIni = jadwal.where((j) => teksJp(j['tanggal']) == isoHari(_hari)).toList();
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .9),
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+          const Text('Pilih tanggal padam', style: HartekGaya.judulSeksi),
+          const SizedBox(height: 4),
+          const Text('Titik merah = tanggal yang sudah ada jadwal padam.', style: TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
+          const SizedBox(height: 10),
+          KalenderBulan(
+            bulan: _bulan,
+            tanda: {for (final e in per.entries) e.key: [TandaHari(AppColors.red600, e.value, 'jadwal padam')]},
+            dipilih: _hari,
+            hariIni: DateTime.now(),
+            sibuk: _muat,
+            onPilih: (d) => setState(() => _hari = d),
+            onGantiBulan: (b) {
+              setState(() => _bulan = b);
+              unawaited(_muatBulan());
+            },
+          ),
+          if (_galat != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_galat!, style: const TextStyle(fontSize: 12.5, color: AppColors.accent700))),
+          const SizedBox(height: 12),
+          Text(hariIni.isEmpty ? '${labelTanggalJp(isoHari(_hari))}: belum ada jadwal padam' : '${labelTanggalJp(isoHari(_hari))}: ${hariIni.length} jadwal padam',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+          for (final j in hariIni)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: AppColors.red100.withValues(alpha: .5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.red100),
+              ),
+              child: Row(children: [
+                const Icon(Icons.power_off_rounded, color: AppColors.red700, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${teksJp(j['penyulang'])} · ${teksJp(j['section'])}',
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                    Text('${teksJp(j['jamPadam'])} – ${teksJp(j['jamNyala'])} WIB · ${teksJp(j['jenis'])}',
+                        maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
+                  ]),
+                ),
+              ]),
+            ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, _hari),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            icon: const Icon(Icons.check_rounded),
+            label: Text('Pilih ${labelTanggalJp(isoHari(_hari))}'),
+          ),
+        ]),
       ),
     );
   }

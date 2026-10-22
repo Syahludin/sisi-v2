@@ -506,3 +506,76 @@ class GrupRingkasan extends StatelessWidget {
     );
   }
 }
+
+/// v1.0.20 (permintaan kvlar 23 Okt 2026): kartu "belum ada laporan hari ini" seragam untuk ROW, Hartek, Inspeksi
+/// Jaringan, Inspeksi Gardu (pola Laporan ROW): latar Jaringan SiSi, ikon modul, langkah singkat, tombol mulai kuning.
+/// [onMulai] null = tombol tidak tampil (tanpa hak ubah / sedang sibuk); [labelMulai] bisa diganti (mis. tunggakan).
+class KartuMulaiLaporan extends StatelessWidget {
+  const KartuMulaiLaporan({
+    super.key,
+    required this.judul,
+    required this.ikon,
+    required this.langkah,
+    this.onMulai,
+    this.labelMulai = 'Mulai pekerjaan hari ini',
+    this.catatan,
+  });
+  final String judul;
+  final IconData ikon;
+  final List<String> langkah;
+  final VoidCallback? onMulai;
+  final String labelMulai;
+  final String? catatan;
+
+  @override
+  Widget build(BuildContext context) => LatarSisi(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.accent400.withValues(alpha: .7), width: 1.4),
+            ),
+            child: Icon(ikon, color: AppColors.accent400, size: 28),
+          ),
+          const SizedBox(height: 14),
+          Text(judul, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 4),
+          for (var n = 0; n < langkah.length; n++)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppColors.accent400, borderRadius: BorderRadius.circular(7)),
+                  child: Text('${n + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.brand950)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(langkah[n], style: const TextStyle(fontSize: 13, height: 1.35, color: Color(0xD9FFFFFF)))),
+              ]),
+            ),
+          if (catatan != null) ...[
+            const SizedBox(height: 10),
+            Text(catatan!, style: const TextStyle(fontSize: 12, color: Color(0xB3FFFFFF))),
+          ],
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onMulai,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent400,
+              foregroundColor: AppColors.brand950,
+              disabledBackgroundColor: Colors.white24,
+              disabledForegroundColor: Colors.white70,
+              minimumSize: const Size.fromHeight(50),
+            ),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(labelMulai, style: const TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ]),
+      );
+}

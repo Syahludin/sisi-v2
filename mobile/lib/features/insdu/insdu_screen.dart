@@ -11,6 +11,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
 import '../../widgets/kartu_laporan_tim.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/wa_panel.dart';
 import '../wo/wo_bantu.dart' show temuanTerkunciWo;
 import '../hartek/foto_lapangan.dart';
@@ -722,30 +723,6 @@ class _InsDuScreenState extends State<InsDuScreen> {
     );
   }
 
-  Widget _langkah(int n, String judul, String sub) => Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.brand100, shape: BoxShape.circle),
-            child: Text('$n', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.merek)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(judul, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
-              const SizedBox(height: 2),
-              Text(sub, style: HartekGaya.sekunder),
-            ]),
-          ),
-        ]),
-      );
-
-  /// Tunggakan laporan sebelumnya. v1.0.16 (kvlar 22 Okt 2026): satu kartu per gardu yang pengukurannya belum
-  /// lengkap (LWBP dan / atau WBP), dengan 2 pilihan: isi LWBP + WBP susulan (masuk realisasi tanggal laporan itu)
-  /// atau hapus gardu itu dari laporan. Gardu yang sudah lengkap di HP tampil "menunggu kirim".
   Widget _blokTunggakan(Map<String, dynamic> t) {
     final terbuka = _doc == null ? const <Map<String, dynamic>>[] : InsDuLokal.tunggakanTerbuka(_doc!);
     final semua = InsDuLokal.daftar(t['realisasi']);
@@ -880,18 +857,20 @@ class _InsDuScreenState extends State<InsDuScreen> {
     final blok = _doc != null && InsDuLokal.tunggakanTerbuka(_doc!).isNotEmpty;
     return [
       if (tunggak != null) _blokTunggakan(tunggak),
-      KartuHartek(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 2),
-        child: Column(children: [
-          _langkah(1, 'Laporan Utama', 'KM dan koordinat awal perjalanan.'),
-          _langkah(2, 'Gardu + tier', 'Pilih gardu dan tier (Tier 1, Tier 2, atau keduanya). Tier 1 = ukur LWBP + cover, lalu WBP malam.'),
-          _langkah(3, 'Temuan', 'Dicatat di kartu gardu, koordinat terisi dari Master Gardu, foto temuan + gardu.'),
-        ]),
+      JudulSeksiSisi('Laporan hari ini', keterangan: tanggalHartek(_tanggal)),
+      // v1.0.20: kartu Mulai inspeksi (pola Laporan ROW); tunggakan WBP H-1 tetap menahan laporan baru
+      KartuMulaiLaporan(
+        judul: 'Belum ada inspeksi gardu hari ini',
+        ikon: Icons.electrical_services_rounded,
+        langkah: const [
+          'Laporan Utama: KM + koordinat berangkat',
+          'Gardu + tier (Tier 1 = ukur LWBP + cover, lalu WBP malam)',
+          'Temuan: koordinat dari Master Gardu, foto temuan + gardu',
+        ],
+        catatan: 'Bisa tanpa sinyal: data tersimpan di HP dan terkirim otomatis.',
+        labelMulai: blok ? 'Lengkapi tunggakan dulu' : 'Mulai inspeksi hari ini',
+        onMulai: blok || !_boleh || _sibuk ? null : _buatHeader,
       ),
-      const SizedBox(height: 10),
-      const Text('Bisa tanpa sinyal: data tersimpan di HP dan terkirim otomatis.', textAlign: TextAlign.center, style: HartekGaya.sekunder),
-      const SizedBox(height: 10),
-      _tombolUtama(blok ? 'Lengkapi tunggakan dulu' : 'Buat Laporan Utama', blok ? null : _buatHeader, ikon: Icons.arrow_forward_rounded),
     ];
   }
 
@@ -1022,20 +1001,22 @@ class _InsDuScreenState extends State<InsDuScreen> {
           node: h, ubahHeader: true, onCobaUlang: () => _cobaUlang(id, ubah: true), onBuang: () => _buang(id, ubah: true), padding: const EdgeInsets.only(top: 12)),
       const SizedBox(height: 14),
       _statusKirim(),
-      Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.touch_app_outlined, size: 18, color: HartekGaya.redup),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-                _realisasi.isEmpty
-                    ? 'Ketuk + untuk menambah gardu. Ketuk angka Gardu untuk rincian, pengukuran, dan temuan tiap gardu.'
-                    : 'Ketuk angka Gardu untuk rincian, pengukuran, dan temuan tiap gardu; angka Temuan untuk temuan per jenis.',
-                style: HartekGaya.sekunder),
-          ),
-        ]),
-      ),
+      // v1.0.20: gardu (pengukuran + temuan) langsung di halaman laporan, pola ROW / Hartek
+      const SizedBox(height: 18),
+      JudulSeksiSisi('Gardu diinspeksi',
+          keterangan: '${ring.gardu} gardu · ${ring.temuan + ring.tertinggal} temuan',
+          aksi: _boleh
+              ? TextButton.icon(
+                  onPressed: _sibuk ? null : () => unawaited(_tambahGardu()),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Gardu'),
+                )
+              : null),
+      if (_realisasi.isEmpty)
+        const KosongHartek(
+            ikon: Icons.electrical_services_outlined, judul: 'Belum ada gardu', petunjuk: 'Ketuk Gardu (atau + di kartu) untuk menambah gardu.')
+      else
+        for (final r in _realisasi) _kartuGardu(r),
     ];
   }
 

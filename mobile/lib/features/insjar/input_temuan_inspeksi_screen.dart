@@ -42,7 +42,10 @@ import 'temuan_offline.dart';
 ///     multi-pilihan (jenis temuan, tanggal inspeksi, penyulang, tim inspeksi), kartu ringkasan jumlah per jenis temuan
 ///     di bawah filter (ketuk jenis = saring).
 class InputTemuanInspeksiScreen extends StatefulWidget {
-  const InputTemuanInspeksiScreen({super.key, required this.deps, required this.sesi});
+  const InputTemuanInspeksiScreen({super.key, required this.deps, required this.sesi, this.bukaTemuanId});
+
+  /// v1.0.20: dibuka dari lonceng = tab Daftar + rincian temuan ini langsung tampil.
+  final String? bukaTemuanId;
   final Deps deps;
   final Sesi sesi;
 
@@ -128,7 +131,27 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       _master ??= m;
     });
     unawaited(_muatMaster());
-    await _unduh(diam: o != null);
+    if (!_bukaTujuan()) {
+      await _unduh(diam: o != null);
+      _bukaTujuan();
+    } else {
+      unawaited(_unduh(diam: true));
+    }
+  }
+
+  bool _tujuanDibuka = false;
+
+  /// v1.0.20: temuan dari lonceng = pindah ke tab Daftar Temuan lalu buka rinciannya. true = sudah dibuka.
+  bool _bukaTujuan() {
+    final id = widget.bukaTemuanId ?? '';
+    if (id.isEmpty || _tujuanDibuka || !mounted) return _tujuanDibuka;
+    final t = _semua.where((x) => _teks(x['temuanId']) == id).firstOrNull;
+    if (t == null) return false;
+    _tujuanDibuka = true;
+    _tab.animateTo(1);
+    unawaited(bukaDaftarTemuan(context, DataRingkasTemuan(temuan: [t], urutan: const {}, kartu: (c, x) => _kartuTemuan(x)),
+        judul: _teks(t['jenisTemuan']).isEmpty ? 'Temuan' : _teks(t['jenisTemuan']), sub: _teks(t['kodeTemuan'])));
+    return true;
   }
 
   /// Master form dari server, disimpan di HP. Gagal (tanpa sinyal) = master simpanan tetap dipakai.

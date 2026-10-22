@@ -379,6 +379,7 @@ function kirimWoKeTim_(sesi, data, pindahSaja) {
     var rev = ubahBaris_(tt, 'temuan_id', d.temuanId, u, d.revision);
     var baru = Object.assign({}, t, u, { revision: rev });
     if (String(t.tim_tindak_lanjut_id || '') !== tim.timId) catatRiwayatWo_(t, tim, pindah ? 'PINDAH' : 'TERUSKAN', sesi);   // v1.0.16
+    hapusCacheLoncengTim_([tim.timId, String(t.tim_tindak_lanjut_id || '')]);   // v1.0.20: lonceng WO tim langsung terbaru
     auditLog_(sesi, pindah ? 'WO_PINDAH' : 'WO_TERUSKAN', teksWo_(t.kode_temuan),
       (pindah ? teksWo_(t.tim_tindak_lanjut) + ' -> ' : '') + tim.nama, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { temuanId: String(d.temuanId), revision: rev, pindah: pindah, temuan: woKeHp_(baru, []) };
@@ -408,6 +409,7 @@ function tarikWo_(sesi, data) {
     };
     var rev = ubahBaris_(tt, 'temuan_id', d.temuanId, u, d.revision);
     catatRiwayatWo_(t, null, 'TARIK', sesi);   // v1.0.16
+    hapusCacheLoncengTim_([String(t.tim_tindak_lanjut_id || '')]);   // v1.0.20
     auditLog_(sesi, 'WO_TARIK', teksWo_(t.kode_temuan), teksWo_(t.tim_tindak_lanjut), 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { temuanId: String(d.temuanId), revision: rev, temuan: woKeHp_(Object.assign({}, t, u, { revision: rev }), []) };
   }, 20000);

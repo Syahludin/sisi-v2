@@ -97,7 +97,6 @@ function endpoints_() {
     buatHeaderHartek: { fn: buatHeaderHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 20 },
     ubahHeaderHartek: { fn: ubahHeaderHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     simpanPgHartek: { fn: simpanPgHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
-    ubahPgHartek: { fn: ubahPgHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     simpanPekerjaanHartek: { fn: simpanPekerjaanHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     ubahPekerjaanHartek: { fn: ubahPekerjaanHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },   // v0.97.0: ubah jumlah rincian
     simpanMaterialHartek: { fn: simpanMaterialHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 40 },

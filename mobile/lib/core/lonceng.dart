@@ -24,6 +24,9 @@ class Lonceng extends ChangeNotifier with WidgetsBindingObserver {
   /// Dipasang kerangka dashboard: buka layar tujuan item (P0 / temuan / WO).
   void Function(Map<String, dynamic> item)? buka;
 
+  /// v1.0.20: WO yang harus langsung dibuka tab WO (temuanId), diisi saat notifikasi WO diketuk.
+  final ValueNotifier<String?> tujuanWo = ValueNotifier<String?>(null);
+
   bool get aktif => _sesi != null;
 
   void mulai(ApiClient api, Sesi sesi) {

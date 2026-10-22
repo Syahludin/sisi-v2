@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_client.dart';
@@ -123,7 +124,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
       tampilPesan(context, 'Kode hari ini belum ditarik. Sambungkan internet lalu tekan Sinkron.');
       return;
     }
-    final h = await Navigator.push<RowHeader>(
+    final h = await bukaForm<RowHeader>(
         context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi)));
     if (h != null && mounted) await _buka(h);
   }
@@ -216,7 +217,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
   }
 
   Future<void> _ubahHeader(RowHeader h) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: h)));
+    await bukaForm(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: h)));
     if (!mounted) return;
     setState(() {
       _data = _muat();
@@ -325,9 +326,12 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
               // v1.0.19: desain Jaringan SiSi: judul seksi bertanggal, kartu kosong dengan tombol mulai langsung
               JudulSeksiSisi('Laporan hari ini', keterangan: DateFormat('EEEE, d MMMM y', 'id_ID').format(DateTime.now())),
               if (d.header.isEmpty)
-                _MulaiLaporan(
-                  bisa: widget.sesi.bisaUbah('ROW_EKSEKUSI'),
-                  onMulai: () => _tambah(d),
+                KartuMulaiLaporan(
+                  judul: 'Belum ada laporan ROW hari ini',
+                  ikon: Icons.forest_rounded,
+                  langkah: const ['Data perjalanan tim: KM + koordinat berangkat', 'Penyulang yang dikerjakan', 'Eksekusi rabas / tebang + foto'],
+                  labelMulai: 'Mulai laporan hari ini',
+                  onMulai: widget.sesi.bisaUbah('ROW_EKSEKUSI') ? () => _tambah(d) : null,
                 )
               else
                 for (final h in d.header) ...[
@@ -340,45 +344,6 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
       },
     );
   }
-}
-
-/// v1.0.19: belum ada laporan hari ini = kartu ajakan bergaya Jaringan SiSi dengan tombol Mulai laporan (sama dengan +).
-class _MulaiLaporan extends StatelessWidget {
-  const _MulaiLaporan({required this.bisa, required this.onMulai});
-  final bool bisa;
-  final VoidCallback onMulai;
-
-  @override
-  Widget build(BuildContext context) => LatarSisi(
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .14),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.accent400.withValues(alpha: .7), width: 1.4),
-            ),
-            child: const Icon(Icons.forest_rounded, color: AppColors.accent400, size: 28),
-          ),
-          const SizedBox(height: 14),
-          const Text('Belum ada laporan ROW hari ini',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 4),
-          const Text('Isi data perjalanan tim (KM + koordinat), lalu catat eksekusi rabas / tebang per penyulang.',
-              style: TextStyle(fontSize: 13, height: 1.4, color: Color(0xD9FFFFFF))),
-          if (bisa) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onMulai,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.accent400, foregroundColor: AppColors.brand950, minimumSize: const Size.fromHeight(50)),
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Mulai laporan hari ini', style: TextStyle(fontWeight: FontWeight.w900)),
-            ),
-          ],
-        ]),
-      );
 }
 
 class _Ringkas {

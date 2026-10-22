@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/api_client.dart';
 import '../../core/gps.dart';
@@ -139,7 +140,7 @@ Future<Map<String, dynamic>?> bukaFormHartek(
   String judulApp = 'Input Hartek',
   String catatanBawah = catatanFormOffline,
 }) =>
-    Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
+    bukaForm<Map<String, dynamic>>(context, MaterialPageRoute(
       builder: (_) => FormHartekPage(
         judul: judul,
         keterangan: keterangan,

@@ -61,19 +61,6 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tinggi = MediaQuery.sizeOf(context).height;
-    Widget modul(IconData i, String t) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: .18)),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(i, size: 14, color: AppColors.accent400),
-            const SizedBox(width: 5),
-            Text(t, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white)),
-          ]),
-        );
     return Scaffold(
       backgroundColor: AppColors.brand950,
       body: DecoratedBox(
@@ -141,14 +128,6 @@ class LoginScreen extends StatelessWidget {
                             style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .6, color: Colors.white)),
                       ]),
                     ),
-                    const SizedBox(height: 22),
-                    Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-                      modul(Icons.forest_outlined, 'ROW'),
-                      modul(Icons.handyman_outlined, 'Hartek'),
-                      modul(Icons.bolt_rounded, 'Yandal'),
-                      modul(Icons.travel_explore_rounded, 'Inspeksi'),
-                      modul(Icons.calendar_month_rounded, 'Jadwal Padam'),
-                    ]),
                     const SizedBox(height: 38),
                     SizedBox(
                       width: 280,
@@ -197,6 +176,7 @@ class _FormLogin extends StatefulWidget {
 class _FormLoginState extends State<_FormLogin> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _fokusUser = FocusNode(), _fokusSandi = FocusNode(); // v1.0.20: sorot kartu kredensial
   bool _proses = false;
   bool _lihat = false;
   String? _pesan;
@@ -206,6 +186,8 @@ class _FormLoginState extends State<_FormLogin> {
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _fokusUser.dispose();
+    _fokusSandi.dispose();
     super.dispose();
   }
 
@@ -261,23 +243,6 @@ class _FormLoginState extends State<_FormLogin> {
     } finally {
       if (mounted) setState(() => _proses = false);
     }
-  }
-
-  InputDecoration _dek(String label, String hint, IconData ikon, Color aksen, {Widget? suffix}) {
-    OutlineInputBorder b(double w) =>
-        OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: aksen, width: w));
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(ikon, color: aksen),
-      suffixIcon: suffix,
-      isDense: true,
-      filled: true,
-      fillColor: aksen.withValues(alpha: .06),
-      border: b(1.5),
-      enabledBorder: b(1.5),
-      focusedBorder: b(1.8),
-    );
   }
 
   @override
@@ -338,24 +303,60 @@ class _FormLoginState extends State<_FormLogin> {
                 ),
                 const SizedBox(height: 12),
               ],
-              TextField(
-                controller: _username,
-                enabled: !_proses,
-                autocorrect: false,
-                enableSuggestions: false,
-                decoration: _dek('Username (Kode Unit.Tim)', 'cth. 16130.row01', Icons.person_outline, AppColors.navy700),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _password,
-                enabled: !_proses,
-                obscureText: !_lihat,
-                onSubmitted: (_) => _proses ? null : _masuk(),
-                decoration: _dek('Kata sandi', 'Masukkan kata sandi', Icons.lock_outline, AppColors.amber600,
-                    suffix: IconButton(
-                      icon: Icon(_lihat ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                      onPressed: () => setState(() => _lihat = !_lihat),
-                    )),
+              // v1.0.20 (permintaan kvlar 23 Okt 2026): satu kartu kredensial (username + kata sandi) bergaya SiSi
+              ListenableBuilder(
+                listenable: Listenable.merge([_fokusUser, _fokusSandi]),
+                builder: (context, _) {
+                  final fokus = _fokusUser.hasFocus || _fokusSandi.hasFocus;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                          colors: [AppColors.brand50, Colors.white], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: fokus ? AppColors.brand600 : AppColors.neutral200, width: fokus ? 1.6 : 1),
+                      boxShadow: [
+                        BoxShadow(
+                            color: (fokus ? AppColors.brand500 : AppColors.brand950).withValues(alpha: fokus ? .18 : .05),
+                            blurRadius: fokus ? 18 : 10,
+                            offset: const Offset(0, 6)),
+                      ],
+                    ),
+                    child: Column(children: [
+                      _KolomKredensial(
+                        controller: _username,
+                        fokus: _fokusUser,
+                        aktif: !_proses,
+                        label: 'USERNAME',
+                        hint: 'cth. 16130.row01',
+                        ikon: Icons.person_rounded,
+                        latarIkon: SisiMotif.gradien,
+                        warnaIkon: Colors.white,
+                        aksiKeyboard: TextInputAction.next,
+                        onSubmitted: (_) => _fokusSandi.requestFocus(),
+                      ),
+                      const Divider(height: 1, indent: 70, endIndent: 16),
+                      _KolomKredensial(
+                        controller: _password,
+                        fokus: _fokusSandi,
+                        aktif: !_proses,
+                        label: 'KATA SANDI',
+                        hint: 'Masukkan kata sandi',
+                        ikon: Icons.key_rounded,
+                        latarIkon: const LinearGradient(colors: [AppColors.accent400, AppColors.accent600]),
+                        warnaIkon: AppColors.brand950,
+                        rahasia: !_lihat,
+                        aksiKeyboard: TextInputAction.done,
+                        onSubmitted: (_) => _proses ? null : _masuk(),
+                        suffix: IconButton(
+                          tooltip: _lihat ? 'Sembunyikan kata sandi' : 'Lihat kata sandi',
+                          icon: Icon(_lihat ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: AppColors.neutral500),
+                          onPressed: () => setState(() => _lihat = !_lihat),
+                        ),
+                      ),
+                    ]),
+                  );
+                },
               ),
               const SizedBox(height: 18),
               SizedBox(
@@ -388,6 +389,80 @@ class _FormLoginState extends State<_FormLogin> {
       ),
     );
   }
+}
+
+/// v1.0.20: satu baris kartu kredensial: kotak ikon berwarna, label kecil huruf besar, isian tanpa garis.
+class _KolomKredensial extends StatelessWidget {
+  const _KolomKredensial({
+    required this.controller,
+    required this.fokus,
+    required this.aktif,
+    required this.label,
+    required this.hint,
+    required this.ikon,
+    required this.latarIkon,
+    required this.warnaIkon,
+    required this.aksiKeyboard,
+    required this.onSubmitted,
+    this.rahasia = false,
+    this.suffix,
+  });
+  final TextEditingController controller;
+  final FocusNode fokus;
+  final bool aktif, rahasia;
+  final String label, hint;
+  final IconData ikon;
+  final Gradient latarIkon;
+  final Color warnaIkon;
+  final TextInputAction aksiKeyboard;
+  final ValueChanged<String> onSubmitted;
+  final Widget? suffix;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(gradient: latarIkon, borderRadius: BorderRadius.circular(13)),
+            child: Icon(ikon, color: warnaIkon, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.w800,
+                      color: fokus.hasFocus ? AppColors.brand700 : AppColors.neutral500)),
+              TextField(
+                controller: controller,
+                focusNode: fokus,
+                enabled: aktif,
+                obscureText: rahasia,
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: aksiKeyboard,
+                onSubmitted: onSubmitted,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.brand950),
+                decoration: InputDecoration(
+                  hintText: hint,
+                  isDense: true,
+                  filled: false,
+                  contentPadding: const EdgeInsets.only(top: 4, bottom: 2),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
+              ),
+            ]),
+          ),
+          if (suffix != null) suffix!,
+        ]),
+      );
 }
 
 class _DialogBerhasil extends StatelessWidget {

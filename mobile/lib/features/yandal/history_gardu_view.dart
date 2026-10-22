@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -197,7 +198,7 @@ class HistoryPengukuranGarduViewState extends State<HistoryPengukuranGarduView> 
       tampilPesan(context, 'Jam shift sudah berakhir atau shift belum aktif.');
       return;
     }
-    final baru = await Navigator.push<P0Lokal>(
+    final baru = await bukaForm<P0Lokal>(
       context,
       MaterialPageRoute(
         builder: (_) => FormP0Screen(

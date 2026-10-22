@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../yandal/approval_p0_repository.dart';
 import 'aturan_gardu_card.dart';
@@ -131,7 +132,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                 ikon: Icons.key_rounded,
                 judul: 'Ganti Password',
                 sub: 'Perlu internet. HP lain dengan akun ini akan dikeluarkan.',
-                onTap: () => Navigator.push(context, MaterialPageRoute<bool>(builder: (_) => GantiPasswordScreen(deps: widget.deps, sesi: s))),
+                onTap: () => bukaForm(context, MaterialPageRoute<bool>(builder: (_) => GantiPasswordScreen(deps: widget.deps, sesi: s))),
               ),
             ],
             const SizedBox(height: 22),

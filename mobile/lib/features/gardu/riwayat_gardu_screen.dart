@@ -8,6 +8,7 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/sisi_motif.dart';
 import 'arsip_ba_lembar.dart' show bolehLihatBa;
 import 'daftar_ba_screen.dart';
 import 'gardu_model.dart';
@@ -23,7 +24,11 @@ Future<PilihanGardu?> pilihTampilanGardu(BuildContext context, Gardu g) => showM
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Gardu ${g.no}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+            Row(children: [
+              const Text('Gardu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+              const SizedBox(width: 8),
+              PilNoGardu(g.no),
+            ]),
             Text(g.alamat.isEmpty ? g.penyulang : g.alamat, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12.5, color: AppColors.neutral500)),
             const SizedBox(height: 14),
@@ -31,7 +36,7 @@ Future<PilihanGardu?> pilihTampilanGardu(BuildContext context, Gardu g) => showM
               ikon: Icons.build_circle_outlined,
               warna: AppColors.accent700,
               latar: AppColors.accent100,
-              judul: 'Lihat History Perbaikan & Manajemen Trafo',
+              judul: 'Lihat Rekam Jejak Trafo & Gardu',
               sub: 'Riwayat temuan + perbaikan, Berita Acara dan pergantian trafo',
               onTap: () => Navigator.pop(c, PilihanGardu.perbaikan),
             ),
@@ -41,7 +46,7 @@ Future<PilihanGardu?> pilihTampilanGardu(BuildContext context, Gardu g) => showM
               warna: AppColors.navy700,
               latar: AppColors.brand100,
               judul: 'Lihat Pengukuran Gardu',
-              sub: 'Beban, arus R / S / T / N, tegangan, dan riwayat pengukuran',
+              sub: 'Beban, arus, tegangan per periode LWBP / WBP',
               onTap: () => Navigator.pop(c, PilihanGardu.pengukuran),
             ),
           ]),
@@ -70,7 +75,11 @@ class _OpsiGardu extends StatelessWidget {
               Container(
                 width: 46,
                 height: 46,
-                decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [latar, Colors.white], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: warna.withValues(alpha: .25)),
+                ),
                 child: Icon(ikon, color: warna),
               ),
               const SizedBox(width: 12),
@@ -89,6 +98,7 @@ class _OpsiGardu extends StatelessWidget {
 }
 
 /// v1.0.17: layar riwayat satu gardu, dua tab: History Perbaikan & Manajemen Trafo / Pengukuran Gardu.
+/// v1.0.20: tab Rekam Jejak Trafo & Gardu / Pengukuran (LWBP / WBP dibedakan), nomor gardu disorot di header.
 class RiwayatGarduScreen extends StatefulWidget {
   const RiwayatGarduScreen({super.key, required this.deps, required this.sesi, required this.gardu, this.awal = PilihanGardu.perbaikan});
   final Deps deps;
@@ -102,6 +112,7 @@ class RiwayatGarduScreen extends StatefulWidget {
 
 class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   Map<String, dynamic>? _data;
+  String _periode = ''; // v1.0.20: '' = semua, LWBP, WBP
   String? _galat;
   bool _muat = false;
 
@@ -141,17 +152,36 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
         length: 2,
         initialIndex: widget.awal == PilihanGardu.perbaikan ? 0 : 1,
         child: Scaffold(
-          backgroundColor: const Color(0xFFF6F8FC),
+          backgroundColor: AppColors.neutral50,
+          // v1.0.20: header Jaringan SiSi dengan nomor gardu disorot, tab Rekam Jejak Trafo & Gardu / Pengukuran
           appBar: AppBar(
-            backgroundColor: AppColors.navy700,
+            backgroundColor: AppColors.brand900,
             foregroundColor: Colors.white,
-            title: Text('Gardu ${_g.no}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            flexibleSpace: const DecoratedBox(
+              decoration: BoxDecoration(gradient: SisiMotif.gradien),
+              child: CustomPaint(painter: PolaJaringanPainter(alpha: .09, kerapatan: 5), size: Size.infinite),
+            ),
+            toolbarHeight: 84,
+            titleSpacing: 4,
+            title: Row(children: [
+              PilNoGardu(_g.no, besar: true),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_g.alamat.isEmpty ? 'Gardu distribusi' : _g.alamat,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Text([_g.penyulang, _g.section].where((x) => x.isNotEmpty).join(' · '),
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xD9FFFFFF))),
+                ]),
+              ),
+            ]),
             actions: [IconButton(tooltip: 'Muat ulang', onPressed: _muat ? null : _muatData, icon: const Icon(Icons.refresh_rounded))],
             bottom: const TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
-              indicatorColor: AppColors.amber500,
-              tabs: [Tab(text: 'Perbaikan & Trafo'), Tab(text: 'Pengukuran')],
+              indicatorColor: AppColors.accent400,
+              indicatorWeight: 3,
+              tabs: [Tab(text: 'Rekam Jejak Trafo & Gardu'), Tab(text: 'Pengukuran')],
             ),
           ),
           body: TabBarView(children: [_tabPerbaikan(), _tabPengukuran()]),
@@ -220,24 +250,24 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
     );
   }
 
-  Widget _judul(String teks, IconData ikon) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        child: Row(children: [
-          Icon(ikon, size: 18, color: AppColors.cyan600),
-          const SizedBox(width: 6),
-          Text(teks, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-        ]),
-      );
+  Widget _judul(String teks, IconData ikon) => Padding(padding: const EdgeInsets.only(top: 8), child: JudulSeksiSisi(teks));
 
-  Widget _kartu({required Widget child, Color? garis}) => Container(
+  /// v1.0.20: kartu putih dengan garis aksen kiri ([aksen]) supaya jenis data terbaca sekilas.
+  Widget _kartu({required Widget child, Color? garis, Color aksen = AppColors.brand600}) => Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: garis ?? AppColors.neutral200),
+          boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
         ),
-        child: child,
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(width: 4, color: aksen),
+            Expanded(child: Padding(padding: const EdgeInsets.all(14), child: child)),
+          ]),
+        ),
       );
 
   Widget _pil(String teks, Color warna, Color latar) => Container(
@@ -295,6 +325,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
             : (AppColors.accent700, AppColors.accent100, _t(t['statusWo']) == 'DIKERJAKAN' ? 'Sedang diperbaiki' : 'WO terkirim ke tim');
     return _kartu(
       garis: selesai ? null : l,
+      aksen: w,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
@@ -340,7 +371,9 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   // ---------- tab 2: pengukuran ----------
 
   Widget _tabPengukuran() {
-    final ukur = _daftar(_data?['pengukuran']);
+    final semua = _daftar(_data?['pengukuran']);
+    int n(String p) => semua.where((u) => _t(u['periode']).toUpperCase() == p).length;
+    final ukur = _periode.isEmpty ? semua : semua.where((u) => _t(u['periode']).toUpperCase() == _periode).toList();
     return RefreshIndicator(
       onRefresh: _muatData,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
@@ -361,8 +394,21 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
         )),
         BagianArusTegangan(_g),
         _status(),
-        _judul('Riwayat Pengukuran (${ukur.length})', Icons.history_rounded),
-        if (_data != null && ukur.isEmpty) _kosong('Belum ada riwayat pengukuran (Yandal / Inspeksi Gardu).'),
+        _judul('Riwayat Pengukuran (${semua.length})', Icons.history_rounded),
+        // v1.0.20: bedakan pengukuran LWBP (luar beban puncak) dan WBP (beban puncak)
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(value: '', label: Text('Semua · ${semua.length}')),
+            ButtonSegment(value: 'LWBP', icon: const Icon(Icons.wb_sunny_rounded, size: 16), label: Text('LWBP · ${n('LWBP')}')),
+            ButtonSegment(value: 'WBP', icon: const Icon(Icons.nights_stay_rounded, size: 16), label: Text('WBP · ${n('WBP')}')),
+          ],
+          selected: {_periode},
+          onSelectionChanged: (v) => setState(() => _periode = v.first),
+        ),
+        const SizedBox(height: 10),
+        if (_data != null && ukur.isEmpty)
+          _kosong(semua.isEmpty ? 'Belum ada riwayat pengukuran (Yandal / Inspeksi Gardu).' : 'Tidak ada pengukuran $_periode.'),
         for (final u in ukur) _kartuUkur(u),
       ]),
     );
@@ -377,12 +423,16 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
             Text(v, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
           ]),
         );
+    final periode = _t(u['periode']).toUpperCase();
     return _kartu(
+      aksen: periode == 'WBP' || periode == 'LWBP' ? BadgePeriodeBeban.gaya(periode).$2 : AppColors.neutral300,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
+          BadgePeriodeBeban(periode, lengkap: true),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              [if (_t(u['tanggal']).isNotEmpty) tanggalPendek(_t(u['tanggal'])), _t(u['periode']), _t(u['jam'])].where((x) => x.isNotEmpty).join(' · '),
+              [if (_t(u['tanggal']).isNotEmpty) tanggalPendek(_t(u['tanggal'])), _t(u['jam'])].where((x) => x.isNotEmpty).join(' · '),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900),
             ),
           ),

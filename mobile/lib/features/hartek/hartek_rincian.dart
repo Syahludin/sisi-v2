@@ -295,7 +295,13 @@ class RincianHartek extends StatelessWidget {
     this.onBuangUbah,
     this.lokasiTertutup = const <String>{},
     this.onBukaTutupLokasi,
+    this.perLokasi = false,
   });
+
+  /// v1.0.20 (permintaan kvlar 23 Okt 2026): halaman utama laporan Hartek (pola ROW): satu kartu per lokasi
+  /// (penyulang / gardu / non-teknik), di dalamnya rincian pekerjaan, di dalam pekerjaan material yang dipakai.
+  /// Tanpa kepala rincian / kartu jenis.
+  final bool perLokasi;
 
   final List<Map<String, dynamic>> objek;
   final String kodeHeader;
@@ -797,7 +803,27 @@ class RincianHartek extends StatelessWidget {
         ]),
       );
 
+  /// v1.0.20: kartu lokasi berdiri sendiri (halaman utama laporan).
+  List<Widget> _isiPerLokasi() {
+    final rekap = rekapMaterialHartek(objek);
+    return [
+      for (final j in _urutJenis)
+        for (final pg in _lokasiJenis(j))
+          KartuHartek(
+            key: ValueKey('lokasi-${teksHartek(pg['pgId'])}'),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: _lokasiRincian(pg, JenisPg.dari(j), true),
+          ),
+      if (rekap.isNotEmpty) ...[
+        _judulSeksi('Total material', info: '${rekap.length} jenis'),
+        _totalMaterial(rekap),
+      ],
+    ];
+  }
+
   List<Widget> _isi() {
+    if (perLokasi) return _isiPerLokasi();
     final rekap = rekapMaterialHartek(objek);
     final jenisAda = _urutJenis.where((j) => _lokasiJenis(j).isNotEmpty).toList();
     return [

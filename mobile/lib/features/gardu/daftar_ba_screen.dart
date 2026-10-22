@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
@@ -344,7 +345,7 @@ class _DaftarBaScreenState extends State<DaftarBaScreen> {
     final layar = b.jenis == 'Penggantian Trafo'
         ? BaPenggantianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: b.baId)
         : BaPengoperasianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: b.baId);
-    final ok = await Navigator.push(context, MaterialPageRoute<bool>(builder: (_) => layar));
+    final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
     if (ok == true && mounted) await _segarkan();
   }
 

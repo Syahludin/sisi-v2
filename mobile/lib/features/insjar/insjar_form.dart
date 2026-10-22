@@ -267,10 +267,13 @@ class KartuTemuan extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: AppColors.accent100, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.report_gmailerrorred_rounded, size: 20, color: AppColors.accent700),
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppColors.accent400, AppColors.accent600], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Icons.report_gmailerrorred_rounded, size: 21, color: AppColors.brand950),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -180,7 +181,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
 
   /// Tombol + : form P0 baru, lalu langsung ke detail (ambil foto Sebelum).
   Future<void> tambah() async {
-    final baru = await Navigator.push<P0Lokal>(
+    final baru = await bukaForm<P0Lokal>(
         context, MaterialPageRoute(builder: (_) => FormP0Screen(deps: widget.deps, sesi: widget.sesi)));
     if (baru != null) unawaited(widget.deps.syncCtl.sinkron().then((_) => muat())); // v0.65.0: P0 baru langsung dikirim
     await muat();

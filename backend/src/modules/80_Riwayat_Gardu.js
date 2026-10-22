@@ -21,6 +21,20 @@ function wajibAdminRiwayatGardu_(sesi) {
 function teksRg_(v) { return v === null || v === undefined ? '' : String(v).trim(); }
 function angkaRg_(v) { return v === '' || v === null || v === undefined || !isFinite(Number(v)) ? null : Number(v); }
 
+/**
+ * v1.0.20 (permintaan kvlar 23 Okt 2026): periode ukur selalu LWBP / WBP supaya admin bisa membedakannya. Isian Waktu
+ * Beban lama kosong / tidak baku = dari jam ukur (WBP 17:00-21:59 WIB, sama dengan waktuBebanGardu_).
+ */
+function periodeUkurRg_(periode, jam) {
+  var p = teksRg_(periode).toUpperCase();
+  if (/LWBP/.test(p)) return 'LWBP';
+  if (/WBP/.test(p)) return 'WBP';
+  var m = /^(\d{1,2}):/.exec(teksRg_(jam));
+  if (!m) return '';
+  var h = Number(m[1]);
+  return h >= YAN_WBP_JAM_.mulai && h < YAN_WBP_JAM_.sampai ? 'WBP' : 'LWBP';
+}
+
 /** Riwayat ukur Yandal (yan_Gardu). */
 function ukurYandalRg_(garduId, noGardu) {
   if (!cfg_().YANDAL_SHEET_ID) return [];
@@ -28,8 +42,9 @@ function ukurYandalRg_(garduId, noGardu) {
     return (String(r.gardu_id) === garduId || teksRg_(r['No Gardu']).toUpperCase() === noGardu) && teksRg_(r.status) !== 'BATAL';
   }).map(function (r) {
     return {
-      sumber: 'Pengecekan Gardu Yandal', kode: teksRg_(r['Kode Pengukuran Gardu']), tanggal: tglSel_(r.Tanggal), periode: teksRg_(r['Waktu Beban']),
-      jam: teksRg_(r['Jam Ukur']), petugas: teksRg_(r.Petugas || r.Tim),
+      sumber: 'Pengecekan Gardu Yandal', kode: teksRg_(r['Kode Pengukuran Gardu']), tanggal: tglSel_(r.Tanggal),
+      periode: periodeUkurRg_(r['Waktu Beban'], jamSelJp_(r['Jam Ukur'])),
+      jam: jamSelJp_(r['Jam Ukur']), petugas: teksRg_(r.Petugas || r.Tim),
       bebanR: angkaRg_(r['Beban R (A)']), bebanS: angkaRg_(r['Beban S (A)']), bebanT: angkaRg_(r['Beban T (A)']), bebanN: angkaRg_(r['Beban N (A)']),
       teganganRS: angkaRg_(r['Tegangan R-S (V)']), teganganRT: angkaRg_(r['Tegangan R-T (V)']), teganganST: angkaRg_(r['Tegangan S-T (V)']),
       teganganRN: angkaRg_(r['Tegangan R-N (V)']), teganganSN: angkaRg_(r['Tegangan S-N (V)']), teganganTN: angkaRg_(r['Tegangan T-N (V)']),

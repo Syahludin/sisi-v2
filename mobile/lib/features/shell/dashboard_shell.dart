@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
@@ -43,6 +44,54 @@ class _DashboardShellState extends State<DashboardShell> {
   late final int _beranda = _arsip ? 2 : 1; // indeks Beranda = tengah bottom bar
   late int _tab = _beranda;
 
+  /// v1.0.20 (permintaan kvlar 23 Okt 2026): navigator per tab, bottom bar tetap tampil di halaman rincian. Form dibuka
+  /// di navigator akar (bukaForm) sehingga menutupi bar. [_dalam] = jumlah halaman di tiap tab (1 = halaman utama tab).
+  final Map<int, GlobalKey<NavigatorState>> _nav = {};
+  final Map<int, _PengamatTab> _pengamat = {};
+
+  GlobalKey<NavigatorState> _navTab(int i) => _nav.putIfAbsent(i, () => GlobalKey<NavigatorState>(debugLabel: 'tab$i'));
+  _PengamatTab _pengamatTab(int i) => _pengamat.putIfAbsent(i, _PengamatTab.new);
+
+  /// Halaman bertumpuk di tab aktif ditutup dulu; di halaman utama tab lain = ke Beranda; di Beranda = keluar app.
+  void _kembali() {
+    final nav = _navTab(_tab).currentState;
+    if (nav != null && nav.canPop()) {
+      unawaited(nav.maybePop());
+    } else if (_tab != _beranda) {
+      _keTab(_beranda);
+    } else {
+      unawaited(SystemNavigator.pop());
+    }
+  }
+
+  /// Ketuk tab yang sedang aktif = kembali ke halaman utama tab itu.
+  void _pilihTab(int i) {
+    if (i == _tab) {
+      _navTab(i).currentState?.popUntil((r) => r.isFirst);
+    } else {
+      _keTab(i);
+    }
+  }
+
+  /// Halaman tab: navigator sendiri (halaman utama = page deklaratif supaya sesi baru tetap sampai), halaman rincian
+  /// diberi ruang di bawah setinggi bottom bar.
+  Widget _tabDenganNavigator(int i, Widget halaman, double tinggiBar) => ValueListenableBuilder<int>(
+        valueListenable: _pengamatTab(i).dalam,
+        builder: (context, dalam, child) {
+          final rincian = dalam > 1;
+          return Padding(
+            padding: EdgeInsets.only(bottom: rincian ? tinggiBar : 0),
+            child: rincian ? MediaQuery.removePadding(context: context, removeBottom: true, child: child!) : child,
+          );
+        },
+        child: Navigator(
+          key: _navTab(i),
+          observers: [_pengamatTab(i)],
+          pages: [MaterialPage<void>(key: ValueKey('tab-$i'), child: halaman)],
+          onDidRemovePage: (_) {},
+        ),
+      );
+
   @override
   void initState() {
     super.initState();
@@ -68,13 +117,24 @@ class _DashboardShellState extends State<DashboardShell> {
   /// Item lonceng diketuk: WO = tab WO, P0 = Approval P0, temuan = Temuan Inspeksi.
   void _bukaNotifikasi(Map<String, dynamic> x) {
     final s = widget.sesi;
+    // v1.0.20: langsung ke datanya (WO terbuka, P0 di tanggalnya + terbuka, temuan = rincian temuan)
+    final tujuan = x['tujuan'] is Map ? Map<String, dynamic>.from(x['tujuan'] as Map) : const <String, dynamic>{};
+    String t(String k) => '${tujuan[k] ?? ''}'.trim();
     switch ('${x['jenis']}') {
       case 'WO':
-        if (s.petugasWo) _keTab(1);
+        if (s.petugasWo) {
+          _keTab(1);
+          Lonceng.i.tujuanWo.value = t('temuanId');
+        }
       case 'P0':
-        unawaited(Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: s))));
+        final p0 = '${x['kunci']}'.startsWith('P0:') ? '${x['kunci']}'.substring(3) : null;
+        _keTab(0);
+        unawaited(_navTab(0).currentState?.push(
+            MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: s, tanggalAwal: t('tanggal'), p0Id: p0))));
       case 'TEMUAN':
-        unawaited(Navigator.push(context, MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: s))));
+        _keTab(0);
+        unawaited(_navTab(0).currentState?.push(
+            MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: s, bukaTemuanId: t('temuanId')))));
     }
   }
 
@@ -126,39 +186,51 @@ class _DashboardShellState extends State<DashboardShell> {
       if (_arsip) TabArsipTim(deps: widget.deps, sesi: widget.sesi), // v1.0.19
       PengaturanScreen(deps: widget.deps, sesi: widget.sesi, onLogout: () => widget.onSesiBerubah(null)),
     ];
+    // v1.0.20: keyboard terbuka = bar disembunyikan (isian tidak tertutup); halaman tab mengatur insetnya sendiri
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final tinggiBar = 80 + MediaQuery.paddingOf(context).bottom;
     return PopScope(
-      canPop: _tab == _beranda,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _keTab(_beranda);
+        if (!didPop) _kembali();
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
+        resizeToAvoidBottomInset: false,
         body: Container(
           decoration: const BoxDecoration(
             color: AppColors.neutral100,
             image: DecorationImage(image: AssetImage('assets/images/bg-sisi.png'), fit: BoxFit.cover, opacity: .5),
           ),
-          child: IndexedStack(index: _tab.clamp(0, halaman.length - 1), children: halaman), // v1.0.11: tab WO bisa hilang saat menu berubah
+          child: IndexedStack(index: _tab.clamp(0, halaman.length - 1), children: [
+            for (var i = 0; i < halaman.length; i++) _tabDenganNavigator(i, halaman[i], keyboard ? 0 : tinggiBar),
+          ]), // v1.0.11: tab WO bisa hilang saat menu berubah
         ),
-        bottomNavigationBar: _SisiBottomBar(
-          indeks: _tab.clamp(0, halaman.length - 1),
-          onPilih: _keTab,
-          pertama: widget.sesi.modeAdmin
-              ? const _ItemNav('Operasi', Icons.dashboard_customize_outlined)
-              : widget.sesi.petugasYandal
-                  ? const _ItemNav('Shift', Icons.badge_outlined)
-                  : widget.sesi.petugasHartek
-                      ? const _ItemNav('Hartek', Icons.edit_note_rounded)
-                      : widget.sesi.petugasInsJar
-                          ? const _ItemNav('Inspeksi', Icons.travel_explore_rounded)
-                          : widget.sesi.petugasInsDu
-                              ? const _ItemNav('Gardu', Icons.electrical_services_rounded)
-                              : const _ItemNav('Laporan', Icons.assignment_outlined),
-          wo: widget.sesi.petugasWo,
-          arsip: _arsip,
-          labelWo: widget.sesi.petugasYandal ? 'TO P0' : 'WO', // v1.0.16: WO Yandal = TO P0
-        ),
+        bottomNavigationBar: keyboard
+            ? const SizedBox.shrink()
+            : ValueListenableBuilder<int>(
+                valueListenable: _pengamatTab(_tab.clamp(0, halaman.length - 1)).popup,
+                builder: (context, popup, bar) => popup > 0 ? const SizedBox.shrink() : bar!,
+                child: _SisiBottomBar(
+                  indeks: _tab.clamp(0, halaman.length - 1),
+                  onPilih: _pilihTab,
+                  pertama: widget.sesi.modeAdmin
+                      ? const _ItemNav('Operasi', Icons.dashboard_customize_outlined)
+                      : widget.sesi.petugasYandal
+                          ? const _ItemNav('Shift', Icons.badge_outlined)
+                          : widget.sesi.petugasHartek
+                              ? const _ItemNav('Hartek', Icons.edit_note_rounded)
+                              : widget.sesi.petugasInsJar
+                                  ? const _ItemNav('Inspeksi', Icons.travel_explore_rounded)
+                                  : widget.sesi.petugasInsDu
+                                      ? const _ItemNav('Gardu', Icons.electrical_services_rounded)
+                                      : const _ItemNav('Laporan', Icons.assignment_outlined),
+                  wo: widget.sesi.petugasWo,
+                  arsip: _arsip,
+                  labelWo: widget.sesi.petugasYandal ? 'TO P0' : 'WO', // v1.0.16: WO Yandal = TO P0
+                ),
+              ),
       ),
     );
   }
@@ -172,7 +244,8 @@ class _ItemNav {
 
 /// Bottom bar lama: tinggi 80, putih, garis navy 3px dengan lekukan, gelembung navy berbingkai cyan.
 class _SisiBottomBar extends StatelessWidget {
-  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.arsip = false, this.labelWo = 'WO'});
+  const _SisiBottomBar(
+      {required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.arsip = false, this.labelWo = 'WO'});
   final int indeks;
   final ValueChanged<int> onPilih;
   final _ItemNav pertama; // Laporan (PETUGAS) atau Operasi (admin, v0.50)
@@ -293,4 +366,25 @@ class _LatarBar extends CustomPainter {
 
   @override
   bool shouldRepaint(_LatarBar old) => old.cx != cx || old.r != r;
+}
+
+/// v1.0.20: menghitung halaman (PageRoute) dan lembar / menu (popup) di navigator satu tab. Halaman > 1 = rincian
+/// (diberi ruang setinggi bar); popup terbuka = bar disembunyikan supaya tombol lembar bawah tidak tertimpa.
+class _PengamatTab extends NavigatorObserver {
+  final ValueNotifier<int> dalam = ValueNotifier<int>(0);
+  final ValueNotifier<int> popup = ValueNotifier<int>(0);
+
+  void _ubah(Route<dynamic> r, int n) => WidgetsBinding.instance.addPostFrameCallback((_) {
+        final v = r is PageRoute ? dalam : popup;
+        v.value = (v.value + n).clamp(0, 999);
+      });
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => _ubah(route, 1);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _ubah(route, -1);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => _ubah(route, -1);
 }

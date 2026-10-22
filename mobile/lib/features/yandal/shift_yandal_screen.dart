@@ -194,20 +194,35 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
     }
   }
 
-  Widget _pill(String label, int i) {
+  /// v1.0.20: pil tab sama lebar (Expanded), label 2 baris bila perlu, ikon kecil supaya rata.
+  Widget _pill(String label, IconData ikon, int i) {
     final aktif = _tab == i;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _tab = i);
-        if (i == 2) unawaited(_kunciHistoryGardu.currentState?.muat());
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: aktif ? AppColors.navy700 : Colors.transparent, borderRadius: BorderRadius.circular(999)),
-        child: Text(label,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: aktif ? Colors.white : AppColors.neutral700)),
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: aktif,
+        child: GestureDetector(
+          onTap: () {
+            setState(() => _tab = i);
+            if (i == 2) unawaited(_kunciHistoryGardu.currentState?.muat());
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(color: aktif ? AppColors.navy700 : Colors.transparent, borderRadius: BorderRadius.circular(999)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(ikon, size: 16, color: aktif ? Colors.white : AppColors.neutral700),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: TextStyle(fontSize: 12.5, height: 1.15, fontWeight: FontWeight.w800, color: aktif ? Colors.white : AppColors.neutral700)),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -227,14 +242,11 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: AppColors.neutral150, borderRadius: BorderRadius.circular(999)),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [
-                _pill('Pekerjaan Shift', 0),
-                if (widget.denganArsip) _pill('Arsip P0', 1),
-                _pill('History Pengukuran Gardu', 2), // v1.0.19: kalender hanya di Beranda
-              ]),
-            ),
+            child: Row(children: [
+              _pill('Pekerjaan Shift', Icons.badge_outlined, 0),
+              if (widget.denganArsip) _pill('Arsip P0', Icons.inventory_2_outlined, 1),
+              _pill('History Pengukuran Gardu', Icons.electrical_services_rounded, 2), // v1.0.19: kalender hanya di Beranda
+            ]),
           ),
         ),
         Expanded(

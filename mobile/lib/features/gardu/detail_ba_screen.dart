@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../core/navigasi.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -181,7 +182,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
     final layar = _b.jenis == 'Penggantian Trafo'
         ? BaPenggantianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: _b.baId)
         : BaPengoperasianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: _b.baId);
-    final ok = await Navigator.push(context, MaterialPageRoute<bool>(builder: (_) => layar));
+    final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
     if (ok == true && mounted) {
       setState(() => _berubah = true);
       if (!AntreanBa.i.adaUntuk(_b.baId)) await _muat();

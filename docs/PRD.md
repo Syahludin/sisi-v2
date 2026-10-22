@@ -34,5 +34,5 @@ Link PRD: <!-- tempel link Doc "PRD SiSi v2" di sini -->
 - PATCH sudah 99: MINOR + 1, PATCH = 0 (contoh 1.0.99 lalu 1.1.0).
 - MINOR sudah 99 lalu naik lagi: MAJOR + 1, MINOR dan PATCH kembali 0 (contoh 1.99.99 lalu 2.0.0; 0.99.x lalu 1.0.0, bukan 0.100.0).
 - Nomor build pubspec (`+N`) selalu naik 1 tiap rilis.
-- Versi saat ini: **1.0.19** (`VERSI_BACKEND_` di 09_Versi.js, `versiApp` di versi.dart, `version: 1.0.19+193` di pubspec).
+- Versi saat ini: **1.0.20** (`VERSI_BACKEND_` di 09_Versi.js, `versiApp` di versi.dart, `version: 1.0.20+194` di pubspec).
 - Salin bagian ini ke PRD SiSi v2 di ClickUp (bagian versi / rilis).

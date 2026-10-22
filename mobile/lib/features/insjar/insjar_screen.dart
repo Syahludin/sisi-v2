@@ -11,6 +11,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
 import '../../widgets/kartu_laporan_tim.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/wa_panel.dart';
 import '../wo/wo_bantu.dart' show temuanTerkunciWo;
 import '../hartek/foto_lapangan.dart';
@@ -582,54 +583,16 @@ class _InsJarScreenState extends State<InsJarScreen> {
         ]),
       );
 
-  Widget _langkah(int n, String judul, String sub) => Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.brand100, shape: BoxShape.circle),
-            child: Text('$n', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.merek)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(judul, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
-              const SizedBox(height: 2),
-              Text(sub, style: HartekGaya.sekunder),
-            ]),
-          ),
-        ]),
-      );
-
+  /// v1.0.20: belum ada laporan = kartu Mulai inspeksi (pola Laporan ROW).
   List<Widget> _halamanAwal() => [
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(gradient: HartekGaya.gradien, borderRadius: BorderRadius.circular(20)),
-            child: const Icon(Icons.travel_explore_rounded, color: Colors.white, size: 30),
-          ),
+        JudulSeksiSisi('Laporan hari ini', keterangan: tanggalHartek(_tanggal)),
+        KartuMulaiLaporan(
+          judul: 'Belum ada inspeksi jaringan hari ini',
+          ikon: Icons.travel_explore_rounded,
+          langkah: const ['Laporan Utama: KM + koordinat berangkat', 'Penyulang utama: tier, section, total tiang', 'Temuan + foto temuan dan tiang'],
+          labelMulai: 'Mulai inspeksi hari ini',
+          onMulai: _boleh && !_sibuk ? _buatHeader : null,
         ),
-        const SizedBox(height: 20),
-        const Text('Mulai inspeksi', style: HartekGaya.judulBesar),
-        const SizedBox(height: 8),
-        Text('Satu Laporan Utama menampung seluruh penyulang dan temuan inspeksi tim hari ini.',
-            style: HartekGaya.sekunder.copyWith(fontSize: 15)),
-        const SizedBox(height: 22),
-        KartuHartek(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 2),
-          child: Column(children: [
-            _langkah(1, 'Laporan Utama', 'KM dan koordinat awal perjalanan.'),
-            _langkah(2, 'Penyulang utama', 'Penyulang, tier, section, dan total tiang.'),
-            _langkah(3, 'Temuan', 'Jenis temuan, tiang, koordinat, foto temuan dan tiang.'),
-          ]),
-        ),
-        const SizedBox(height: 18),
-        _aksiUtama('Buat Laporan Utama', _buatHeader, ikon: Icons.arrow_forward_rounded),
       ];
 
   /// v1.0.17 (sinkron atomik): hijau hanya sesudah laporan disegel server (ringkasan = rincian = WA).
@@ -939,20 +902,21 @@ class _InsJarScreenState extends State<InsJarScreen> {
           icon: const Icon(Icons.history_rounded, size: 18),
           label: Text('$_tanggalLain data hari sebelumnya tidak terkirim · Buang'),
         ),
-      Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.touch_app_outlined, size: 18, color: HartekGaya.redup),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-                _realisasi.isEmpty
-                    ? 'Tambah penyulang untuk mulai. Ketuk angka Penyulang untuk rincian section dan temuan.'
-                    : 'Ketuk angka Penyulang untuk rincian section dan temuan, angka Temuan untuk temuan per jenis.',
-                style: HartekGaya.sekunder),
-          ),
-        ]),
-      ),
+      // v1.0.20: penyulang utama (section + temuan) langsung di halaman laporan, pola ROW / Hartek
+      const SizedBox(height: 18),
+      JudulSeksiSisi('Penyulang utama',
+          keterangan: '${_realisasi.length} penyulang · ${InsJarLokal.jumlahTemuan(_doc)} temuan',
+          aksi: _boleh
+              ? TextButton.icon(
+                  onPressed: _sibuk ? null : () => unawaited(_tambahRealisasi()),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Penyulang'),
+                )
+              : null),
+      if (InsJarLokal.grupPenyulang(_doc).isEmpty)
+        const KosongHartek(ikon: Icons.cable, judul: 'Belum ada penyulang utama', petunjuk: 'Tambah penyulang yang diinspeksi, lalu catat temuan di section-nya.')
+      else
+        for (final g in InsJarLokal.grupPenyulang(_doc)) _kartuPenyulang(g.penyulang, g.realisasi),
     ];
   }
 

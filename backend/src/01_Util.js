@@ -78,3 +78,23 @@ function ulpCocok_(nilai, alias) {
   alias = alias || cfg_().ULP_ALIAS;
   return alias.indexOf(String(nilai || '').trim().toLowerCase()) !== -1;
 }
+
+/**
+ * v1.0.20 (rekonstruksi endpoint berat): hasil [fn] disimpan di CacheService selama [detik]. Cache gagal / hasil lebih
+ * dari 90 KB = langsung dihitung (tidak pernah mengubah hasil, hanya mempercepat). [kunci] harus memuat semua pembeda
+ * hasil (tim, bulan, peran).
+ */
+function cacheJson_(kunci, detik, fn) {
+  var c = null;
+  try { c = CacheService.getScriptCache(); var ada = c.get(kunci); if (ada) return JSON.parse(ada); } catch (e) { c = null; }
+  var hasil = fn();
+  try {
+    var teks = JSON.stringify(hasil);
+    if (c && teks.length < 90000) c.put(kunci, teks, detik);
+  } catch (e2) { /* tanpa cache */ }
+  return hasil;
+}
+
+function hapusCache_(kunci) {
+  try { CacheService.getScriptCache().removeAll(kunci); } catch (e) { /* tanpa cache */ }
+}
