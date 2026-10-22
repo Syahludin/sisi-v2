@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,8 +11,10 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/foto_slot.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'foto_repository.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Arsip > Lihat Pekerjaan (v0.37): semua pekerjaan satu tanggal (header > penyulang/realisasi > eksekusi + 3 foto).
 /// Pertama kali dibuka butuh sinyal (getArsipHariRow), lalu tersimpan di HP dan bisa dibuka offline.
@@ -121,7 +125,6 @@ class _ArsipHariScreenState extends State<ArsipHariScreen> {
       ]);
     } else {
       isi = ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 40), children: [
-        if (_memuat) const Padding(padding: EdgeInsets.only(bottom: 8), child: LinearProgressIndicator(minHeight: 3)),
         if (_pesan != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -451,7 +454,7 @@ class _FotoArsipState extends State<_FotoArsip> {
       isi = Image.file(File(_path!), fit: BoxFit.cover, cacheWidth: 480,
           errorBuilder: (context, error, stack) => const Center(child: Icon(Icons.broken_image_outlined, color: AppColors.red600)));
     } else if (_memuat) {
-      isi = const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)));
+      isi = const Center(child: SisiLoader(ukuran: 22));
     } else {
       isi = Center(
         child: Icon(_gagal ? Icons.refresh_rounded : Icons.download_rounded, color: _gagal ? AppColors.red600 : AppColors.cyan600),
@@ -534,6 +537,14 @@ class _UnduhFotoArsipState extends State<_UnduhFotoArsip> {
         if (gagal > 0) '$gagal gagal (cek sinyal lalu ulangi)',
       ].join(' · ');
     });
+    // v0.92.1: pop up hanya kalau semua foto berhasil; sebagian gagal cukup ringkasan di bawah tombol
+    if (ok > 0 && gagal == 0) {
+      unawaited(tampilPopupBerhasil(context,
+          judul: 'Foto berhasil didownload',
+          keterangan: izin
+              ? '$ok foto, $galeri masuk galeri\nalbum ${FotoRepository.albumGaleri}'
+              : '$ok foto tersimpan di HP\nIzin galeri ditolak, foto tidak masuk galeri'));
+    }
   }
 
   @override

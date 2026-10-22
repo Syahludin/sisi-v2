@@ -3,7 +3,11 @@
  * Fungsi ini publik supaya muncul di menu Run, jadi WAJIB dicek pemiliknya.
  */
 function pastikanPemilik_() {
-  var email = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  // v0.62.5 (review ulang 7 Okt 2026): fallback getEffectiveUser dari v0.62.4 DICABUT. Web app ini "execute as me" +
+  // akses anonim: untuk pemanggil anonim getActiveUser kosong dan getEffectiveUser = PEMILIK, jadi fallback itu membuat
+  // semua ADMIN_* bisa dipanggil siapa saja begitu ada halaman HtmlService (google.script.run). Wajib active user.
+  // Pemicu waktu yang dipasang pemilik tetap jalan karena berjalan dengan otorisasi pemilik (email tersedia).
+  var email = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
   if (!email || email !== cfg_().ADMIN_EMAIL) throw new SisiError_('KHUSUS_PEMILIK');
 }
 
@@ -14,14 +18,22 @@ function skemaHeader_() {
       db_Tim: ['tim_id', 'jenis', 'nama', 'kode', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
       db_Users: ['user_id', 'username', 'nama', 'email', 'role', 'tim_id', 'aktif', 'revision', 'dibuat_pada', 'diubah_pada', 'diubah_oleh'],
       db_Jaringan: ['section_id', 'penyulang', 'section', 'parent_section_id', 'urutan', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
-      db_Jenis_Pekerjaan: ['jenis_id', 'modul', 'nama', 'satuan', 'diameter_min', 'diameter_max', 'urutan', 'aktif'],
+      // v0.64.3: + bobot (bobot P0 Yandal, wajib untuk modul YANDAL)
+      // v0.94.0: + jenis_pekerjaan, kolom_gaspol (baris modul HARTEK, ditambah ADMIN_siapkanSheetHartek)
+      db_Jenis_Pekerjaan: ['jenis_id', 'modul', 'nama', 'satuan', 'diameter_min', 'diameter_max', 'urutan', 'aktif', 'bobot', 'jenis_pekerjaan', 'kolom_gaspol'],
       db_Menu: ['menu_kode', 'nama', 'platform', 'khusus_super', 'urutan', 'aktif'],
-      db_Akses: ['role', 'jenis_tim', 'menu_kode', 'aksi']
+      db_Akses: ['role', 'jenis_tim', 'menu_kode', 'aksi'],
+      // v0.63.0: petugas Yandal (orang), tim_yandal = tim_id tim YANDAL. Diubah lewat menu Pindah Tim Petugas Yandal.
+      db_Petugas: ['petugas_id', 'nama', 'tim_yandal', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
+      // v0.67.0: pejabat penandatangan BA (Pemeriksa / Mengetahui). Dibuat ADMIN_siapkanSheetGardu.
+      db_Pejabat_BA: DB_PEJABAT_BA_HEADER_.slice()
     },
     AUTH_SHEET_ID: {
       auth_Password: ['user_id', 'password_hash', 'salt', 'hash_versi', 'password_diubah_pada', 'gagal_login', 'terkunci_sampai'],
       auth_Perangkat: ['device_id', 'user_id', 'install_id', 'token_hash', 'platform', 'dibuat_pada', 'terakhir_dipakai', 'kedaluwarsa_pada', 'dicabut_pada'],
-      log_Audit: ['waktu', 'user_id', 'username', 'role', 'aksi', 'target', 'detail', 'platform', 'device_id']
+      log_Audit: ['waktu', 'user_id', 'username', 'role', 'aksi', 'target', 'detail', 'platform', 'device_id'],
+      // v0.83.0: token notifikasi FCM per instalasi app (dibuat ADMIN_siapkanNotifikasi)
+      auth_Notif: AUTH_NOTIF_HEADER_.slice()
     },
     // Struktur kolom lama dipertahankan (PRD 4. Fitur > Data ROW). Kolom bernama lama = turunan/input,
     // kolom snake_case = teknis. Kode hanya memakai kolom *_id untuk relasi.
@@ -56,6 +68,29 @@ function skemaHeader_() {
       lap_C4A_UIW: ['No', 'Tanggal', 'Penyulang', 'Section', 'Jumlah Tiang', 'Panjang kmS', 'Temuan Peralatan', 'Temuan ROW',
         'Eksekusi', 'Keterangan', 'Input Oleh', 'Timestamp', 'Timestamp Update', 'c4a_id', 'lap_id', 'section_id',
         'status', 'revision', 'dibuat_oleh', 'diubah_oleh']
+    },
+    // v0.63.0 (keputusan kvlar 7 Okt 2026): spreadsheet terpisah SiSi_Yandal. yan_Shift = 1 baris per tim per shift
+    // (crew 1-2 petugas), yan_Login = SETIAP login akun YANDAL (jam login, HP, logout).
+    YANDAL_SHEET_ID: {
+      // v0.63.3 (keputusan kvlar 8 Okt 2026): jam kerja + jadwal, petugas dipisah, check-in & terlambat, jumlah login,
+      // rekap P0 (diisi modul P0). Header lama v0.63.0 dipindah ke YAN_SHIFT_HEADER_V630_ (ADMIN_perbaruiYanShift).
+      yan_Shift: YAN_SHIFT_HEADER_.slice(),
+      // v0.63.4: Penugasan P0 (rekap shift dihitung dari sini lewat shift_id)
+      yan_P0: YAN_P0_HEADER_.slice(),
+      // v0.66.0: Pengecekan Switching (anak P0)
+      yan_Switching: YAN_SWITCHING_HEADER_.slice(),
+      // v0.74.0: Pengecekan Gardu (anak P0)
+      yan_Gardu: YAN_GARDU_HEADER_.slice(),
+      yan_Login: ['No', 'Waktu Login', 'Waktu Masuk', 'Tanggal', 'Shift', 'Tim', 'Petugas', 'Platform', 'Perangkat', 'Sesi Sampai',
+        'Waktu Logout', 'Alasan Logout', 'login_id', 'shift_id', 'tim_id', 'user_id', 'device_id', 'petugas_id_1', 'petugas_id_2'],
+      // v0.83.0: riwayat pengingat login (cegah kirim dobel), dibuat ADMIN_siapkanNotifikasi
+      yan_Pengingat: YAN_PENGINGAT_HEADER_.slice()
+    },
+    // v0.67.0 (keputusan kvlar 9 Okt 2026): tab baru di spreadsheet Pengukuran Gardu Toboali. Struktur dikunci (sama persis).
+    GARDU_SHEET_ID: {
+      Rekap_BA: REKAP_BA_HEADER_.slice(),
+      db_Gardu: DB_GARDU_HEADER_.slice(),
+      res_NomorGardu: RES_NOMOR_HEADER_.slice()   // v0.73.0 (jalankan ADMIN_siapkanSheetGardu sekali)
     }
   };
 }
@@ -112,23 +147,102 @@ function sectionBersiklus_(daftar) {
 /** Cek Script Properties + semua header sheet. Lihat hasilnya di Execution log. */
 function ADMIN_cekKonfigurasi() {
   pastikanPemilik_();
-  var c = cfg_();
-  console.log('ENV = ' + c.ENV + ', KODE_ULP = ' + c.KODE_ULP + ', PBKDF2_ITERASI = ' + c.PBKDF2_ITERASI);
-  if (c.PBKDF2_ITERASI < PBKDF2_MIN_PRODUCTION_) console.warn('PBKDF2_ITERASI < ' + PBKDF2_MIN_PRODUCTION_ + ': hanya boleh di staging (production ditolak).');
-  var skema = skemaHeader_(), masalah = 0;
+  var c = cfg_(), masalah = 0;
+  var bagian = function (judul) { console.log(''); console.log('--- ' + judul + ' ---'); };
+  var ok = function (p) { console.log('  [OK]          ' + p); };
+  var info = function (p) { console.log('  [INFO]        ' + p); };
+  var lewati = function (p) { console.log('  [DILEWATI]    ' + p); };
+  var perhatian = function (p) { masalah++; console.warn('  [PERHATIAN]   ' + p); };
+  var gagal = function (p) { masalah++; console.error('  [GAGAL]       ' + p); };
+
+  console.log('=== Cek konfigurasi SiSi v2 (backend ' + VERSI_BACKEND_ + ') ===');
+
+  bagian('Umum');
+  info('ENV ' + c.ENV + ' | KODE_ULP ' + c.KODE_ULP + ' | PBKDF2_ITERASI ' + c.PBKDF2_ITERASI);
+  if (c.PBKDF2_ITERASI < PBKDF2_MIN_PRODUCTION_) perhatian('PBKDF2_ITERASI di bawah ' + PBKDF2_MIN_PRODUCTION_ + ', hanya boleh di staging (production ditolak)');
+
+  var skema = skemaHeader_();
+  var sumberOpsional = { ROW_SHEET_ID: 'cek SiSi_ROW', LAPORAN_SHEET_ID: 'cek SiSi_Laporan', YANDAL_SHEET_ID: 'cek SiSi_Yandal', GARDU_SHEET_ID: 'cek Rekap_BA / db_Gardu' };
   Object.keys(skema).forEach(function (idKey) {
-    if (idKey === 'ROW_SHEET_ID' && !c.ROW_SHEET_ID) { console.log('ROW_SHEET_ID kosong, cek SiSi_ROW dilewati'); return; }
-    if (idKey === 'LAPORAN_SHEET_ID' && !c.LAPORAN_SHEET_ID) { console.log('LAPORAN_SHEET_ID kosong, cek SiSi_Laporan dilewati'); return; }
+    bagian(idKey);
+    if (sumberOpsional[idKey] && !c[idKey]) { lewati(idKey + ' kosong, ' + sumberOpsional[idKey] + ' dilewati'); return; }
+    try {
+      var ss = bukaSpreadsheet_(c[idKey]);
+      var nmSs = typeof ss.getName === 'function' ? ss.getName() : '';
+      info('file: ' + (nmSs || '-') + ' (' + c[idKey] + ')');
+      if (c.ENV !== 'production' && nmSs && !/staging|stg|uji|test|salin|copy/i.test(nmSs)) {
+        perhatian(idKey + ' di ENV=' + c.ENV + ' menunjuk ke "' + nmSs + '" — pastikan bukan spreadsheet production!');
+      }
+      var zona = typeof ss.getSpreadsheetTimeZone === 'function' ? ss.getSpreadsheetTimeZone() : 'Asia/Jakarta';
+      if (zona !== 'Asia/Jakarta') perhatian('zona waktu spreadsheet ' + zona + ', ganti ke (GMT+07:00) Jakarta di File > Setelan');
+    } catch (eZ) { /* tiap tab dicek di bawah */ }
     Object.keys(skema[idKey]).forEach(function (nama) {
       try {
         var t = tabel_(idKey, nama);
-        var kurang = skema[idKey][nama].filter(function (h) { return t.header.indexOf(h) === -1; });
-        if (kurang.length) { masalah++; console.warn(nama + ': kolom kurang -> ' + kurang.join(', ')); }
-        else console.log(nama + ': OK (' + t.rows.length + ' baris)');
-      } catch (e) { masalah++; console.error(nama + ': ' + (e.kode || e.message)); }
+        // v0.67.0: sheet gardu / BA = struktur dikunci, harus sama persis (urutan + judul)
+        var kunci = strukturGardu_().some(function (s) { return s.idKey === idKey && s.nama === nama; });
+        var beda = kunci ? bedaStruktur_(t.header, skema[idKey][nama]) : [];
+        var kurang = kunci ? [] : skema[idKey][nama].filter(function (h) { return t.header.indexOf(h) === -1; });
+        if (beda.length) perhatian(nama + ': STRUKTUR BERUBAH -> ' + beda.slice(0, 5).join(' | '));
+        else if (kurang.length) perhatian(nama + ': kolom kurang -> ' + kurang.join(', '));
+        else ok(nama + ' (' + t.rows.length + ' baris)');
+      } catch (e) {
+        var saran = e.kode === 'SHEET_TIDAK_ADA' && strukturGardu_().some(function (s) { return s.nama === nama; }) ? ' (jalankan ADMIN_siapkanSheetGardu)' :
+          e.kode === 'SHEET_TIDAK_ADA' && (nama === 'auth_Notif' || nama === 'yan_Pengingat') ? ' (jalankan ADMIN_siapkanNotifikasi)' : '';
+        gagal(nama + ': ' + (e.kode || e.message) + saran);
+      }
     });
+    if (idKey === 'YANDAL_SHEET_ID' && !c.YANDAL_FOTO_FOLDER_ID) perhatian('YANDAL_FOTO_FOLDER_ID kosong, foto P0 tidak bisa dikirim (folder Drive privat)');
+    if (idKey === 'GARDU_SHEET_ID') cekFiturGardu_(c, info, ok, perhatian, gagal);
   });
-  console.log(masalah ? 'SELESAI dengan ' + masalah + ' masalah' : 'SEMUA OK');
+
+  masalah += cekKonfigHartek_(c);   // v0.88.2
+  masalah += cekKonfigInsJar_(c);   // v1.0.0
+  masalah += cekKonfigInsDu_(c);   // v1.0.8
+  masalah += cekKonfigWo_(c);   // v1.0.10
+  masalah += cekKonfigV1017_(c);   // v1.0.17: jadwal padam, sinkron atomik, kepemilikan WO, sumber migrasi
+  masalah += cekKonfigMigrasiHartek_(c);   // v0.98.8
+  masalah += cekKonfigMigrasiP0_(c);   // v0.82.1
+  masalah += cekKonfigNotif_();   // v0.83.0
+  masalah += cekKonfigPemakaian_();   // v0.84.0
+  if (c.GARDU_SHEET_ID) masalah += cekKonfigArsipBa_();   // v0.86.0
+
+  console.log('');
+  console.log(masalah ? '=== SELESAI: ' + masalah + ' masalah. Cari [GAGAL] dan [PERHATIAN] di atas ===' : '=== SEMUA OK ===');
+}
+
+/** Cek fitur tambahan Gardu (foto, PDF engine, sinkron sheet lama, sumber migrasi, kapasitas sel). Dipanggil dari ADMIN_cekKonfigurasi. */
+function cekFiturGardu_(c, info, ok, perhatian, gagal) {
+  var pp = PropertiesService.getScriptProperties();
+  console.log('  > fitur Gardu');
+  if (!c.GARDU_FOTO_FOLDER_ID) perhatian('GARDU_FOTO_FOLDER_ID kosong, foto BA gardu tidak bisa dikirim (folder Drive privat)');
+  else ok('GARDU_FOTO_FOLDER_ID terisi');
+  // v0.71.0: PDF BA lewat Cloud Run (rahasia tidak pernah dicetak)
+  var urlPdf = String(pp.getProperty('PDF_ENGINE_URL') || ''), rhsPdf = String(pp.getProperty('PDF_ENGINE_SECRET') || '');
+  if (!urlPdf || !rhsPdf) perhatian('PDF_ENGINE_URL / PDF_ENGINE_SECRET kosong, PDF BA belum bisa dibuat (deploy engines/sisi-pdf-engine, lalu ADMIN_cekPdfEngine)');
+  else if (!/^https:\/\//.test(urlPdf) || rhsPdf.length < 32) perhatian('PDF_ENGINE_URL harus https dan PDF_ENGINE_SECRET minimal 32 karakter');
+  else ok('PDF engine ' + urlPdf + ' (rahasia ' + rhsPdf.length + ' karakter), uji: ADMIN_cekPdfEngine');
+  if (pp.getProperty('SHEET_GARDU_ULP')) info('sinkron sheet lama aktif (pratinjau ADMIN_cekSinkronGarduLama, pemicu 05:00 ADMIN_pasangPemicuSinkronGardu)');
+  else info('SHEET_GARDU_ULP kosong, sinkron harian db_Gardu ke Master_Gardu lama mati');
+  if (pp.getProperty('EAM_EMAIL')) info('EAM_EMAIL: ' + emailEam_().length + ' akun EAM (BA TTD dibagikan sebagai Viewer + Link BA di pesan EAM)');
+  else info('EAM_EMAIL kosong, Kirim EAM hanya lampiran (belum ada Link BA)');
+  info('Foto + PDF BA disimpan di GARDU_FOTO_FOLDER_ID / Gardu / <No Gardu> / <YYYY-MM-DD>_<Jenis BA> (BA lama: ADMIN_rapikanFolderBaGardu)');
+  if (pp.getProperty('BA_PDF_FOLDER_ID')) perhatian('BA_PDF_FOLDER_ID tidak dipakai lagi sejak v0.77.0, boleh dihapus');
+  // v0.68.1: sumber migrasi gardu lama (boleh file lain, hanya dibaca)
+  if (c.GARDU_LAMA_SHEET_ID !== c.GARDU_SHEET_ID) {
+    try {
+      var ssLama = bukaSpreadsheet_(c.GARDU_LAMA_SHEET_ID);
+      var tabLama = ['Master_Gardu', 'Rekap Gardu'].filter(function (n) { return !ssLama.getSheetByName(n); });
+      if (tabLama.length) perhatian('GARDU_LAMA_SHEET_ID: tab ' + tabLama.join(', ') + ' tidak ada');
+      else ok('GARDU_LAMA_SHEET_ID: Master_Gardu + Rekap Gardu ada (sumber migrasi, hanya dibaca)');
+    } catch (eL) { gagal('GARDU_LAMA_SHEET_ID tidak bisa dibuka: ' + (eL.message || eL)); }
+  }
+  // v0.67.0: batas 10 juta sel per spreadsheet (file gardu berat)
+  var sel = jumlahSelSpreadsheet_(c.GARDU_SHEET_ID);
+  if (sel) {
+    if (sel.sel > 8e6) perhatian('GARDU_SHEET_ID: ' + sel.sel + ' sel (' + sel.sheet + ' tab), mendekati batas 10 juta');
+    else ok('GARDU_SHEET_ID: ' + sel.sel + ' sel (' + sel.sheet + ' tab), batas 10 juta');
+  }
 }
 
 /**
@@ -138,10 +252,23 @@ function ADMIN_cekKonfigurasi() {
  */
 function ADMIN_lengkapiMaster() {
   pastikanPemilik_();
-  var target = { db_Tim: 'tim_id', db_Users: 'user_id', db_Jaringan: 'section_id', db_Jenis_Pekerjaan: 'jenis_id' };
+  var target = { db_Tim: 'tim_id', db_Users: 'user_id', db_Jaringan: 'section_id', db_Jenis_Pekerjaan: 'jenis_id', db_Petugas: 'petugas_id',
+                 db_Pejabat_BA: 'pejabat_id',   // v0.67.0
+                 db_Material: 'material_id',    // v0.95.0: master material Hartek
+                 db_Kepemilikan_Material: 'kepemilikan_id',   // v0.96.0: master kepemilikan material Hartek
+                 db_jenis_peralatan: 'peralatan_id',          // v0.98.11: master jenis peralatan hasil grounding
+                 db_Daerah_Padam: 'daerah_id' };              // v1.0.18: sumber dampak Jadwal Padam per penyulang + section
+  // tab opsional (modul belum dipakai = dilewati) dan tab berkolom `nomor`
+  var opsional = ['db_Petugas', 'db_Pejabat_BA', 'db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan'];
+  var bernomor = ['db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Daerah_Padam'];
   denganLock_(function () {
+    lengkapiDaerahPadam_();   // v1.0.18: tab dibuat + baris penyulang / section db_Jaringan yang belum ada ditambahkan
     Object.keys(target).forEach(function (nama) {
-      var t = tabel_('MASTER_SHEET_ID', nama), kolomId = target[nama], diisi = 0;
+      var t, kolomId = target[nama], diisi = 0;
+      try { t = tabel_('MASTER_SHEET_ID', nama); } catch (e) {
+        if (opsional.indexOf(nama) !== -1 && e.kode === 'SHEET_TIDAK_ADA') { console.warn(nama + ' belum ada, dilewati'); return; }
+        throw e;
+      }
       var tulis = function (r, kolom, nilai) {
         var idx = t.header.indexOf(kolom);
         if (idx !== -1 && (r[kolom] === '' || r[kolom] === null || r[kolom] === undefined)) {
@@ -162,6 +289,8 @@ function ADMIN_lengkapiMaster() {
         ubah = tulis(r, 'dibuat_pada', sekarangIso_()) || ubah;
         ubah = tulis(r, 'diubah_pada', sekarangIso_()) || ubah;
         ubah = tulis(r, 'diubah_oleh', 'admin-tools') || ubah;
+        ubah = tulis(r, 'timestamp_update', sekarangIso_()) || ubah;   // v0.95.0: db_Material memakai timestamp_update
+        if (bernomor.indexOf(nama) !== -1) ubah = tulis(r, 'nomor', r._baris - 1) || ubah;
         ubah = tulis(r, 'aktif', 'TRUE') || ubah;
         if (ubah) diisi++;
       });
@@ -200,6 +329,62 @@ function ADMIN_lengkapiMaster() {
           if (lihat[u]) console.warn('db_Users: username ganda "' + u + '" (baris ' + lihat[u] + ' & ' + r._baris + ')');
           lihat[u] = r._baris;
         });
+      }
+      if (nama === 'db_Jenis_Pekerjaan') {
+        // v0.64.3: kolom bobot (P0 Yandal). Belum ada = header ditambah di kolom kosong pertama setelah header terakhir.
+        if (t.header.indexOf('bobot') === -1) {
+          var kol = t.header.length;
+          while (kol > 0 && !t.header[kol - 1]) kol--;
+          t.sheet.getRange(1, kol + 1).setValue('bobot');
+          console.log('db_Jenis_Pekerjaan: kolom bobot ditambahkan (kolom ' + (kol + 1) + '). Isi bobot untuk modul YANDAL.');
+        } else {
+          t.rows.forEach(function (r) {
+            if (String(r.modul).trim().toUpperCase() !== 'YANDAL' || !isAktif_(r.aktif)) return;
+            var bb = r.bobot;
+            // v0.64.6: Lain - Lain sengaja kosong, bobot diisi admin per P0 saat approval
+            if (pekerjaanLainP0_(r.nama)) {
+              if (bb !== '' && bb !== null && bb !== undefined) console.warn('db_Jenis_Pekerjaan baris ' + r._baris + ': bobot Lain - Lain diabaikan (diisi admin saat approval). Kosongkan saja.');
+              else console.log('db_Jenis_Pekerjaan baris ' + r._baris + ': Lain - Lain, bobot diisi admin saat approval');
+              return;
+            }
+            if (bb === '' || bb === null || bb === undefined || !isFinite(Number(bb)) || Number(bb) < 0) {
+              console.warn('db_Jenis_Pekerjaan baris ' + r._baris + ': bobot YANDAL "' + r.nama + '" kosong / tidak valid');
+            }
+          });
+        }
+      }
+      if (nama === 'db_Petugas') {
+        // v0.63.0: tim_yandal boleh diketik nama tim ("YANDAL 13") atau kode ("13"); diganti jadi UUID tim YANDAL.
+        var timY = tabel_('MASTER_SHEET_ID', 'db_Tim').rows.filter(function (x) { return String(x.jenis) === 'YANDAL'; });
+        var idxTY = t.header.indexOf('tim_yandal'), namaP = {};
+        t.rows.forEach(function (r) {
+          var v = r.tim_yandal;
+          if (v === '' || v === null || v === undefined) return console.warn('db_Petugas baris ' + r._baris + ': tim_yandal kosong');
+          var hasil = cariTimId_(v, timY);
+          if (hasil.id && hasil.id !== String(v)) {
+            t.sheet.getRange(r._baris, idxTY + 1).setValue(hasil.id);
+            console.log('db_Petugas baris ' + r._baris + ': tim "' + v + '" -> ' + hasil.id);
+          } else if (hasil.masalah) {
+            console.warn('db_Petugas baris ' + r._baris + ': tim YANDAL "' + v + '" ' + hasil.masalah + ', tidak diubah');
+          }
+          var k = String(r.nama || '').trim().toLowerCase();
+          if (!k) console.warn('db_Petugas baris ' + r._baris + ': nama kosong');
+          else if (namaP[k] && isAktif_(r.aktif)) console.warn('db_Petugas: nama ganda "' + r.nama + '" (baris ' + namaP[k] + ' & ' + r._baris + ')');
+          else if (isAktif_(r.aktif)) namaP[k] = r._baris;
+        });
+      }
+      if (nama === 'db_Pejabat_BA') {
+        // v0.67.0: peran PEMERIKSA / MENGETAHUI (huruf besar), nama + jabatan wajib, MENGETAHUI aktif hanya satu
+        var idxPeran = t.header.indexOf('peran'), tahu = [];
+        t.rows.forEach(function (r) {
+          var peran = String(r.peran || '').trim().toUpperCase();
+          if (peran !== String(r.peran || '') && PEJABAT_PERAN_.indexOf(peran) !== -1) t.sheet.getRange(r._baris, idxPeran + 1).setValue(peran);
+          if (PEJABAT_PERAN_.indexOf(peran) === -1) console.warn('db_Pejabat_BA baris ' + r._baris + ': peran "' + r.peran + '" bukan PEMERIKSA / MENGETAHUI');
+          if (!String(r.nama || '').trim() || !String(r.jabatan || '').trim()) console.warn('db_Pejabat_BA baris ' + r._baris + ': nama / jabatan kosong');
+          if (peran === 'MENGETAHUI' && isAktif_(r.aktif)) tahu.push(r._baris);
+        });
+        if (tahu.length > 1) console.warn('db_Pejabat_BA: MENGETAHUI aktif lebih dari satu (baris ' + tahu.join(', ') + ')');
+        if (!tahu.length && t.rows.length) console.warn('db_Pejabat_BA: belum ada MENGETAHUI yang aktif');
       }
       if (nama === 'db_Jaringan') {
         // parent_section_id boleh diketik nama section induk (di penyulang yang sama); diganti jadi UUID.
@@ -311,6 +496,7 @@ function ADMIN_setPassword() {
           hapusSesiCache_(r.token_hash);   // audit 4 Okt 2026: tanpa ini token lama masih lolos sampai 5 menit
         }
       });
+      buangIndeksKenal_();   // v0.62.4: semua HP akun ini jadi HP asing
     });
     console.log('Password ' + username + ' diset. Semua sesi lama dicabut.');
   } finally {
@@ -324,10 +510,137 @@ function ADMIN_setPassword() {
  * db_Menu / db_Akses / db_Users (mis. akun dinonaktifkan, role/tim diganti) / auth_Perangkat (dicabut_pada diisi),
  * supaya berlaku seketika, bukan menunggu cache 5 menit habis.
  */
+/**
+ * v0.63.3: ubah sheet yan_Shift dari header v0.63.0 (23 kolom) ke header baru TANPA kehilangan data.
+ * v0.63.4: juga dari header v0.63.3 (40 kolom, tambah Rekap Final) dan membuat sheet yan_P0 kalau belum ada.
+ * Petugas dipecah ke Petugas 1 / 2, Jam Shift -> Jam Kerja, Login Pertama -> Jam Check-in (+ Terlambat),
+ * Jumlah Login dihitung dari yan_Login, rekap P0 lain = 0. Header sudah baru = tidak ada yang ditulis.
+ * Header tidak dikenal = berhenti tanpa menulis. Satu panggilan tulis (masuk semua atau tidak sama sekali).
+ */
+/**
+ * v0.64.3: yan_P0 dari header v0.63.4 (48 kolom) ke header 66 kolom TANPA kehilangan data (pindah per nama kolom,
+ * Koordinat / Koordinat Closing diisi dari Lat/Long). Sudah header baru = tidak menulis. Header tidak dikenal = berhenti.
+ * Dipanggil dari ADMIN_perbaruiYanShift (di dalam lock).
+ */
+function perbaruiYanP0_() {
+  var t = tabel_('YANDAL_SHEET_ID', 'yan_P0');
+  var ada = t.header.slice();
+  while (ada.length && !ada[ada.length - 1]) ada.pop();
+  if (ada.join('|') === YAN_P0_HEADER_.join('|')) { console.log('yan_P0 sudah header terbaru, tidak ada yang diubah.'); return false; }
+  var dari643 = ada.join('|') === YAN_P0_HEADER_V643_.join('|');   // v0.65.8: 66 kolom km -> meter
+  var dari658 = ada.join('|') === YAN_P0_HEADER_V658_.join('|');   // v0.65.9: Jarak (m) -> Jarak Closing P0 (m)
+  var dari659 = ada.join('|') === YAN_P0_HEADER_V659_.join('|');   // v0.65.10: Jarak Closing P0 -> Jarak Closing P0 (m)
+  if (!dari643 && !dari658 && !dari659 && ada.join('|') !== YAN_P0_HEADER_V634_.join('|')) {
+    console.error('Header yan_P0 tidak dikenal (bukan v0.63.4 / v0.64.3 / v0.65.8 / v0.65.9). Tidak diubah. Samakan dulu dengan template.');
+    return false;
+  }
+  var lebar = YAN_P0_HEADER_.length, akhir = Math.max(t.sheet.getLastRow(), 1);
+  var data = [YAN_P0_HEADER_.slice()];
+  for (var b = 2; b <= akhir; b++) data.push(YAN_P0_HEADER_.map(function () { return ''; }));
+  t.rows.forEach(function (r) {
+    var o = {};
+    YAN_P0_HEADER_.forEach(function (h) { if (Object.prototype.hasOwnProperty.call(r, h)) o[h] = r[h]; });
+    o['Koordinat'] = koordinatTeks_(r.Lat, r.Long);
+    o['Koordinat Closing'] = koordinatTeks_(r['Lat Closing'], r['Long Closing']);
+    // v0.65.8: jarak meter dihitung ulang dari titik (nilai km lama bisa 0 karena pembulatan 2 desimal)
+    o['Jarak Closing P0 (m)'] = titikSah_(r.Lat, r.Long) && titikSah_(r['Lat Closing'], r['Long Closing'])
+      ? jarakMeter_(Number(r.Lat), Number(r.Long), Number(r['Lat Closing']), Number(r['Long Closing'])) : '';
+    data[r._baris - 1] = barisDariObjek_(YAN_P0_HEADER_, o);
+  });
+  var perShift = {};
+  t.rows.forEach(function (r) { if (r.shift_id) (perShift[String(r.shift_id)] = perShift[String(r.shift_id)] || []).push(r); });
+  var iAntar = YAN_P0_HEADER_.indexOf('Jarak Antar P0 (m)');
+  Object.keys(perShift).forEach(function (k) {
+    var jarak = jarakAntarP0_(perShift[k]);
+    perShift[k].forEach(function (r) {
+      if (Object.prototype.hasOwnProperty.call(jarak, String(r.p0_id))) data[r._baris - 1][iAntar] = jarak[String(r.p0_id)];
+    });
+  });
+  if (typeof t.sheet.getMaxColumns === 'function' && t.sheet.getMaxColumns() < lebar) {
+    t.sheet.insertColumnsAfter(t.sheet.getMaxColumns(), lebar - t.sheet.getMaxColumns());
+  }
+  t.sheet.getRange(1, 1, data.length, lebar).setValues(data);
+  console.log('yan_P0 diperbarui ke header terbaru (' + lebar + ' kolom' + (dari643 ? ', jarak km -> meter' : dari658 || dari659 ? ', kolom jarak -> Jarak Closing P0 (m)' : '') + '): ' +
+    t.rows.length + ' baris P0 dipindahkan.');
+  return true;
+}
+
+function ADMIN_perbaruiYanShift() {
+  pastikanPemilik_();
+  if (!cfg_().YANDAL_SHEET_ID) { console.error('YANDAL_SHEET_ID kosong'); return; }
+  denganLock_(function () {
+    var ss = bukaSpreadsheet_(cfg_().YANDAL_SHEET_ID);
+    if (!ss.getSheetByName('yan_P0')) {
+      var shP0 = ss.insertSheet('yan_P0');
+      shP0.getRange(1, 1, 1, YAN_P0_HEADER_.length).setValues([YAN_P0_HEADER_.slice()]);
+      if (typeof shP0.setFrozenRows === 'function') shP0.setFrozenRows(1);
+      console.log('Sheet yan_P0 dibuat (' + YAN_P0_HEADER_.length + ' kolom).');
+    } else perbaruiYanP0_();
+    if (!ss.getSheetByName('yan_Switching')) {   // v0.66.0
+      var shSw = ss.insertSheet('yan_Switching');
+      shSw.getRange(1, 1, 1, YAN_SWITCHING_HEADER_.length).setValues([YAN_SWITCHING_HEADER_.slice()]);
+      if (typeof shSw.setFrozenRows === 'function') shSw.setFrozenRows(1);
+      console.log('Sheet yan_Switching dibuat (' + YAN_SWITCHING_HEADER_.length + ' kolom).');
+    }
+    if (!ss.getSheetByName('yan_Gardu')) {   // v0.74.0
+      var shGr = ss.insertSheet('yan_Gardu');
+      shGr.getRange(1, 1, 1, YAN_GARDU_HEADER_.length).setValues([YAN_GARDU_HEADER_.slice()]);
+      if (typeof shGr.setFrozenRows === 'function') shGr.setFrozenRows(1);
+      console.log('Sheet yan_Gardu dibuat (' + YAN_GARDU_HEADER_.length + ' kolom).');
+    }
+    var t = tabel_('YANDAL_SHEET_ID', 'yan_Shift');
+    var ada = t.header.slice();
+    while (ada.length && !ada[ada.length - 1]) ada.pop();
+    if (ada.join('|') === YAN_SHIFT_HEADER_.join('|')) { console.log('yan_Shift sudah header terbaru, tidak ada yang diubah.'); return; }
+    var dari633 = ada.join('|') === YAN_SHIFT_HEADER_V633_.join('|');
+    if (!dari633 && ada.join('|') !== YAN_SHIFT_HEADER_V630_.join('|')) {
+      console.error('Header yan_Shift tidak dikenal (bukan v0.63.0 / v0.63.3). Tidak diubah. Samakan dulu dengan template.');
+      return;
+    }
+    var login = {};
+    try {
+      tabel_('YANDAL_SHEET_ID', 'yan_Login').rows.forEach(function (r) {
+        if (r.shift_id) login[String(r.shift_id)] = (login[String(r.shift_id)] || 0) + 1;
+      });
+    } catch (e) { console.warn('yan_Login tidak terbaca, Jumlah Login = 1: ' + (e.kode || e.message)); }
+    var lebar = YAN_SHIFT_HEADER_.length, akhir = Math.max(t.sheet.getLastRow(), 1);
+    var data = [YAN_SHIFT_HEADER_.slice()];
+    for (var b = 2; b <= akhir; b++) data.push(YAN_SHIFT_HEADER_.map(function () { return ''; }));
+    t.rows.forEach(function (r) {
+      var o = {};
+      YAN_SHIFT_HEADER_.forEach(function (h) { if (Object.prototype.hasOwnProperty.call(r, h)) o[h] = r[h]; });
+      if (dari633) { data[r._baris - 1] = barisDariObjek_(YAN_SHIFT_HEADER_, o); return; }   // cukup geser kolom, Rekap Final kosong
+      var tgl = tglSel_(r.Tanggal), no = Number(r.Shift);
+      var crew = String(r.Petugas || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      if (tgl && YAN_JAM_SHIFT_[no]) {
+        var mulai = Date.parse(tgl + 'T00:00:00+07:00') + (no === 1 ? 8 : no === 2 ? 16 : 24) * 3600e3;
+        var jadwal = kolomShiftYandal_({ jam: YAN_JAM_SHIFT_[no], mulai: mulai }, crew);
+        Object.keys(jadwal).forEach(function (k) { o[k] = jadwal[k]; });
+        var masuk = keDate_(r['Login Pertama']);
+        if (masuk) {
+          o['Jam Check-in'] = waktuWib_(masuk.getTime(), true);
+          o['Terlambat (menit)'] = terlambatMenit_(masuk.getTime(), mulai);
+        }
+      } else {
+        o['Jam Kerja'] = r['Jam Shift'];
+        o['Petugas 1'] = crew[0] || ''; o['Petugas 2'] = crew[1] || ''; o['Jumlah Petugas'] = crew.length;
+      }
+      o['Jumlah Login'] = login[String(r.shift_id)] || 1;
+      YAN_REKAP_P0_.forEach(function (k) { if (o[k] === undefined || o[k] === '') o[k] = 0; });
+      data[r._baris - 1] = barisDariObjek_(YAN_SHIFT_HEADER_, o);
+    });
+    if (typeof t.sheet.getMaxColumns === 'function' && t.sheet.getMaxColumns() < lebar) {
+      t.sheet.insertColumnsAfter(t.sheet.getMaxColumns(), lebar - t.sheet.getMaxColumns());
+    }
+    t.sheet.getRange(1, 1, data.length, lebar).setValues(data);
+    console.log('yan_Shift diperbarui ke header terbaru (' + lebar + ' kolom): ' + t.rows.length + ' baris shift dipindahkan.');
+  });
+}
+
 function ADMIN_bersihkanCache() {
   pastikanPemilik_();
   var cache = CacheService.getScriptCache();
-  cache.removeAll(['akses:v1', 'master-row:v3', KUNCI_USERNAME_TERDAFTAR_]);
+  cache.removeAll(['akses:v1', 'master-row:v3', KUNCI_USERNAME_TERDAFTAR_, INDEKS_TOKEN_KUNCI_, INDEKS_KENAL_KUNCI_]);
   PropertiesService.getScriptProperties().setProperty('SESI_EPOCH', String(Date.now()));
   console.log('Cache akses + master ROW dibersihkan. Semua sesi dicek ulang ke sheet di panggilan berikutnya.');
 }
@@ -351,6 +664,8 @@ function ADMIN_bukaKunciLogin() {
       var auth = authT.rows.filter(function (r) { return String(r.user_id) === String(user.user_id); })[0];
       if (auth && (Number(auth.gagal_login) || auth.terkunci_sampai)) ubahBarisDikenal_(authT, auth, { gagal_login: 0, terkunci_sampai: '' });
       hapusGagalLogin_(username);
+      // v0.62.4: hitungan per HP dikenal tidak bisa dicari satu-satu; tanda waktu ini membuat semuanya diabaikan.
+      CacheService.getScriptCache().put(kunciBukaUser_(username), String(Date.now()), cfg_().LOGIN_KUNCI_MENIT * 60);
       auditLog_({ username: 'ADMIN_EDITOR' }, 'BUKA_KUNCI_LOGIN', username, '', 'EDITOR');
     });
     console.log('Kunci login ' + username + ' dibuka. Petugas bisa login lagi sekarang.');
@@ -379,6 +694,7 @@ function ADMIN_cabutSesi() {
         ubahBarisDikenal_(perangkat, r, { dicabut_pada: sekarangIso_() });
         hapusSesiCache_(r.token_hash);
       });
+      buangIndeksKenal_();   // v0.62.4: HP yang dicabut tidak lagi kebal kunci akun
       auditLog_({ username: 'ADMIN_EDITOR' }, 'CABUT_SESI', username, aktif.length + ' perangkat', 'EDITOR');
       return aktif.length;
     });

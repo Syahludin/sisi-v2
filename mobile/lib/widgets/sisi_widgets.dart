@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import 'sisi_loader.dart';
+import 'sisi_motif.dart';
 
 /// App bar navy dua baris (pola layar lama): judul + subjudul kecil, opsional pill Online/Offline.
+/// v1.0.18: latar gradien teal + motif tiang & kawat "Jaringan SiSi" (sama dengan header modul).
 PreferredSizeWidget sisiAppBar(String judul, {String? subjudul, List<Widget>? actions, bool? online}) {
   return AppBar(
-    backgroundColor: AppColors.navy700,
+    backgroundColor: AppColors.brand900,
+    flexibleSpace: const DecoratedBox(
+      decoration: BoxDecoration(gradient: SisiMotif.gradien),
+      child: CustomPaint(painter: PolaJaringanPainter(alpha: .09, kerapatan: 5), size: Size.infinite),
+    ),
     foregroundColor: Colors.white,
     iconTheme: const IconThemeData(color: Colors.white),
     actionsIconTheme: const IconThemeData(color: Colors.white),
@@ -76,11 +83,17 @@ class SectionCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Icon(ikon, size: 18, color: AppColors.cyan600),
-          const SizedBox(width: 8),
+          // v1.0.18: ikon dalam kotak teal lembut + percik kuning, sama dengan judul seksi Jaringan SiSi
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(color: AppColors.brand100, borderRadius: BorderRadius.circular(9)),
+            child: Icon(ikon, size: 17, color: AppColors.brand700),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(judul.toUpperCase(),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: .6, color: AppColors.navy700)),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: .7, color: AppColors.brand900)),
           ),
           if (aksi != null) aksi!,
         ]),
@@ -125,7 +138,7 @@ class StatusBadge extends StatelessWidget {
   factory StatusBadge.sinkron(String sinkron, {Key? key}) {
     return switch (sinkron) {
       'TERKIRIM' => StatusBadge('TERKIRIM', key: key, warna: AppColors.success700, latar: AppColors.success100, ikon: Icons.cloud_done_outlined),
-      'KONFLIK' => StatusBadge('KONFLIK', key: key, warna: AppColors.accent700, latar: AppColors.accent100, ikon: Icons.sync_problem_outlined),
+      'KONFLIK' => StatusBadge('PERLU DICEK', key: key, warna: AppColors.accent700, latar: AppColors.accent100, ikon: Icons.sync_problem_outlined),
       'DITOLAK' => StatusBadge('DITOLAK', key: key, warna: AppColors.red700, latar: AppColors.red100, ikon: Icons.block_outlined),
       _ => StatusBadge('BELUM TERKIRIM', key: key, warna: AppColors.neutral700, latar: AppColors.neutral100, ikon: Icons.cloud_upload_outlined),
     };
@@ -144,7 +157,7 @@ class StatusBadge extends StatelessWidget {
   }
 }
 
-/// Loading lama: loading.gif, cadangan spinner cyan.
+/// Loading layar penuh / bagian layar. v1.0.17: animasi logo SiSi ([SisiLoader]) menggantikan loading.gif lama.
 class SisiLoading extends StatelessWidget {
   const SisiLoading({super.key, this.pesan, this.ukuran = 80});
   final String? pesan;
@@ -154,10 +167,7 @@ class SisiLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Image.asset('assets/images/loading.gif',
-            width: ukuran,
-            height: ukuran,
-            errorBuilder: (context, error, stack) => const CircularProgressIndicator(color: AppColors.cyan600)),
+        SisiLoader(ukuran: ukuran),
         if (pesan != null) ...[
           const SizedBox(height: 10),
           Text(pesan!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -183,10 +193,14 @@ class SisiKosong extends StatelessWidget {
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(color: AppColors.cyan100, borderRadius: BorderRadius.circular(16)),
-            child: Icon(ikon, color: AppColors.navy700, size: 28),
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppColors.brand100, AppColors.brand50], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.brand100),
+            ),
+            child: Icon(ikon, color: AppColors.brand700, size: 30),
           ),
           const SizedBox(height: 14),
           Text(judul, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy900)),
@@ -215,7 +229,7 @@ class TombolSegarkan extends StatelessWidget {
         tooltip: 'Refresh',
         onPressed: sibuk ? null : onPressed,
         icon: sibuk
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))
+            ? const SisiLoader(ukuran: 20, warna: Colors.white)
             : const Icon(Icons.refresh_rounded),
       );
 }

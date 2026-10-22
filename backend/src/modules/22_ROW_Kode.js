@@ -10,8 +10,8 @@ function teksAtauNull_(v) { var s = v === null || v === undefined ? '' : String(
 function angkaAtauNull_(v) { return v === '' || v === null || v === undefined || isNaN(Number(v)) ? null : Number(v); }
 
 function getKodeRow_(sesi, data) {
+  wajibPetugasRow_(sesi);   // v0.62.4: role PETUGAS + tim ROW. v0.66.2: dicek PALING AWAL (sebelum isi data dibaca)
   var d = validasi_(data, { tanggal: { tipe: 'tanggal' } });
-  if (sesi.jenisTim !== 'ROW' || !sesi.timId) throw new SisiError_('AKSES_DITOLAK', 'bukan petugas ROW');
   var c = cfg_();
   if (!c.ROW_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_SHEET_ID');
   var w = stopwatch_();

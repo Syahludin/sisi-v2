@@ -32,7 +32,7 @@ test/
   kode_row_test, sesi_test, jenis_pekerjaan_test, koordinat_test
 ```
 
-Belum di M1: foto (M2), preview + Kirim WA (M3), ubah/batal + Minta nomor baru (M4).
+M4 (v0.62): Hapus / Batal berantai + Urungkan, Pusat Masalah Sinkron (Minta nomor baru, Gabungkan, konflik revisi, Perbaiki). Spesifikasi: PRD 13.
 
 ## Aset gambar
 
@@ -52,7 +52,26 @@ Yang dipakai: logo-sisi.png, logo-pln.png, bg-sisi.png, loading.gif.
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<!-- v1.0.12: sinkron latar (flutter_foreground_task) -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
+
+v1.0.12: di DALAM tag `<application ...>` (sejajar `<activity>`), daftarkan layanan sinkron latar:
+
+```xml
+<service
+    android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+    android:foregroundServiceType="dataSync"
+    android:exported="false" />
+```
+
+`scripts\build-rilis.ps1` dan `scripts\uji-hp.ps1` memasang izin + blok ini otomatis (idempoten). Tanpa blok ini app tetap jalan, tapi sinkron hanya saat app di depan (perilaku lama). Salinan lengkap:
+`docs/android/AndroidManifest-sinkron-latar.xml`. HP Xiaomi / Oppo / Vivo / Realme: minta petugas mengizinkan
+"Mulai otomatis" / "Tanpa batasan baterai" untuk SiSi di Pengaturan HP (app juga meminta izin optimasi baterai sekali).
 
 ## Setup pertama
 
@@ -179,3 +198,44 @@ dart run flutter_launcher_icons
 ```
 
 Launcher HP menyimpan ikon lama: pasang ulang (`scripts\uji-hp.ps1 -Uninstall`).
+
+## Notifikasi pengingat login Yandal / FCM (v0.83.0)
+
+Sekali saja (satu project Firebase untuk staging + production):
+
+1. https://console.firebase.google.com > Add project (mis. `sisi-toboali`, Analytics boleh dimatikan).
+2. Project settings > General > Add app > Android, daftarkan DUA paket: `id.co.pln.toboali.sisi_new` dan `id.co.pln.toboali.sisi_new.staging`.
+   Download `google-services.json` SESUDAH keduanya terdaftar (satu file berisi dua app), taruh di `android/app/google-services.json`.
+   File ini lokal (jangan ke git / zip).
+3. `android/settings.gradle.kts`, di blok `plugins { ... }` tambahkan:
+   ```kotlin
+   id("com.google.gms.google-services") version "4.4.2" apply false
+   ```
+4. `android/app/build.gradle.kts`: timpa dari `docs/android/build.gradle.kts` (v0.83.0) atau tambahkan baris
+   `if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")` sesudah blok `plugins`.
+5. `AndroidManifest.xml` (Android 13+), di atas `<application>`: `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>`
+6. Backend: Project settings > Service accounts > Generate new private key. Isi JSON utuh ke Script Property `FCM_SERVICE_ACCOUNT`
+   (staging dan production boleh JSON yang sama).
+
+Tanpa `google-services.json` app tetap jalan, notifikasi saja yang mati. Saat login pertama HP minta izin notifikasi: wajib **Izinkan**
+di HP tim Yandal dan HP admin. Notifikasi saat app terbuka tampil sebagai banner di bawah layar.
+
+## Pemakaian Engine / Cloud Run (v0.85.0)
+
+Menu Operasi > Pemakaian Engine (akun ADMIN / SUPER) menampilkan kuota Apps Script dan pemakaian Cloud Run per layanan.
+
+1. Google Cloud Console project `db-sisi-toboali` > APIs & Services > aktifkan **Cloud Monitoring API**.
+2. IAM > Grant access: email service account (`client_email` di JSON FCM, atau service account baru) diberi role **Monitoring Viewer**.
+3. Script Property: `CLOUD_RUN_PROJECT` = `db-sisi-toboali`. Bila pakai service account lain, isi JSON-nya ke `MONITOR_SERVICE_ACCOUNT`.
+4. Opsional `CLOUD_RUN_LAYANAN` = `sisi2-pdf-staging,sisi2-pdf-production` (kosong = semua layanan).
+5. db_Akses: pastikan OPS_ENGINE diizinkan untuk ADMIN / SUPER. Cek dari editor: `ADMIN_cekPemakaian`.
+
+## Build Android: compileSdk 36 + peringatan (v0.85.1)
+
+- `docs/android/root.build.gradle.kts` = isi lengkap `mobile/android/build.gradle.kts` (ROOT, bukan `android/app`). Timpa utuh, lalu `flutter clean`.
+  Isinya: paksa semua plugin compile ke SDK 36 (file_picker 8.x masih android-34, error `checkReleaseAarMetadata`) dan sembunyikan peringatan javac plugin.
+  Kalau muncul "failed to find target android-36": install Android SDK Platform 36 dari SDK Manager.
+- Opsional, hanya bila `java -version` >= 24 (peringatan "restricted method java.lang.System"):
+  `[Environment]::SetEnvironmentVariable("GRADLE_OPTS","--enable-native-access=ALL-UNNAMED","User")` sekali di PowerShell (lalu buka ulang VS Code),
+  dan di `mobile/android/gradle.properties` tambahkan ` --enable-native-access=ALL-UNNAMED` di ujung baris `org.gradle.jvmargs=...`.
+- Peringatan "Kotlin Gradle Plugin / Built-in Kotlin" (camerax, package_info_plus, pdfx, share_plus) belum bisa dihilangkan: menunggu rilis plugin. Aman untuk Flutter sekarang.

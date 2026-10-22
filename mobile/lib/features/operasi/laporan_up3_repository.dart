@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
 
@@ -133,13 +135,25 @@ class LaporanUp3Repository {
   Future<Map<String, dynamic>> muat(Sesi s, String bagian, String tanggal) =>
       _api.call(bagian == 'UP3' ? 'getLaporanUp3' : 'getLaporanUiw', token: s.token, data: {'tanggal': tanggal});
 
-  /// revision = revision laporan itu yang dilihat (0 = belum ada baris). Daftar = daftar LENGKAP hari ini.
-  Future<Map<String, dynamic>> simpanUp3(Sesi s, {required String tanggal, required int revision, required List<C4aUp3Item> c4a}) =>
-      _api.call('simpanLaporanUp3', token: s.token, data: {
+  /// Payload simpanLaporanUp3 (v0.62.9: dipisah supaya kirim ulang memakai payload yang SAMA persis).
+  static Map<String, dynamic> dataUp3({required String tanggal, required int revision, required List<C4aUp3Item> c4a}) => {
         'tanggal': tanggal,
         'revision': revision,
         'c4a': [for (final c in c4a) c.keServer()],
-      });
+      };
+
+  static Map<String, dynamic> dataUiw({required String tanggal, required int revision, required String cuaca, required List<C4aItem> c4a}) => {
+        'tanggal': tanggal,
+        'revision': revision,
+        if (cuaca.isNotEmpty) 'cuaca': cuaca,
+        'c4a': [for (final c in c4a) c.keServer()],
+      };
+
+  static String _endpoint(String bagian) => bagian == 'UP3' ? 'simpanLaporanUp3' : 'simpanLaporanUiw';
+
+  /// revision = revision laporan itu yang dilihat (0 = belum ada baris). Daftar = daftar LENGKAP hari ini.
+  Future<Map<String, dynamic>> simpanUp3(Sesi s, {required String tanggal, required int revision, required List<C4aUp3Item> c4a}) =>
+      _api.call('simpanLaporanUp3', token: s.token, data: dataUp3(tanggal: tanggal, revision: revision, c4a: c4a));
 
   Future<Map<String, dynamic>> simpanUiw(
     Sesi s, {
@@ -148,10 +162,68 @@ class LaporanUp3Repository {
     required String cuaca,
     required List<C4aItem> c4a,
   }) =>
-      _api.call('simpanLaporanUiw', token: s.token, data: {
-        'tanggal': tanggal,
-        'revision': revision,
-        if (cuaca.isNotEmpty) 'cuaca': cuaca,
-        'c4a': [for (final c in c4a) c.keServer()],
-      });
+      _api.call('simpanLaporanUiw', token: s.token, data: dataUiw(tanggal: tanggal, revision: revision, cuaca: cuaca, c4a: c4a));
+
+  /// Gagal jaringan / timeout / server sibuk / kesalahan server = kirim ulang aman (v0.62.9).
+  static bool bolehUlang(Object e) {
+    if (e is! ApiException) return true; // TimeoutException, SocketException, ClientException
+    return e.kode.startsWith('HTTP_') || e.kode == 'SERVER_SIBUK' || e.kode == 'KESALAHAN_SERVER';
+  }
+
+  /// Bentuk pembanding satu C4A (kunci urut, teks dirapikan) supaya isi server bisa dibandingkan dengan yang dikirim.
+  static String _sidik(String bagian, Map<String, dynamic> c) {
+    final m = Map<String, dynamic>.of(c);
+    if (bagian == 'UP3') {
+      m['penyulang'] = '${m['penyulang'] ?? ''}'.trim().toLowerCase();
+      m['realisasiKms'] = ((m['realisasiKms'] as num? ?? 0) * 100).round();
+    }
+    final kunci = m.keys.toList()..sort();
+    return jsonEncode({for (final k in kunci) k: m[k]});
+  }
+
+  /// Isi laporan di server (respons muat) sama dengan payload yang dikirim? Dipakai setelah KONFLIK_REVISION.
+  static bool isiSama(String bagian, Map<String, dynamic> kirim, Map<String, dynamic> server) {
+    if (bagian == 'UIW' && '${kirim['cuaca'] ?? ''}' != '${server['cuaca'] ?? ''}') return false;
+    final daftar = (server['c4a'] as List<dynamic>? ?? const <dynamic>[]).whereType<Map<String, dynamic>>();
+    final dariServer = [
+      for (final c in daftar) _sidik(bagian, bagian == 'UP3' ? C4aUp3Item.dariJson(c).keServer() : C4aItem.dariJson(c).keServer()),
+    ]..sort();
+    final dikirim = [for (final c in (kirim['c4a'] as List<dynamic>).cast<Map<String, dynamic>>()) _sidik(bagian, c)]..sort();
+    return jsonEncode(dariServer) == jsonEncode(dikirim);
+  }
+
+  /// v0.62.9: simpan dengan pemulihan. Server menulis C4A dulu lalu baris harian + revision terakhir, jadi:
+  /// - gagal jaringan / server = kirim ulang payload + revision yang SAMA (maks [ulang] kali, jeda bertambah);
+  /// - KONFLIK_REVISION setelah percobaan yang gagal = mungkin simpan sebelumnya sebenarnya masuk (respons hilang):
+  ///   muat ulang; isi server sama dengan yang dikirim = berhasil (kalau masih tertunda, dikunci sekali lagi
+  ///   dengan revision server). Isi beda = KONFLIK_REVISION diteruskan (admin lain mengubah).
+  Future<Map<String, dynamic>> simpanPulih(
+    Sesi s,
+    String bagian,
+    Map<String, dynamic> data, {
+    int ulang = 2,
+    Future<void> Function(Duration) tunda = _tundaAsli,
+  }) async {
+    var gagalSebelumnya = false;
+    var i = 0;
+    while (true) {
+      try {
+        return await _api.call(_endpoint(bagian), token: s.token, data: data);
+      } catch (e) {
+        if (e is ApiException && e.kode == 'KONFLIK_REVISION' && gagalSebelumnya) {
+          final server = await muat(s, bagian, '${data['tanggal']}');
+          if (!isiSama(bagian, data, server)) rethrow;
+          if (server['tertunda'] != true) return server;
+          final kunci = Map<String, dynamic>.of(data)..['revision'] = (server['revision'] as num?)?.toInt() ?? 0;
+          return await _api.call(_endpoint(bagian), token: s.token, data: kunci);
+        }
+        if (!bolehUlang(e) || i >= ulang) rethrow;
+        gagalSebelumnya = true;
+        i++;
+        await tunda(Duration(seconds: 2 * i));
+      }
+    }
+  }
+
+  static Future<void> _tundaAsli(Duration d) => Future<void>.delayed(d);
 }

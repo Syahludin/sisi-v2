@@ -313,3 +313,34 @@ class PengambilanGps {
     _c.complete(h);
   }
 }
+
+/// Sampel GPS + jam HP saat sampel DITERIMA (bukan timestamp satelit, supaya jendela tidak tertipu jam GPS).
+typedef SampelSusulan = ({SampelGps s, DateTime t});
+
+/// Hasil titik susulan: detik = jarak waktu sampel terpilih sesudah jepret.
+typedef TitikSusulan = ({double lat, double lng, double akurasi, int detik});
+
+/// v0.65.2 (keputusan kvlar 8 Okt 2026): koordinat foto P0 boleh MENYUSUL bila saat jepret belum ada fix segar,
+/// tapi hanya [jendela] sesudah jepret (petugas bisa sudah bergerak; lewat dari itu dibiarkan kosong, bukan titik salah).
+/// Dipilih sampel PERTAMA yang cukup akurat (<= [Gps.sedang]) supaya sedekat mungkin dengan saat jepret;
+/// tidak ada yang cukup akurat = sampel terbaik di jendela. Server menolak susulan > 30 detik (YAN_P0_SUSULAN_MAKS_DETIK_).
+class GpsSusulan {
+  GpsSusulan._();
+
+  static const Duration jendela = Duration(seconds: 30);
+
+  static TitikSusulan? pilih(List<SampelSusulan> sampel, DateTime jepret) {
+    final sah = sampel
+        .where((x) => Gps.validSampel(x.s) && !x.t.isBefore(jepret) && x.t.difference(jepret) <= jendela)
+        .toList()
+      ..sort((a, b) => a.t.compareTo(b.t));
+    if (sah.isEmpty) return null;
+    final cukup = sah.where((x) => x.s.akurasi <= Gps.sedang);
+    final p = cukup.isNotEmpty ? cukup.first : sah.reduce((a, b) => b.s.akurasi < a.s.akurasi ? b : a);
+    final detik = p.t.difference(jepret).inSeconds.clamp(0, jendela.inSeconds);
+    return (lat: p.s.lat, lng: p.s.lng, akurasi: p.s.akurasi, detik: detik);
+  }
+
+  /// Cukup akurat untuk langsung selesai menunggu.
+  static bool cukup(SampelGps s) => Gps.validSampel(s) && s.akurasi <= Gps.sedang;
+}

@@ -4,11 +4,17 @@
  * MOBILE/WEB hanya boleh dipanggil dari platform itu; KEDUANYA dari mana saja; nilai lain = tolak.
  */
 var GUARD_BATAS_UMUM_ = 90;   // panggilan per sesi per menit, semua endpoint bersesi
-var GUARD_TOKEN_GAGAL_MENIT_ = 60;   // v0.47: token ditolak (semua penelepon) per menit sebelum sheet tidak dibaca lagi
+var GUARD_TOKEN_GAGAL_MENIT_ = 60;   // v0.47: rem global token ditolak; sejak v0.62.3 hanya cadangan kalau indeks token terlalu besar
+var GUARD_PROFIL_TOLAK_ = ['AKUN_NONAKTIF', 'TIM_NONAKTIF', 'ROLE_TIDAK_VALID', 'PETUGAS_TANPA_TIM'];   // v0.86.0-fix2
 var GUARD_TOLAK_DETIK_ = 300;        // v0.47: hash token yang sudah ditolak diingat 5 menit
 
 function guard_(token, ep, platform, nama) {
   var sesi = sesiDariToken_(token);
+  // v0.63.4: sesudah akhir shift akun YANDAL hanya boleh endpoint syncShift (kirim data + logout), sampai syncSampai.
+  if (sesi._sampai && sesi._sampai <= sekarangMsYandal_()) {
+    if (!ep.syncShift) throw new SisiError_('SHIFT_BERAKHIR');
+    sesi.modeSync = true;
+  }
   remSesi_(sesi, nama || '', ep.batasMenit);
   if (ep.menu) {
     var aturan = aturanAkses_();
@@ -52,24 +58,60 @@ function sesiDariToken_(token) {
   var cache = CacheService.getScriptCache();
   var epoch = cfg_().SESI_EPOCH;
   var tersimpan = cache.get('sesi:' + hash);
+  var s = null;
   if (tersimpan) {
-    var s = JSON.parse(tersimpan);
-    if (s._epoch === epoch) return s;   // cache dari sebelum ADMIN_bersihkanCache = baca ulang sheet
+    // v0.86.0-fix2 (audit guard 13 Okt 2026): cache korup = dibuang lalu baca ulang dari sheet (fail closed), bukan KESALAHAN_SERVER.
+    try { s = JSON.parse(tersimpan); } catch (eJ) { s = null; cache.remove('sesi:' + hash); }
   }
-  // v0.47 (audit 4 Okt 2026): token asal-asalan berformat benar dulu selalu membuat server membaca auth_Perangkat
-  // penuh. Sekarang hash yang pernah ditolak dijawab dari cache, dan kalau token ditolak > batas per menit
-  // (tanda serangan), pencarian token baru ditahan TERLALU_SERING (bukan SESI_*, supaya HP tidak logout sendiri).
+  if (s && typeof s === 'object') {
+    if (s._epoch === epoch) {   // cache dari sebelum ADMIN_bersihkanCache = baca ulang sheet
+      // v0.63.0: token YANDAL habis di akhir shift, walau sesi masih di cache. v0.63.4: sampai akhir mode sync
+      // (akhir shift + YAN_SYNC_JAM_); antara akhir shift dan itu guard_ hanya meloloskan endpoint syncShift.
+      if (s._sampai && syncSampaiYandal_(s._sampai) <= sekarangMsYandal_()) throw new SisiError_('SHIFT_BERAKHIR');
+      return s;
+    }
+  }
+  // v0.47 (audit 4 Okt 2026): hash yang pernah ditolak dijawab dari cache.
+  // v0.86.0-fix2: nilai = kode@epoch. ADMIN_bersihkanCache (epoch naik) membuat penolakan lama diabaikan, jadi akun yang
+  // diaktifkan lagi admin bisa langsung masuk. Nilai lama tanpa "@" tetap dibaca sebagai kode saja.
   var tolak = cache.get('sesi-tolak:' + hash);
-  if (tolak) throw new SisiError_(tolak);
+  if (tolak) {
+    var pt = String(tolak).split('@');
+    if (pt.length === 1 || pt[1] === epoch) throw new SisiError_(pt[0]);
+  }
   var kunciGagal = 'sesi-gagal:' + Math.floor(Date.now() / 60000);
-  if ((Number(cache.get(kunciGagal)) || 0) >= GUARD_TOKEN_GAGAL_MENIT_) throw new SisiError_('TERLALU_SERING', 'token ditolak global');
   var gagal = function (kode) {
-    cache.put('sesi-tolak:' + hash, kode, GUARD_TOLAK_DETIK_);
+    cache.put('sesi-tolak:' + hash, kode + '@' + epoch, GUARD_TOLAK_DETIK_);
     cache.put(kunciGagal, String((Number(cache.get(kunciGagal)) || 0) + 1), 120);
     throw new SisiError_(kode);
   };
 
-  var perangkat = tabel_('AUTH_SHEET_ID', 'auth_Perangkat').rows
+  // v0.62.3: indeks token (awalan hash semua baris auth_Perangkat) di cache. Dulu rem global "60 token ditolak / menit"
+  // membuat 1 request/detik dari internet memblokir SEMUA petugas yang cache sesinya habis. Sekarang token asing
+  // ditolak dari indeks tanpa baca sheet, jadi rem global itu tidak perlu lagi (hanya dipakai kalau indeks terlalu besar).
+  var awalan = awalanToken_(hash);
+  var rowsDibaca = null, dibangun = false;
+  var indeks = bacaIndeksToken_(cache);
+  if (!indeks || (!indeks.besar && indeks.h.indexOf(awalan) === -1 && Date.now() - indeks.t >= INDEKS_TOKEN_SEGAR_MS_)) {
+    // v0.62.6 (audit 7 Okt 2026): banyak token asing bersamaan = jangan semuanya membaca auth_Perangkat. Selama satu
+    // jalan sedang membangun (penanda 20 detik), yang lain memakai indeks lama: token tidak ada = TERLALU_SERING.
+    if (indeks && cache.get(INDEKS_TOKEN_KUNCI_ + ':bangun')) throw new SisiError_('TERLALU_SERING', 'indeks token sedang dibangun');
+    cache.put(INDEKS_TOKEN_KUNCI_ + ':bangun', '1', 20);
+    var b;
+    try { b = bangunIndeksToken_(cache); } finally { cache.remove(INDEKS_TOKEN_KUNCI_ + ':bangun'); }   // maks 1x per INDEKS_TOKEN_SEGAR_MS_ untuk token asing
+    indeks = b.indeks; rowsDibaca = b.rows; dibangun = true;
+  }
+  if (indeks.besar) {
+    // cadangan (indeks melebihi batas cache): perilaku v0.47
+    if (!rowsDibaca && (Number(cache.get(kunciGagal)) || 0) >= GUARD_TOKEN_GAGAL_MENIT_) throw new SisiError_('TERLALU_SERING', 'token ditolak global');
+  } else if (indeks.h.indexOf(awalan) === -1) {
+    // Indeks baru dibangun = pasti tidak ada. Indeks lebih tua: bisa saja login baru belum masuk (cache tidak atomik),
+    // jadi jawab TERLALU_SERING (HP mencoba lagi, tidak logout); indeks dibangun ulang paling lambat 1 menit lagi.
+    if (dibangun) gagal('SESI_TIDAK_VALID');
+    throw new SisiError_('TERLALU_SERING', 'token belum ada di indeks');
+  }
+
+  var perangkat = (rowsDibaca || tabel_('AUTH_SHEET_ID', 'auth_Perangkat').rows)
     .filter(function (r) { return r.token_hash === hash; })[0];
   if (!perangkat) gagal('SESI_TIDAK_VALID');
   if (perangkat.dicabut_pada) gagal('SESI_DICABUT');
@@ -78,11 +120,78 @@ function sesiDariToken_(token) {
   var mutlak = batasMutlakToken_(perangkat);   // v0.48: umur mutlak 90 hari sejak login
   if (!mutlak || mutlak <= Date.now()) gagal('SESI_KEDALUWARSA');
 
-  var sesi = profilUser_(String(perangkat.user_id));
+  // v0.86.0-fix2 (audit guard 13 Okt 2026, temuan 1): akun / tim nonaktif, role rusak, PETUGAS tanpa tim = token ditolak
+  // dan DIINGAT 5 menit. Dulu tiap request membaca ulang auth_Perangkat + db_Users + db_Tim tanpa rem (kuota habis).
+  var sesi;
+  try { sesi = profilUser_(String(perangkat.user_id)); } catch (eP) {
+    if (eP && GUARD_PROFIL_TOLAK_.indexOf(eP.kode) !== -1) {
+      cache.put('sesi-tolak:' + hash, eP.kode + '@' + epoch, GUARD_TOLAK_DETIK_);
+    }
+    throw eP;
+  }
   sesi.deviceId = String(perangkat.device_id);
   sesi._tokenHash = hash;
+  if (petugasYandal_(sesi)) {   // v0.63.0
+    var sampai = akhirShiftToken_(perangkat);
+    if (!sampai || syncSampaiYandal_(sampai) <= sekarangMsYandal_()) gagal('SHIFT_BERAKHIR');
+    sesi._sampai = sampai;
+  }
   simpanSesiCache_(sesi);
   return sesi;
+}
+
+var INDEKS_TOKEN_KUNCI_ = 'token-sah:v1';
+var INDEKS_TOKEN_SEGAR_MS_ = 60000;     // token tidak dikenal boleh memicu bangun ulang indeks maks 1x per menit
+var INDEKS_TOKEN_MAKS_BYTE_ = 90000;    // batas nilai CacheService 100 KB
+var INDEKS_TOKEN_SIMPAN_HARI_ = 120;    // baris lebih tua dari umur mutlak token (90 hari) + 30 hari tidak diindeks
+
+/** 16 hex awal hash token (64 bit): cukup untuk menyaring token asing; kecocokan penuh tetap dicek ke sheet. */
+function awalanToken_(hash) { return String(hash || '').slice(0, 16); }
+
+/** Indeks dari cache. Epoch beda (ADMIN_bersihkanCache) / rusak = null. */
+function bacaIndeksToken_(cache) {
+  var ada = cache.get(INDEKS_TOKEN_KUNCI_);
+  if (!ada) return null;
+  try {
+    var x = JSON.parse(ada);
+    if (!x || x.e !== cfg_().SESI_EPOCH || !(x.t > 0) || (!x.besar && !Array.isArray(x.h))) return null;
+    return x;
+  } catch (e) { return null; }
+}
+
+/** Baca auth_Perangkat sekali, simpan awalan hash ke cache. Hasil { indeks, rows } (rows dipakai ulang pemanggil). */
+function bangunIndeksToken_(cache) {
+  var c = cfg_();
+  var rows = tabel_('AUTH_SHEET_ID', 'auth_Perangkat').rows;
+  var batas = Date.now() - INDEKS_TOKEN_SIMPAN_HARI_ * 864e5;
+  var h = [];
+  rows.forEach(function (r) {
+    if (!r.token_hash) return;
+    var d = keDate_(r.dibuat_pada);
+    if (d && d.getTime() < batas) return;   // pasti ditolak umur mutlak
+    var a = awalanToken_(r.token_hash);
+    if (h.indexOf(a) === -1) h.push(a);
+  });
+  var indeks = { t: Date.now(), e: c.SESI_EPOCH, h: h };
+  var teks = JSON.stringify(indeks);
+  if (teks.length > INDEKS_TOKEN_MAKS_BYTE_) {
+    console.warn('Indeks token ' + teks.length + ' byte > batas: guard memakai rem global lama. Arsipkan baris auth_Perangkat lama.');
+    indeks = { t: Date.now(), e: c.SESI_EPOCH, besar: true };
+    teks = JSON.stringify(indeks);
+  }
+  cache.put(INDEKS_TOKEN_KUNCI_, teks, c.CACHE_DETIK);
+  return { indeks: indeks, rows: rows };
+}
+
+/** Login: token baru langsung masuk indeks yang ada di cache (kalau belum ada indeks, dibangun saat dibutuhkan). */
+function tambahIndeksToken_(hash) {
+  var cache = CacheService.getScriptCache();
+  var x = bacaIndeksToken_(cache);
+  if (!x || x.besar) return;
+  var a = awalanToken_(hash);
+  if (x.h.indexOf(a) !== -1) return;
+  x.h.push(a);
+  cache.put(INDEKS_TOKEN_KUNCI_, JSON.stringify(x), cfg_().CACHE_DETIK);
 }
 
 /** Satu-satunya tempat menulis cache sesi (selalu bertanda epoch). */
@@ -121,7 +230,9 @@ function profilUser_(userId, usersSudahDibaca) {
     timId: tim ? String(tim.tim_id) : '',
     timNama: tim ? String(tim.nama) : '',
     timKode: tim ? pad2_(tim.kode) : '',
-    jenisTim: tim ? String(tim.jenis) : '',
+    // v0.93.1 (temuan review 14 Okt 2026): jenis tim dinormalkan (trim + huruf besar), sama dengan ADMIN_cekKonfigurasi.
+    // Dulu "Hartek" lolos cek tapi ditolak guard (perbandingan persis 'HARTEK'). Berlaku semua modul (ROW / YANDAL / HARTEK).
+    jenisTim: tim ? String(tim.jenis || '').trim().toUpperCase() : '',
     ulp: cfg_().ULP_NAMA
   };
 }
@@ -137,7 +248,10 @@ function profilPublik_(sesi) {
 function aturanAkses_() {
   var cache = CacheService.getScriptCache();
   var tersimpan = cache.get('akses:v1');
-  if (tersimpan) return JSON.parse(tersimpan);
+  if (tersimpan) {
+    try { var ada = JSON.parse(tersimpan); if (ada && ada.menu && Array.isArray(ada.akses)) return ada; } catch (eA) { /* korup: baca ulang sheet */ }
+    cache.remove('akses:v1');
+  }
   var menu = {};
   tabel_('MASTER_SHEET_ID', 'db_Menu').rows.forEach(function (r) {
     if (!r.menu_kode) return;
@@ -149,7 +263,7 @@ function aturanAkses_() {
   var akses = tabel_('MASTER_SHEET_ID', 'db_Akses').rows
     .filter(function (r) { return r.role && r.menu_kode; })
     .map(function (r) {
-      return { role: String(r.role).trim(), jenisTim: String(r.jenis_tim || '').trim(),
+      return { role: String(r.role).trim(), jenisTim: String(r.jenis_tim || '').trim().toUpperCase(),   // v0.93.1: '*' tetap '*'
                menu: String(r.menu_kode).trim(), aksi: String(r.aksi || '').trim().toUpperCase() };
     });
   var hasil = { menu: menu, akses: akses };

@@ -10,17 +10,23 @@ import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../../widgets/wa_panel.dart';
+import 'batal_row.dart';
 import 'form_header_screen.dart';
+import 'perbaikan_repository.dart';
 import 'realisasi_screen.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Detail laporan (desain lama): dua tab pill "Detail Laporan" | "Realisasi (n)", FAB "Tambah Penyulang".
 class HeaderDetailScreen extends StatefulWidget {
-  const HeaderDetailScreen({super.key, required this.deps, required this.sesi, required this.headerId});
+  const HeaderDetailScreen({super.key, required this.deps, required this.sesi, required this.headerId, this.tambahPenyulang = false});
   final Deps deps;
   final Sesi sesi;
   final String headerId;
+
+  /// v0.90.0: dibuka dari tombol + di kartu laporan = langsung ke tab Realisasi dan lembar Tambah Penyulang.
+  final bool tambahPenyulang;
 
   @override
   State<HeaderDetailScreen> createState() => _HeaderDetailScreenState();
@@ -36,11 +42,19 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
   bool _waMuat = false;
   String? _waPesan;
   bool _menyegarkan = false;
+  bool _bisaUrungkan = false;
+  int _tertunda = 0; // v1.0.17 (sinkron atomik): data laporan ini yang belum diterima server
 
   @override
   void initState() {
     super.initState();
-    unawaited(_muat().then((_) => _muatWa()));
+    unawaited(_muat().then((_) async {
+      if (widget.tambahPenyulang && mounted && _bolehUbah) {
+        setState(() => _tab = 1);
+        await _tambahPenyulang();
+      }
+      await _muatWa();
+    }));
     widget.deps.syncCtl.addListener(_ulang);
   }
 
@@ -60,8 +74,12 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
     final real = await r.realisasiDari(widget.headerId);
     final j = await r.jumlahEksekusi(widget.headerId);
     final b = await r.belumLengkap(widget.headerId);
+    final u = h != null && !h.aktif && await widget.deps.perbaikan.bisaUrungkan(widget.sesi.userId, 'header', h.id);
+    final tunda = await r.jumlahTertundaHeader(widget.sesi.userId, widget.headerId);
     if (!mounted) return;
     setState(() {
+      _bisaUrungkan = u;
+      _tertunda = tunda;
       _h = h;
       _real = real;
       _jumlah = j;
@@ -107,13 +125,33 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
       await ctl.sinkron();
       await _muat();
       await _muatWa();
-      if (mounted) tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Laporan diperbarui.');
+      if (mounted) {
+        tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Laporan diperbarui.');
+      }
     } finally {
       if (mounted) setState(() => _menyegarkan = false);
     }
   }
 
   bool get _bolehUbah => widget.sesi.bisaUbah('ROW_EKSEKUSI') && (_h?.aktif ?? false);
+
+  /// M4: batal hanya untuk data AKTIF dalam 7 hari (lebih tua = DATA_TERKUNCI di server).
+  bool get _bolehBatal => _bolehUbah && PerbaikanRepository.dalamBatas(_h!.kode);
+
+  Future<void> _batal() async {
+    final hapus = await batalkanRow(context, widget.deps, widget.sesi, jenis: 'header', id: widget.headerId, label: 'laporan ini');
+    if (!mounted || hapus == null) return;
+    if (hapus) {
+      Navigator.pop(context);
+      return;
+    }
+    await _muat();
+  }
+
+  Future<void> _urungkan() async {
+    await urungkanBatalRow(context, widget.deps, widget.sesi, jenis: 'header', id: widget.headerId);
+    await _muat();
+  }
 
   Future<void> _ubahHeader() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: _h)));
@@ -186,6 +224,12 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Detail Laporan', subjudul: h?.kode, actions: [
         TombolSegarkan(sibuk: _menyegarkan || widget.deps.syncCtl.sedangSync, onPressed: _segarkan),
+        MenuDataRow(
+            labelBatal: 'Batalkan laporan',
+            bisaBatal: _bolehBatal,
+            bisaUrungkan: _bisaUrungkan,
+            onBatal: _batal,
+            onUrungkan: _urungkan),
       ]),
       body: h == null
           ? const SisiLoading(ukuran: 60)
@@ -238,8 +282,11 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
   Widget _kartuWa(RowHeader h) {
     final wa = _wa;
     final teks = (wa?['waText'] as String?) ?? h.waText ?? '';
-    final siap = wa == null ? h.waSiap : wa['siapKirim'] == true;
-    final alasan = <String>[];
+    // v1.0.17 (sinkron atomik): SIAP WA hanya kalau semua data laporan ini sudah diterima server
+    final siap = (wa == null ? h.waSiap : wa['siapKirim'] == true) && _tertunda == 0;
+    final alasan = <String>[
+      if (_tertunda > 0) 'SiSi Sedang Proses Sinkron Data: $_tertunda Data Sedang Proses Sinkron.',
+    ];
     if (wa != null && !siap) {
       final kurang = (wa['headerKurang'] as List<dynamic>? ?? const <dynamic>[]).cast<String>();
       const label = {'koordinatAwal': 'Koordinat awal', 'koordinatAkhir': 'Koordinat akhir', 'kmAwal': 'KM awal', 'kmAkhir': 'KM akhir'};
@@ -252,13 +299,15 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
       Row(children: [
         siap
             ? const StatusBadge('SIAP WA', warna: AppColors.success700, latar: AppColors.success100, ikon: Icons.check_circle_outline)
-            : const StatusBadge('PROSES', warna: AppColors.accent700, latar: AppColors.accent100, ikon: Icons.hourglass_bottom_rounded),
+            : _tertunda > 0
+                ? const StatusBadge('PROSES SINKRON', warna: AppColors.accent700, latar: AppColors.accent100, ikon: Icons.sync_rounded)
+                : const StatusBadge('PROSES', warna: AppColors.accent700, latar: AppColors.accent100, ikon: Icons.hourglass_bottom_rounded),
         const Spacer(),
         if (h.aktif)
           TextButton.icon(
             onPressed: _waMuat ? null : _muatWa,
             icon: _waMuat
-                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SisiLoader(ukuran: 14)
                 : const Icon(Icons.refresh_rounded, size: 18),
             label: const Text('Muat ulang'),
           ),
@@ -285,7 +334,7 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
           const SizedBox(width: 120, child: Text('Status', style: TextStyle(fontSize: 12.5, color: AppColors.neutral500))),
           if (!h.aktif) const StatusBadge('BATAL', warna: AppColors.red700, latar: AppColors.red100) else StatusBadge.sinkron(h.sinkron),
         ]),
-        if (h.alasan != null) _baris('Catatan server', h.alasan),
+        if (h.alasan != null) _baris('Keterangan', KodeError.alasanSinkron(h.alasan)),
       ]),
       const SizedBox(height: 14),
       SectionCard(judul: 'Perjalanan lapangan', ikon: Icons.route_outlined, children: [

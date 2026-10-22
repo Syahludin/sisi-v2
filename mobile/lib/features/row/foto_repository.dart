@@ -32,10 +32,47 @@ class FotoLokal {
 
 /// Foto baru yang belum disimpan (hasil kamera SiSi / galeri). Kamera membawa waktu jepret + posisi GPS saat jepret.
 class FotoBaru {
-  const FotoBaru(this.file, this.sumber, {this.diambil, this.lat, this.lng, this.akurasiM});
+  const FotoBaru(this.file, this.sumber, {this.diambil, this.lat, this.lng, this.akurasiM, this.gpsSusulanDetik, this.sejakJepret});
   final XFile file;
   final String sumber; // KAMERA | GALERI
   final DateTime? diambil;
+  final double? lat;
+  final double? lng;
+  final double? akurasiM;
+
+  /// v0.65.2 (P0): titik GPS didapat N detik SESUDAH jepret (maks GpsSusulan.jendela). null = fix saat jepret / tanpa GPS.
+  final int? gpsSusulanDetik;
+
+  /// v0.65.3 (P0): jam monoton sejak jepret. Foto direview dulu, jadi waktu foto = jam terpercaya saat disimpan dikurangi umur ini.
+  final Stopwatch? sejakJepret;
+}
+
+/// v0.62.8: foto yang sudah dirender + ditulis ke folder app, BELUM tercatat di foto_antre. Dicatat lewat
+/// [FotoRepository.catat] di dalam transaksi pemanggil (simpan eksekusi baru: semua-atau-tidak).
+class FotoSiap {
+  const FotoSiap({
+    required this.fotoId,
+    required this.slot,
+    required this.path,
+    required this.pathAsli,
+    required this.sha256,
+    required this.ukuran,
+    required this.sumber,
+    required this.diambil,
+    required this.tanda,
+    this.lat,
+    this.lng,
+    this.akurasiM,
+  });
+  final String fotoId;
+  final String slot;
+  final String path;
+  final String? pathAsli;
+  final String sha256;
+  final int ukuran;
+  final String sumber;
+  final DateTime diambil;
+  final String? tanda;
   final double? lat;
   final double? lng;
   final double? akurasiM;
@@ -76,13 +113,14 @@ class FotoRepository {
 
   /// Salin foto ber-watermark ke galeri HP (album SiSi ROW). Nama file = kode eksekusi + slot supaya mudah dicari.
   /// File di folder app tidak diubah.
-  static Future<void> keGaleri(String path, {required String nama}) async {
+  /// v0.64.7: `album` lain untuk foto P0 Yandal.
+  static Future<void> keGaleri(String path, {required String nama, String album = albumGaleri}) async {
     final tmp = await getTemporaryDirectory();
     final aman = nama.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
     final salin = File(p.join(tmp.path, '$aman.jpg'));
     await File(path).copy(salin.path);
     try {
-      await Gal.putImage(salin.path, album: albumGaleri);
+      await Gal.putImage(salin.path, album: album);
     } on GalException catch (e) {
       throw RowError('Gagal simpan ke galeri (${e.type.message}).');
     } finally {
@@ -99,18 +137,47 @@ class FotoRepository {
       FROM row_eksekusi e LEFT JOIN row_realisasi r ON r.id = e.realisasi_id WHERE e.id = ? LIMIT 1''', [eksekusiId]);
     if (r.isEmpty) return null;
     final e = r.first;
+    return dataWatermarkDari(s,
+        kodeEksekusi: e['kode'] as String,
+        penyulang: e['penyulang'] as String?,
+        section: e['section'] as String?,
+        koordinatPekerjaan: e['koordinat_pekerjaan'] as String?,
+        diameter: e['diameter'] as int?,
+        jenis: e['jenis_nama'] as String?,
+        slotFoto: slotFoto,
+        waktu: waktu,
+        sumber: sumber,
+        lat: lat,
+        lng: lng,
+        akurasiM: akurasiM);
+  }
+
+  /// v0.62.8: data watermark dari isi form (eksekusi baru yang belum ada di HP). Sama persis dengan [dataWatermark].
+  DataWatermark dataWatermarkDari(Sesi s,
+      {required String kodeEksekusi,
+      String? penyulang,
+      String? section,
+      String? koordinatPekerjaan,
+      int? diameter,
+      String? jenis,
+      required String slotFoto,
+      required DateTime waktu,
+      String sumber = 'KAMERA',
+      double? lat,
+      double? lng,
+      double? akurasiM}) {
     return DataWatermark(
-      kodeEksekusi: e['kode'] as String,
+      kodeEksekusi: kodeEksekusi,
       ulp: s.ulp,
       tim: timSesi(s),
       subTim: s.timNama,
-      penyulang: e['penyulang'] as String?,
-      section: e['section'] as String?,
+      penyulang: penyulang,
+      section: section,
       waktu: waktu,
-      koordinat: lat != null && lng != null ? Koordinat.format(lat, lng) : e['koordinat_pekerjaan'] as String?,
+      koordinat: lat != null && lng != null ? Koordinat.format(lat, lng) : koordinatPekerjaan,
       akurasiM: lat != null && lng != null ? (akurasiM ?? 0) : null,
-      diameter: e['diameter'] as int?,
-      jenis: e['jenis_nama'] as String?,
+      diameter: diameter,
+      jenis: jenis,
       slot: label[slotFoto] ?? slotFoto,
       sumber: sumber,
     );
@@ -162,6 +229,15 @@ class FotoRepository {
     return {for (final x in r) x['id'] as String: (x['n'] as int?) ?? 0};
   }
 
+  /// v0.62.5: foto GAGAL milik eksekusi yang masih AKTIF (perlu Kirim ulang / ambil ulang di detail eksekusi).
+  Future<int> jumlahGagal(String userId) async {
+    final r = await _db.db.rawQuery('''
+      SELECT COUNT(*) AS n FROM foto_antre f JOIN row_eksekusi e ON e.id = f.eksekusi_id
+      WHERE f.user_id = ? AND f.status = 'GAGAL' AND e.status = 'AKTIF'
+      ''', [userId]);
+    return (r.first['n'] as int?) ?? 0;
+  }
+
   Future<int> jumlahTertunda(String userId) async {
     final r = await _db.db.rawQuery("SELECT COUNT(*) AS n FROM foto_antre WHERE user_id = ? AND status = 'TERTUNDA'", [userId]);
     return (r.first['n'] as int?) ?? 0;
@@ -169,7 +245,30 @@ class FotoRepository {
 
   /// Simpan foto ke folder app + antre upload. Foto lama di slot sama yang BELUM terkirim dibuang
   /// (yang sudah terkirim dibiarkan; server menandai BATAL saat foto pengganti diterima).
+  /// Dipakai untuk eksekusi yang SUDAH ada (detail eksekusi). Eksekusi baru: [siapkan] + [catat] (v0.62.8).
   Future<void> simpan(Sesi s, {required String eksekusiId, required String slotFoto, required FotoBaru foto}) async {
+    if (!slot.contains(slotFoto)) throw ArgumentError.value(slotFoto, 'slot');
+    final diambil = foto.diambil ?? DateTime.now();
+    final d = await dataWatermark(s, eksekusiId, slotFoto, diambil,
+        sumber: foto.sumber, lat: foto.lat, lng: foto.lng, akurasiM: foto.akurasiM);
+    if (d == null) throw RowError('Eksekusi tidak ditemukan di HP.');
+    final siap = await siapkan(slotFoto: slotFoto, foto: foto, d: d);
+    final List<String> lama;
+    try {
+      lama = await _db.db.transaction((tx) => catat(tx, s, eksekusiId, siap));
+    } catch (_) {
+      await buangSiap(siap);
+      rethrow;
+    }
+    lupakanSiap([siap]);
+    for (final x in lama) {
+      await _hapusFile(x);
+    }
+  }
+
+  /// v0.62.8: cek + render + tulis file foto (watermark dari [d]), TANPA menyentuh database.
+  /// Gagal = RowError dan tidak ada file yang tertinggal.
+  Future<FotoSiap> siapkan({required String slotFoto, required FotoBaru foto, required DataWatermark d}) async {
     if (!slot.contains(slotFoto)) throw ArgumentError.value(slotFoto, 'slot');
     final sumber = foto.sumber;
     final bytes = await foto.file.readAsBytes();
@@ -179,15 +278,13 @@ class FotoRepository {
     if (bytes.length > 20 * 1024 * 1024) throw RowError('Foto terlalu besar. Ambil ulang.');
     final kamera = sumber == 'KAMERA';
     if (kamera && !await Watermark.landscape(bytes)) throw RowError(pesanLandscape);
-    final diambil = foto.diambil ?? DateTime.now();
-    final d = await dataWatermark(s, eksekusiId, slotFoto, diambil,
-        sumber: sumber, lat: foto.lat, lng: foto.lng, akurasiM: foto.akurasiM);
-    if (d == null) throw RowError('Eksekusi tidak ditemukan di HP.');
+    final diambil = foto.diambil ?? d.waktu;
     final dir = Directory(p.join((await getApplicationDocumentsDirectory()).path, 'foto'));
     await dir.create(recursive: true);
     final fotoId = RowOutbox.uuidBaru();
     final path = p.join(dir.path, '$fotoId.jpg');
     final pathAsli = p.join(dir.path, '${fotoId}_asli.jpg');
+    _disiapkan.addAll([p.basename(path), p.basename(pathAsli)]);
     final Uint8List akhir;
     if (!kamera) {
       // v0.44 (revisi kvlar 4 Okt 2026): foto GALERI tanpa watermark, hanya diperkecil (1600 px) supaya muat
@@ -213,36 +310,119 @@ class FotoRepository {
       }
     }
     final String? tanda = kamera ? d.tanda : null;
-    await File(path).writeAsBytes(akhir, flush: true);
-
-    final lama = await _db.db.query('foto_antre',
-        where: 'eksekusi_id = ? AND jenis_foto = ? AND status != ?', whereArgs: [eksekusiId, slotFoto, 'TERKIRIM']);
-    await _db.db.transaction((tx) async {
-      await tx.delete('foto_antre',
-          where: 'eksekusi_id = ? AND jenis_foto = ? AND status != ?', whereArgs: [eksekusiId, slotFoto, 'TERKIRIM']);
-      await tx.insert('foto_antre', {
-        'foto_id': fotoId,
-        'user_id': s.userId,
-        'eksekusi_id': eksekusiId,
-        'jenis_foto': slotFoto,
-        'path': path,
-        'status': 'TERTUNDA',
-        'dibuat_pada': DateTime.now().toUtc().toIso8601String(),
-        'sumber': sumber,
-        'sha256': sha256.convert(akhir).toString(),
-        'ukuran': akhir.length,
-        'diambil_pada': diambil.toUtc().toIso8601String(),
-        'path_asli': kamera ? pathAsli : null,
-        'wm_tanda': tanda,
-        'lat': foto.lat,
-        'lng': foto.lng,
-        'akurasi_m': foto.akurasiM,
-      });
-    });
-    for (final x in lama) {
-      await _hapusFile(x['path'] as String?);
-      await _hapusFile(x['path_asli'] as String?);
+    try {
+      await File(path).writeAsBytes(akhir, flush: true);
+    } catch (_) {
+      await _hapusFile(path);
+      await _hapusFile(kamera ? pathAsli : null);
+      throw RowError('Foto gagal disimpan di HP. Coba lagi.');
     }
+    return FotoSiap(
+      fotoId: fotoId,
+      slot: slotFoto,
+      path: path,
+      pathAsli: kamera ? pathAsli : null,
+      sha256: sha256.convert(akhir).toString(),
+      ukuran: akhir.length,
+      sumber: sumber,
+      diambil: diambil,
+      tanda: tanda,
+      lat: foto.lat,
+      lng: foto.lng,
+      akurasiM: foto.akurasiM,
+    );
+  }
+
+  /// v0.62.8: catat [f] di foto_antre DI DALAM transaksi [tx] milik pemanggil. Foto lama di slot sama yang belum
+  /// terkirim dibuang dari DB; hasil = path file lama yang harus dihapus pemanggil SETELAH transaksi berhasil.
+  Future<List<String>> catat(DatabaseExecutor tx, Sesi s, String eksekusiId, FotoSiap f) async {
+    final lama = await tx.query('foto_antre',
+        where: 'eksekusi_id = ? AND jenis_foto = ? AND status != ?', whereArgs: [eksekusiId, f.slot, 'TERKIRIM']);
+    await tx.delete('foto_antre',
+        where: 'eksekusi_id = ? AND jenis_foto = ? AND status != ?', whereArgs: [eksekusiId, f.slot, 'TERKIRIM']);
+    await tx.insert('foto_antre', {
+      'foto_id': f.fotoId,
+      'user_id': s.userId,
+      'eksekusi_id': eksekusiId,
+      'jenis_foto': f.slot,
+      'path': f.path,
+      'status': 'TERTUNDA',
+      'dibuat_pada': DateTime.now().toUtc().toIso8601String(),
+      'sumber': f.sumber,
+      'sha256': f.sha256,
+      'ukuran': f.ukuran,
+      'diambil_pada': f.diambil.toUtc().toIso8601String(),
+      'path_asli': f.pathAsli,
+      'wm_tanda': f.tanda,
+      'lat': f.lat,
+      'lng': f.lng,
+      'akurasi_m': f.akurasiM,
+    });
+    return [
+      for (final x in lama)
+        for (final k in const ['path', 'path_asli'])
+          if (x[k] is String && (x[k] as String).isNotEmpty) x[k] as String,
+    ];
+  }
+
+  /// v0.62.8: nama file yang sedang disiapkan di proses app ini (belum tentu sudah tercatat); dilindungi dari
+  /// [bersihkanYatim]. Hilang saat app ditutup, dan saat itu simpan yang belum selesai memang batal.
+  static final Set<String> _disiapkan = <String>{};
+
+  /// v0.62.8: sudah tercatat di foto_antre (transaksi commit) = tidak perlu dilindungi lagi.
+  void lupakanSiap(Iterable<FotoSiap> daftar) {
+    for (final f in daftar) {
+      _disiapkan.removeAll([p.basename(f.path), if (f.pathAsli != null) p.basename(f.pathAsli!)]);
+    }
+  }
+
+  /// v0.62.8: hapus file foto yang sudah disiapkan tapi tidak jadi dicatat.
+  Future<void> buangSiap(FotoSiap f) async {
+    _disiapkan.removeAll([p.basename(f.path), if (f.pathAsli != null) p.basename(f.pathAsli!)]);
+    try {
+      await _hapusFile(f.path);
+      await _hapusFile(f.pathAsli);
+    } catch (_) {
+      // dibiarkan; dibersihkan bersihkanYatim
+    }
+  }
+
+  /// v0.62.8: file di folder foto yang tidak dipakai baris foto_antre mana pun (semua akun di HP ini), lebih tua
+  /// dari 1 jam: sisa simpan yang terputus (app mati sebelum transaksi). Prinsip: belum tersimpan = belum fix.
+  Future<int> bersihkanYatim() async {
+    try {
+      return await _bersihkanYatim();
+    } catch (_) {
+      return 0; // tidak boleh mengganggu app; dicoba lagi saat sesi berikutnya
+    }
+  }
+
+  Future<int> _bersihkanYatim() async {
+    final dir = Directory(p.join((await getApplicationDocumentsDirectory()).path, 'foto'));
+    if (!await dir.exists()) return 0;
+    final dipakai = <String>{};
+    for (final x in await _db.db.query('foto_antre', columns: ['path', 'path_asli'])) {
+      for (final k in const ['path', 'path_asli']) {
+        final v = x[k];
+        if (v is String && v.isNotEmpty) dipakai.add(p.basename(v));
+      }
+    }
+    final pola = RegExp(r'^[0-9a-fA-F-]{36}(_asli)?\.jpg$');
+    final batas = DateTime.now().subtract(const Duration(hours: 1));
+    var n = 0;
+    await for (final e in dir.list()) {
+      if (e is! File) continue;
+      final nama = p.basename(e.path);
+      if (!pola.hasMatch(nama) || dipakai.contains(nama) || _disiapkan.contains(nama)) continue;
+      try {
+        if ((await e.lastModified()).isAfter(batas)) continue;
+        await e.delete();
+        n++;
+      } catch (_) {
+        // coba lagi lain kali
+      }
+    }
+    return n;
   }
 
   /// Render ulang watermark file `path` dari file asli kalau isinya sudah tidak sesuai data eksekusi.
@@ -265,20 +445,36 @@ class FotoRepository {
   /// Setelah Edit eksekusi: foto kamera yang SUDAH terkirim dengan watermark lama dibuatkan pengganti
   /// (foto_id baru, render ulang dari file asli) lalu diantre. Server menandai foto lama BATAL saat pengganti diterima.
   /// Foto yang belum terkirim cukup dirender ulang saat dikirim. Hasil: jumlah foto yang diantre ulang.
-  Future<int> segarkanWatermark(Sesi s, String eksekusiId) async {
+  /// v0.62.7 (audit 7 Okt 2026): hasil juga daftar slot yang watermark-nya TIDAK bisa diperbarui (file asli tidak ada,
+  /// hasil > 2 MB, gagal render). Dulu dilewati diam-diam, jadi foto di server tetap bertuliskan data lama.
+  Future<({int diganti, List<String> basi})> segarkanWatermark(Sesi s, String eksekusiId) async {
     final terbaru = await untukEksekusi(eksekusiId);
     final dir = Directory(p.join((await getApplicationDocumentsDirectory()).path, 'foto'));
     await dir.create(recursive: true);
     var n = 0;
+    final basi = <String>[];
     for (final f in terbaru.values) {
       final x = f.m;
       final asli = x['path_asli'] as String?;
       if (x['sumber'] == 'GALERI') continue; // v0.44: foto galeri tanpa watermark
-      if (f.status != 'TERKIRIM' || asli == null || !await File(asli).exists()) continue;
+      if (f.status != 'TERKIRIM') continue; // TERTUNDA: watermark diperbarui saat dikirim (_segarkanFile)
       final d = await _dataBaris(s, x);
       if (d == null || d.tanda == x['wm_tanda']) continue;
-      final b = await Watermark.pasang(await File(asli).readAsBytes(), d);
-      if (b.length > maksByte) continue;
+      if (asli == null || !await File(asli).exists()) {
+        basi.add(f.slot);
+        continue;
+      }
+      final Uint8List b;
+      try {
+        b = await Watermark.pasang(await File(asli).readAsBytes(), d);
+      } catch (_) {
+        basi.add(f.slot);
+        continue;
+      }
+      if (b.length > maksByte) {
+        basi.add(f.slot);
+        continue;
+      }
       final fotoId = RowOutbox.uuidBaru();
       final path = p.join(dir.path, '$fotoId.jpg');
       await File(path).writeAsBytes(b, flush: true);
@@ -306,7 +502,7 @@ class FotoRepository {
       });
       n++;
     }
-    return n;
+    return (diganti: n, basi: basi);
   }
 
   /// Kirim foto TERTUNDA yang eksekusinya sudah diterima server. Jaringan putus = berhenti (lempar), sisanya antre.
@@ -358,6 +554,11 @@ class FotoRepository {
         ok++;
       } on ApiException catch (e) {
         if (KodeError.sesiHabis.contains(e.kode) || e.kode.startsWith('HTTP_') || e.kode == KodeError.serverSibuk) rethrow;
+        // v0.62.4 (audit 6 Okt 2026): rem server (uploadFotoRow 30 / menit) bukan foto rusak. Dulu foto ini jadi GAGAL
+        // (merah, tunggu ketuk ulang). Sekarang berhenti di sini: foto ini dan sisanya tetap TERTUNDA, dikirim sync berikutnya.
+        if (e.kode == KodeError.terlaluSering) break;
+        // v0.62.5: folder foto server terbuka untuk umum = masalah setelan server, bukan foto ini. Tetap TERTUNDA.
+        if (e.kode == 'FOTO_TIDAK_PRIVAT') break;
         await _tandai(f.fotoId, 'GAGAL', e.kode);
         gagal++;
       }

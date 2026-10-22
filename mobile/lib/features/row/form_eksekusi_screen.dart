@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -9,6 +10,7 @@ import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/accurate_gps_button.dart';
 import '../../widgets/foto_slot.dart';
+import '../../widgets/kolom_pilih.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'foto_repository.dart';
 import 'jenis_pekerjaan.dart';
@@ -16,6 +18,7 @@ import 'kamera_screen.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
 import 'watermark.dart';
+import '../wo/wo_bantu.dart' show placeholderDiameterRow;
 
 /// Form eksekusi ROW (field mengikuti eksekusi_row_screen lama, kartu mengikuti form header lama).
 /// Foto Sebelum / Pekerjaan / Sesudah boleh diisi sekarang atau menyusul dari detail eksekusi.
@@ -109,9 +112,18 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
         );
         if (berubah) {
           // data watermark (kode, koordinat, diameter, jenis) ikut berubah: foto kamera yang sudah terkirim diganti
+          // v0.62.7: slot yang watermark-nya tidak bisa diperbarui diberitahukan (dulu diam-diam tetap data lama).
+          var basi = <String>[];
           try {
-            await widget.deps.foto.segarkanWatermark(widget.sesi, widget.edit!.id);
-          } catch (_) {/* foto lama tetap; bisa diambil ulang dari detail */}
+            basi = (await widget.deps.foto.segarkanWatermark(widget.sesi, widget.edit!.id)).basi;
+          } catch (_) {
+            basi = FotoRepository.label.keys.toList();
+          }
+          if (basi.isNotEmpty && mounted) {
+            tampilPesan(context,
+                'Data tersimpan, tapi tulisan di foto ${basi.map((k) => FotoRepository.label[k] ?? k).join(', ')} belum bisa diperbarui. '
+                'Ambil ulang foto itu dari detail eksekusi.');
+          }
           unawaited(widget.deps.syncCtl.sinkron());
         }
         if (mounted) Navigator.pop(context, berubah);
@@ -122,33 +134,88 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
       }
       return;
     }
+    // v0.62.8 (keputusan kvlar 7 Okt 2026): simpan SEMUA-ATAU-TIDAK. Foto dirender dulu ke file (watermark dari isi
+    // form + kode rencana), lalu eksekusi + outbox + semua foto masuk dalam SATU transaksi. App mati / foto gagal
+    // sebelum itu = tidak ada yang tersimpan (belum disimpan = belum fix); file sisa dibersihkan bersihkanYatim.
+    // Dulu eksekusi tersimpan & terkirim duluan, foto menyusul satu per satu: app mati di tengah = eksekusi tanpa foto.
+    final foto = widget.deps.foto;
+    final siap = <FotoSiap>[];
+    var tercatat = false;
     try {
-      final id = await widget.deps.row.buatEksekusi(
-        widget.sesi,
-        widget.realisasi,
-        sectionId: sec.id,
-        sectionNama: sec.nama,
-        nomorTiang: tiang,
-        koordinatTiang: kTiang,
-        koordinatPekerjaan: _kKerja.text.trim(),
-        diameter: int.parse(_diameter.text.trim()),
-        jenis: hj.jenis!,
-      );
-      // Eksekusi sudah tersimpan: foto yang gagal disimpan tidak membatalkan eksekusi (bisa diulang dari detail).
-      final gagal = <String>[];
-      for (final e in _foto.entries) {
+      final diameter = int.parse(_diameter.text.trim());
+      final kKerja = _kKerja.text.trim();
+      final lama = <String>[];
+      for (var coba = 0; !tercatat; coba++) {
+        final rencana = await widget.deps.row.rencanaEksekusi(widget.realisasi);
+        for (final e in _foto.entries) {
+          final f = e.value;
+          final d = foto.dataWatermarkDari(widget.sesi,
+              kodeEksekusi: rencana.kode,
+              penyulang: widget.realisasi.penyulang,
+              section: sec.nama,
+              koordinatPekerjaan: kKerja,
+              diameter: diameter,
+              jenis: hj.jenis!.nama,
+              slotFoto: e.key,
+              waktu: f.diambil ?? DateTime.now(),
+              sumber: f.sumber,
+              lat: f.lat,
+              lng: f.lng,
+              akurasiM: f.akurasiM);
+          try {
+            siap.add(await foto.siapkan(slotFoto: e.key, foto: f, d: d));
+          } on RowError catch (x) {
+            throw RowError('Foto ${FotoRepository.label[e.key]}: ${x.pesan} Belum ada yang tersimpan.');
+          }
+        }
         try {
-          await widget.deps.foto.simpan(widget.sesi, eksekusiId: id, slotFoto: e.key, foto: e.value);
-        } catch (_) {
-          gagal.add(FotoRepository.label[e.key]!);
+          await widget.deps.row.buatEksekusi(
+            widget.sesi,
+            widget.realisasi,
+            sectionId: sec.id,
+            sectionNama: sec.nama,
+            nomorTiang: tiang,
+            koordinatTiang: kTiang,
+            koordinatPekerjaan: kKerja,
+            diameter: diameter,
+            jenis: hj.jenis!,
+            rencana: rencana,
+            dalamTransaksi: (tx, id, _) async {
+              for (final f in siap) {
+                lama.addAll(await foto.catat(tx, widget.sesi, id, f));
+              }
+            },
+          );
+          tercatat = true;
+          foto.lupakanSiap(siap);
+        } on KodeRencanaDipakai {
+          // nomor diambil data lain di antara render & simpan: render ulang foto dengan nomor berikutnya (maks 3x)
+          for (final f in siap) {
+            await foto.buangSiap(f);
+          }
+          siap.clear();
+          lama.clear();
+          if (coba >= 2) throw RowError('Nomor eksekusi berubah terus. Tunggu sinkron selesai lalu simpan lagi.');
         }
       }
-      if (gagal.isNotEmpty && mounted) tampilPesan(context, 'Eksekusi tersimpan, foto ${gagal.join(', ')} gagal. Ulangi dari detail eksekusi.');
+      for (final x in lama) {
+        try {
+          final f = File(x);
+          if (await f.exists()) await f.delete();
+        } catch (_) {/* dibersihkan bersihkanYatim */}
+      }
       unawaited(widget.deps.syncCtl.sinkron());
       if (mounted) Navigator.pop(context, true);
     } on RowError catch (e) {
       if (mounted) tampilPesan(context, e.pesan);
+    } catch (_) {
+      if (mounted) tampilPesan(context, 'Gagal menyimpan. Belum ada yang tersimpan, coba lagi.');
     } finally {
+      if (!tercatat) {
+        for (final f in siap) {
+          await foto.buangSiap(f);
+        }
+      }
       if (mounted) setState(() => _simpan = false);
     }
   }
@@ -190,11 +257,14 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
         key: _form,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
           SectionCard(judul: 'Lokasi pekerjaan', ikon: Icons.electrical_services_outlined, children: [
-            DropdownButtonFormField<String>(
-              initialValue: _sectionId,
-              isExpanded: true,
-              decoration: sisiInput('Section'),
-              items: [for (final s in _section) DropdownMenuItem(value: s.id, child: Text(s.nama, overflow: TextOverflow.ellipsis))],
+            KolomPilih(
+              key: ValueKey('section-${_section.length}-$_sectionId'),
+              label: 'Section',
+              judulSheet: 'Pilih Section',
+              keteranganSheet: 'Penyulang ${widget.realisasi.penyulang} · urut dari PMT sampai ujung jaringan',
+              selaluCari: true, // v0.72.0: tampilan sama dropdown section P0 Yandal (tanpa nomor, kolom cari)
+              pilihan: [for (final s in _section) PilihanItem(s.id, s.nama)],
+              nilaiAwal: _sectionId,
               onChanged: (v) => setState(() => _sectionId = v),
               validator: (v) => v == null ? 'Pilih section' : null,
             ),
@@ -252,7 +322,7 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
               controller: _diameter,
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
-              decoration: sisiInput('Diameter (cm)'),
+              decoration: sisiInput('Diameter (cm)', hint: placeholderDiameterRow), // v1.0.17
               validator: (v) {
                 final d = int.tryParse((v ?? '').trim());
                 if (d == null) return 'Isi bilangan bulat cm';

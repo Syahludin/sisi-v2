@@ -126,8 +126,9 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
     final s = widget.sesi;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: sisiAppBar(_ubah ? 'Ubah Header ROW' : 'Laporan Header ROW',
-          subjudul: _ubah ? widget.header!.kode : 'Inisialisasi perjalanan hari ini'),
+      // v1.0.16: judul "Laporan Header ROW" diganti supaya tidak tertukar dengan rincian penyulang / eksekusi di bawahnya
+      appBar: sisiAppBar(_ubah ? 'Ubah Data Perjalanan Tim' : 'Data Perjalanan Tim',
+          subjudul: _ubah ? widget.header!.kode : 'Titik lapangan & KM kendaraan hari ini'),
       body: Form(
         key: _form,
         child: ListView(
@@ -213,7 +214,7 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
             height: 50,
             child: FilledButton(
               onPressed: _simpan ? null : _kirim,
-              child: Text(_simpan ? 'Menyimpan...' : (_ubah ? 'Simpan Perubahan' : 'Simpan Laporan Header')),
+              child: Text(_simpan ? 'Menyimpan...' : (_ubah ? 'Simpan Perubahan' : 'Simpan & Mulai Laporan')),
             ),
           ),
         ),

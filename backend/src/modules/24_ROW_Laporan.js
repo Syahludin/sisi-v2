@@ -17,7 +17,8 @@ var KOLOM_HITUNG_ = ['Rabas', 'Sedang', 'Besar'];
 var HEADER_WAJIB_WA_ = { 'Koordinat Awal': 'koordinatAwal', 'Koordinat Akhir': 'koordinatAkhir', 'KM Awal': 'kmAwal', 'KM Akhir': 'kmAkhir' };
 
 function tanggalPanjang_(iso) {
-  return hariDari_(iso) + ', ' + iso.slice(8, 10) + ' ' + BULAN_ID_[Number(iso.slice(5, 7)) - 1] + ' ' + iso.slice(0, 4);
+  if (!iso || typeof iso !== 'string' || iso.length < 10) return '-';
+  return hariDari_(iso) + ', ' + iso.slice(8, 10) + ' ' + (BULAN_ID_[Number(iso.slice(5, 7)) - 1] || '') + ' ' + iso.slice(0, 4);
 }
 
 /** Teks label WA versi lama (keliling). baris = rincian per penyulang, total = baris Total Bulanan. */
@@ -118,7 +119,7 @@ function laporanHeader_(ctx, h) {
     var baris = function (no, kol, n) { return no + '. ' + L[kol].label + ' : ' + n + (L[kol].satuan ? ' ' + L[kol].satuan : ''); };
     var bagian = [
       '*Realisasi Team ' + h['Sub-Tim'] + ' ULP ' + h.ULP + '*',
-      '-------------------------------------------------',
+      '-'.repeat(49),   // v0.62.4: ditulis begini supaya cek CI string >= 40 karakter tidak salah tangkap
       'Hari / Tanggal : ' + tanggalPanjang_(tanggal),
       'Koordinat Awal : ' + strip_(h['Koordinat Awal']),
       'Koordinat Akhir : ' + strip_(h['Koordinat Akhir']),
@@ -182,7 +183,84 @@ function hitungUlangWa_(ctx) {
   });
 }
 
+function laporanHartekRingkasAdmin_(tanggal, timFilter) {
+  var c = cfg_();
+  if (!c.HARTEK_SHEET_ID || typeof tabelHartek_ !== 'function') return [];
+  try {
+    var hdr = tabelHartek_(HARTEK_SHEET_.HEADER).rows.filter(function (h) {
+      return h.header_id && h.status === 'AKTIF' && tglHartek_(h) === tanggal &&
+        (!timFilter || String(h.tim_id) === String(timFilter));
+    });
+    if (!hdr.length) return [];
+    var pg = tabelHartek_(HARTEK_SHEET_.PG).rows;
+    var pk = tabelHartek_(HARTEK_SHEET_.PEKERJAAN).rows;
+    var mt = tabelHartek_(HARTEK_SHEET_.MATERIAL).rows;
+    var gr = tabelHartek_(HARTEK_SHEET_.GROUNDING).rows;
+    var pm = tabelHartek_(HARTEK_SHEET_.PEMERATAAN).rows;
+    var tSegel = typeof tabelSegel_ === 'function' ? tabelSegel_() : null;   // v1.0.17
+    var rowsSegel = tSegel ? tSegel.rows : null;
+    return hdr.map(function (h) {
+      var hid = String(h.header_id);
+      var pgH = pg.filter(function (x) { return String(x.header_id) === hid; });
+      var pkH = pk.filter(function (x) { return String(x.header_id) === hid; });
+      var mtH = mt.filter(function (x) { return String(x.header_id) === hid; });
+      var grH = gr.filter(function (x) { return String(x.header_id) === hid; });
+      var pmH = pm.filter(function (x) { return String(x.header_id) === hid; });
+      var jaringan = 0, gardu = 0, nonTeknik = 0;
+      var objek = pgH.map(function (p) {
+        var pkPg = pkH.filter(function (x) { return String(x.pg_id) === String(p.pg_id); });
+        var j = String(p.jenis_pekerjaan || '');
+        if (j === 'Jaringan') jaringan += pkPg.length;
+        else if (j === 'Gardu') gardu += pkPg.length;
+        else nonTeknik += pkPg.length;
+        return {
+          pgId: String(p.pg_id), kodePg: String(p.kode_pg || ''), jenisPekerjaan: j,
+          penyulang: String(p.penyulang || ''), section: String(p.section || ''), noGardu: String(p.no_gardu || ''),
+          daerah: String(p.daerah || ''), jumlahGawang: p.jumlah_gawang === undefined || p.jumlah_gawang === null ? '' : p.jumlah_gawang,
+          koordinat: String(p.koordinat || ''),
+          pekerjaan: pkPg.map(function (x) {
+            return {
+              pekerjaanId: String(x.pekerjaan_id), kodePekerjaan: String(x.kode_pekerjaan || ''), pekerjaan: String(x.pekerjaan || ''),
+              jumlahPekerjaan: x.jumlah_pekerjaan, satuanPekerjaan: String(x.satuan_pekerjaan || ''),
+              material: mtH.filter(function (m) { return String(m.pekerjaan_id) === String(x.pekerjaan_id); })
+                .map(function (m) { return { material: String(m.material || ''), jumlah: m.jumlah, satuan: String(m.satuan || ''), kepemilikan: String(m.kepemilikan || '') }; }),
+              grounding: grH.filter(function (g) { return String(g.pekerjaan_id) === String(x.pekerjaan_id); })
+                .map(function (g) { return { jenisPeralatan: String(g.jenis_peralatan || ''), hasilSebelum: g.hasil_sebelum === undefined || g.hasil_sebelum === null ? '' : g.hasil_sebelum, hasilSesudah: g.hasil_sesudah === undefined || g.hasil_sesudah === null ? '' : g.hasil_sesudah }; }),
+              pemerataan: pmH.filter(function (q) { return String(q.pekerjaan_id) === String(x.pekerjaan_id); })
+                .map(function (q) { return { noGardu: String(q.no_gardu || ''), sebR: q.seb_r, sebS: q.seb_s, sebT: q.seb_t, sesR: q.ses_r, sesS: q.ses_s, sesT: q.ses_t }; })
+            };
+          })
+        };
+      });
+      var grCount = 0, pmCount = 0;
+      grH.forEach(function (g) { if (pkH.some(function (x) { return String(x.pekerjaan_id) === String(g.pekerjaan_id); })) grCount++; });
+      pmH.forEach(function (q) { if (pkH.some(function (x) { return String(x.pekerjaan_id) === String(q.pekerjaan_id); })) pmCount++; });
+      var lengkap = String(h.koordinat_awal || '').trim() !== '' && String(h.koordinat_akhir || '').trim() !== '' &&
+        h.km_awal !== '' && h.km_awal !== null && h.km_akhir !== '' && h.km_akhir !== null && pkH.length > 0;
+      // v1.0.17 (sinkron atomik): SIAP WA hanya kalau HP sudah menyegel laporan dan isi server masih sama dengan segel.
+      // PROSES = antrean HP belum habis / ada data baru sesudah segel. '' = log_Sinkron belum disiapkan (perilaku lama).
+      var sinkron = typeof statusSegel_ === 'function'
+        ? statusSegel_(rowsSegel, 'HARTEK', tanggal, h.tim_id, hid, ringkasHartekBaris_(h, pgH, pkH, mtH, grH, pmH)) : '';
+      if (sinkron === 'PROSES') lengkap = false;
+      return {
+        sinkron: sinkron,
+        headerId: hid, kodeHeader: String(h.kode_header || ''), tanggal: tanggal,
+        timId: String(h.tim_id || ''), subTim: String(h.tim || 'HARTEK'), jenisTim: 'HARTEK',
+        koordinatAwal: String(h.koordinat_awal || ''), koordinatAkhir: String(h.koordinat_akhir || ''),
+        kmAwal: h.km_awal === '' ? null : h.km_awal, kmAkhir: h.km_akhir === '' ? null : h.km_akhir,
+        kendala: String(h.kendala || ''), objek: objek,
+        status: 'AKTIF', siapKirim: lengkap, waText: String(h.wa_text || ''),
+        lokasi: pgH.length, pekerjaan: pkH.length, material: mtH.length, grounding: grCount, pemerataan: pmCount,
+        total: { jaringan: jaringan, gardu: gardu, nonTeknik: nonTeknik, pekerjaan: pkH.length, lokasi: pgH.length, material: mtH.length, grounding: grCount, pemerataan: pmCount }
+      };
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
 function getLaporanRow_(sesi, data) {
+  timLaporan_(sesi, null);   // v0.76.1 audit guard: peran dicek PALING AWAL
   var d = validasi_(data, { tanggal: { tipe: 'tanggal' }, timId: { tipe: 'uuid' } });
   var c = cfg_();
   if (!c.ROW_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_SHEET_ID');
@@ -197,10 +275,14 @@ function getLaporanRow_(sesi, data) {
   var ctx = konteksSync_(T, master, sesi, c, waktu);
   var laporan = Object.keys(ctx.byId.header).map(function (id) { return ctx.byId.header[id]; })
     .filter(function (h) {
-      return h.status === 'AKTIF' && tanggalDariKode_(h['Kode Header']) === tanggal && (!timFilter || String(h.tim_id) === timFilter);
+      var tglH = tanggalDariKode_(h['Kode Header']) || tglSel_(h.Tanggal);
+      return h.status === 'AKTIF' && tglH === tanggal && (!timFilter || String(h.tim_id) === timFilter);
     })
     .sort(function (a, b) { return String(a['Kode Header']) < String(b['Kode Header']) ? -1 : 1; })
     .map(function (h) { return laporanHeader_(ctx, h); });
+  if (sesi.role !== 'PETUGAS') {
+    laporan = laporan.concat(laporanHartekRingkasAdmin_(tanggal, timFilter));
+  }
   w('susun');
   var hasil = { tanggal: tanggal, laporan: laporan };
   if (c.ENV === 'staging') hasil._waktu = w.ringkas();
@@ -227,6 +309,7 @@ var ARSIP_MAKS_HARI_ = 31;
  * Membaca row_Header + row_Realisasi penuh (bukan jendela 7 hari) karena arsip boleh lebih tua dari 7 hari.
  */
 function getArsipRow_(sesi, data) {
+  timLaporan_(sesi, null);   // v0.76.1 audit guard: peran dicek PALING AWAL
   var d = validasi_(data, { dari: { tipe: 'tanggal', wajib: true }, sampai: { tipe: 'tanggal', wajib: true }, timId: { tipe: 'uuid' } });
   var c = cfg_();
   if (!c.ROW_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_SHEET_ID');

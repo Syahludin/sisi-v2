@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
@@ -102,7 +103,9 @@ class LaporanRepository {
             'json': jsonEncode(l),
             'diunduh_pada': sekarang,
             'tim_id': l['timId'] as String?,
-          });
+            // v0.62.6: kunci tabel cuma header_id. Akun lain di HP yang sama sudah mengunduh header itu = dulu
+            // UNIQUE gagal dan seluruh unduhan arsip batal. Sekarang salinan diambil alih akun ini (unduh ulang = aman).
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
         }
       });
       n += laporan.length;

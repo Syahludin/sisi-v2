@@ -50,6 +50,14 @@ class KodeRow {
     return indukBaru + kode.substring(indukLama.length);
   }
 
+  /// M4: kode yang sama dengan nomor urut (3 digit terakhir) diganti. Berlaku untuk header, PNY, dan EKS.
+  static String denganUrut(String kode, int urut) {
+    if (!polaHeader.hasMatch(kode) && !polaRealisasi.hasMatch(kode) && !polaEksekusi.hasMatch(kode)) {
+      throw ArgumentError.value(kode, 'kode');
+    }
+    return kode.substring(0, kode.length - 3) + _tiga(urut);
+  }
+
   /// Urut Header dari kode (untuk menyimpan urut_maks setelah getKodeRow).
   static int? urutHeader(String kode) {
     final m = polaHeader.firstMatch(kode);

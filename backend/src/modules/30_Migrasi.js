@@ -548,7 +548,8 @@ function rencanaMigrasi_(r, opsi) {
           'Foto Sebelum': '', 'Foto Sebelum URL': '', 'Foto Pekerjaan': '', 'Foto Pekerjaan URL': '', 'Foto Sesudah': '', 'Foto Sesudah URL': '',
           'Diameter': y.d, 'Jenis Pekerjaan': y.jenis.nama, 'Input Oleh': y.inputOleh, 'Timestamp': ts(y.ts || x.ts || tsH, g.tgl),
           'Timestamp Update': opsi.sekarang, eksekusi_id: y.id, realisasi_id: x.id, section_id: y.secId, jenis_id: y.jenis.jenis_id,
-          foto_lengkap: false, sumber: y.kodeWo ? 'TEMUAN' : 'LANGSUNG', temuan_id: '',   // kode WO lama di mig_Peta _ms: ts(y.ts || x.ts || tsH, g.tgl).getTime()
+          foto_lengkap: false, sumber: y.kodeWo ? 'TEMUAN' : 'LANGSUNG', temuan_id: '',   // kode WO lama di mig_Peta
+          _ms: ts(y.ts || x.ts || tsH, g.tgl).getTime()
         }));
         out.peta.push({ jenis: 'eksekusi', kode_lama: y.kodeLama || '', kode_baru: y.kode, id_v2: y.id,
                         keterangan: y.kodeWo ? 'WO ' + y.kodeWo : '', wa_lama: '' });
@@ -558,6 +559,12 @@ function rencanaMigrasi_(r, opsi) {
                           status: 'ANTRE', percobaan: 0, drive_file_id: '', pesan: '', diubah_pada: '' });
         });
       });
+    });
+  });
+  // v0.62.3: tanpa _ms angka, sort jatuh ke urutan kode (per tim) dan jendela baca syncRow membengkak. Fail closed.
+  ['header', 'realisasi', 'eksekusi'].forEach(function (j) {
+    out[j].forEach(function (o) {
+      if (typeof o._ms !== 'number' || !isFinite(o._ms)) throw new SisiError_('MIG_URUTAN_TIDAK_VALID', j + ' ' + (o[ROW_KODE_[j]] || ''));
     });
   });
   var urut = function (kolKode) { return function (a, b) { return (a._ms - b._ms) || (a[kolKode] < b[kolKode] ? -1 : a[kolKode] > b[kolKode] ? 1 : 0); }; };
@@ -662,13 +669,23 @@ var MIG_CEKFOTO_POS_ = 'MIG_CEKFOTO_POS';
 var MIG_CEKFOTO_SIBUK_ = 'MIG_CEKFOTO_SIBUK';
 var MIG_CEKFOTO_KEPALA_ = ['kode_eksekusi', 'slot', 'sumber', 'ada', 'keterangan'];
 
-function ADMIN_migrasiCekFoto() {
+function ADMIN_migrasiCekFoto(e) {
   pastikanPemilik_();
+  return jalanPemicu_('ADMIN_migrasiCekFoto', e, cekFotoMigPemicu_);   // v0.84.0: waktu jalan dicatat + rem kuota
+}
+
+/** v0.84.0: isi ADMIN_migrasiCekFoto (dibungkus jalanPemicu_). */
+function cekFotoMigPemicu_() {
   var mulai = Date.now(), BATAS = 270000;
   var p = PropertiesService.getScriptProperties();
-  var sibuk = Number(p.getProperty(MIG_CEKFOTO_SIBUK_) || 0);
-  if (sibuk && mulai - sibuk < 360000) { console.log('CEK FOTO: jalan lain masih berlangsung, dilewati.'); return; }
-  p.setProperty(MIG_CEKFOTO_SIBUK_, String(mulai));
+  // v0.62.6 (audit 7 Okt 2026): cek + pasang penanda di dalam ScriptLock (dulu dua jalan bisa lolos bersamaan).
+  var boleh = denganLock_(function () {
+    var sibuk = Number(p.getProperty(MIG_CEKFOTO_SIBUK_) || 0);
+    if (sibuk && mulai - sibuk < 360000) return false;
+    p.setProperty(MIG_CEKFOTO_SIBUK_, String(mulai));
+    return true;
+  });
+  if (!boleh) { console.log('CEK FOTO: jalan lain masih berlangsung, dilewati.'); return; }
   try {
     var x = siapkanMigrasi_();
     var r = analisisMigrasi_(x.S, x.M, x.opsi);
@@ -874,8 +891,37 @@ function ADMIN_migrasiJalan() {
  * sha256 + ukuran salinan = sumber, salinan wajib privat. Baru setelah itu row_Foto + kolom foto eksekusi ditulis.
  * Gagal = ULANG (maks 3x) lalu GAGAL. Sumber tidak diubah. Antrean habis = pemicu otomatis dihapus.
  */
-function ADMIN_migrasiFoto() {
+/**
+ * v0.62.4 (audit 6 Okt 2026): penanda sibuk seperti ADMIN_migrasiCekFoto. Pemicu 10 menit + jalan manual dari editor
+ * bisa tumpang tindih: dua jalan mengambil antrean ANTRE yang sama dan menyalin foto yang sama 2x. Penanda dicek & dipasang
+ * di dalam ScriptLock (atomik), dihapus di finally; penanda lebih tua dari 6 menit dianggap sisa jalan yang mati.
+ */
+var MIG_FOTO_SIBUK_ = 'MIG_FOTO_SIBUK';
+
+function ADMIN_migrasiFoto(e) {
   pastikanPemilik_();
+  return jalanPemicu_('ADMIN_migrasiFoto', e, migrasiFotoPemicu_);   // v0.84.0: waktu jalan dicatat + rem kuota
+}
+
+/** v0.84.0: isi ADMIN_migrasiFoto (dibungkus jalanPemicu_). */
+function migrasiFotoPemicu_() {
+  var p = PropertiesService.getScriptProperties();
+  var mulai = Date.now();
+  var boleh = denganLock_(function () {
+    var sibuk = Number(p.getProperty(MIG_FOTO_SIBUK_) || 0);
+    if (sibuk && mulai - sibuk < 360000) return false;
+    p.setProperty(MIG_FOTO_SIBUK_, String(mulai));
+    return true;
+  });
+  if (!boleh) { console.log('MIGRASI FOTO: jalan lain masih berlangsung, dilewati.'); return; }
+  try {
+    migrasiFotoInti_();
+  } finally {
+    p.deleteProperty(MIG_FOTO_SIBUK_);
+  }
+}
+
+function migrasiFotoInti_() {
   var c = cfg_();
   if (!c.ROW_FOTO_FOLDER_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_FOTO_FOLDER_ID');
   var mulai = Date.now(), BATAS = 270000;
@@ -889,6 +935,8 @@ function ADMIN_migrasiFoto() {
     if ((st === 'ANTRE' || st === 'ULANG') && (Number(q.percobaan) || 0) < 3) todo.push(q);
   });
   if (!todo.length) { hapusPemicuMigFoto_(); console.log('Antrean foto kosong. Pemicu otomatis (kalau ada) dihapus.'); return; }
+  var prioritas = String(PropertiesService.getScriptProperties().getProperty('MIG_FOTO_PRIORITAS') || '').trim();
+  todo = urutPrioritasFotoMig_(todo, prioritas);
   var E = tabel_('ROW_SHEET_ID', 'row_Eksekusi');
   var eksById = {};
   E.rows.forEach(function (e) { eksById[String(e.eksekusi_id)] = e; });
@@ -927,6 +975,10 @@ function ADMIN_migrasiFoto() {
       var bS = null;
       if (!mS) { bS = src.getBlob().getBytes(); mS = { sha: bytesKeHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bS)), ukuran: bS.length, mime: src.getMimeType() }; }
       var shaS = mS.sha;
+      // v0.62.7 (audit 7 Okt 2026): sumber bukan gambar (mis. URL lama menunjuk PDF) dulu tetap disalin dan dihitung
+      // foto_lengkap, padahal getFotoRow menolak non-gambar. Sekarang GAGAL, tidak ikut lengkap.
+      var mimeS = String(mS.mime || src.getMimeType() || '');
+      if (mimeS.indexOf('image/') !== 0) { tandai('GAGAL', 'BUKAN_GAMBAR (' + mimeS + ')'); q.percobaan = 3; continue; }
       var folder = folderFoto_(c.ROW_FOTO_FOLDER_ID, pathFotoEksekusi_(eks), memoFolder);
       var nama = String(q.foto_id) + '.jpg';
       var isiTujuan = isiFolderMig_(folder, '#' + folder.getId(), memoIsi);
@@ -964,6 +1016,32 @@ function ADMIN_migrasiFoto() {
   }
   var diproses = todo.slice(0, n);
   denganLock_(function () {
+    // v0.62.6 (audit 7 Okt 2026): row_Foto dibaca ulang DI DALAM lock. Salin foto bisa makan menit; selama itu HP
+    // (app v2 sudah dipakai saat tahap B masih jalan) atau jalan lain bisa sudah mengisi slot yang sama. Dulu migrasi
+    // tetap menambah baris AKTIF kedua + menimpa nama/URL foto dan foto_lengkap dari bacaan lama.
+    var aktifSegar = {};
+    tabel_('ROW_SHEET_ID', 'row_Foto').rows.forEach(function (f) {
+      if (f.status === 'AKTIF') (aktifSegar[String(f.eksekusi_id)] = aktifSegar[String(f.eksekusi_id)] || {})[String(f.slot)] = true;
+    });
+    var qPerFoto = {};
+    diproses.forEach(function (q) { qPerFoto[String(q.foto_id)] = q; });
+    ubahEks = {};
+    fotoBaru = fotoBaru.filter(function (f) {
+      var s = aktifSegar[f.eksekusi_id] = aktifSegar[f.eksekusi_id] || {};
+      if (s[f.slot]) {
+        var q = qPerFoto[f.foto_id];
+        if (q) { q.pesan = 'SLOT_SUDAH_TERISI (salinan migrasi dibuang)'; q.drive_file_id = ''; }
+        try { DriveApp.getFileById(f.drive_file_id).setTrashed(true); } catch (eT) { /* dibiarkan: tidak dicatat di row_Foto */ }
+        return false;
+      }
+      s[f.slot] = true;
+      var kol = SLOT_FOTO_[f.slot];
+      var u = ubahEks[f.eksekusi_id] = ubahEks[f.eksekusi_id] || {};
+      u[kol] = f.foto_id + '.jpg';
+      u[kol + ' URL'] = 'https://drive.google.com/file/d/' + f.drive_file_id + '/view';
+      return true;
+    });
+    slotAktif = aktifSegar;
     if (fotoBaru.length) {
       var F = headerTabel_('ROW_SHEET_ID', 'row_Foto');
       F.sheet.getRange(F.sheet.getLastRow() + 1, 1, fotoBaru.length, F.header.length)
@@ -985,7 +1063,7 @@ function ADMIN_migrasiFoto() {
     tulisKolomBerubah_({ sheet: shF, header: antre.kolom }, diproses);
   }, 60000);
   var sisa = todo.length - selesai - gagal;
-  console.log('MIGRASI FOTO: selesai ' + selesai + ', ulang ' + ulang + ', gagal ' + gagal + ', sisa antrean ~' + sisa +
+  console.log('MIGRASI FOTO: ' + (prioritas ? 'prioritas ' + prioritas + ' | ' : '') + 'selesai ' + selesai + ', ulang ' + ulang + ', gagal ' + gagal + ', sisa antrean ~' + sisa +
     ' | eksekusi tersentuh ' + Object.keys(ubahEks).length + ' | ' + Math.round((Date.now() - mulai) / 1000) + ' s (baca awal ' + detikAwal +
     ' s, checksum Drive API ' + nUkur.api + '/' + selesai + ')');
   if (sisa <= 0) { hapusPemicuMigFoto_(); console.log('Antrean selesai. Lanjut ADMIN_migrasiHitung.'); }
@@ -1064,14 +1142,70 @@ function tulisKolomBerubah_(t, rows) {
 }
 
 /**
+ * v0.60.1 (pure): sisa antrean tahap B dengan aturan yang sama seperti ADMIN_migrasiFoto (ANTRE / ULANG, percobaan < 3).
+ * GAGAL (percobaan 3) tidak menahan: foto itu memang tidak akan tersalin, dicatat saat rekonsiliasi.
+ * v0.60.2: sisa juga dikelompokkan per blok tahap C (perBlok, 13 karakter awal Kode Eksekusi = sub-tim + YYMM, sama
+ * dengan awalan Kode Header). Antrean tanpa kode eksekusi yang sah = tanpaKode (menahan semua bulan, fail closed).
+ */
+function sisaAntreFotoMig_(rows) {
+  var r = { sisa: 0, selesai: 0, gagal: 0, perBlok: {}, tanpaKode: 0 };
+  (rows || []).forEach(function (q) {
+    var st = String(q.status);
+    if ((st === 'ANTRE' || st === 'ULANG') && (Number(q.percobaan) || 0) < 3) {
+      r.sisa++;
+      var b = blokFotoMig_(q);
+      if (b) r.perBlok[b] = (r.perBlok[b] || 0) + 1; else r.tanpaKode++;
+    } else if (st === 'SELESAI') r.selesai++;
+    else r.gagal++;
+  });
+  return r;
+}
+
+/** v0.60.2 (pure): 'R01-16130261003001-PNY.001-EKS.001' -> 'R01-161302610'; kode tidak sah -> ''. */
+function blokFotoMig_(q) {
+  var k = String(q && q.kode_eksekusi || '');
+  return /^R\d{2}-\d{5}\d{4}\d{2}\d{3}/.test(k) ? k.slice(0, 13) : '';
+}
+
+/**
+ * v0.60.2 (pure): urutan kerja tahap B. Script Property MIG_FOTO_PRIORITAS = daftar YYMM dipisah koma (mis. "2610"):
+ * foto bulan itu dikerjakan dulu, sisanya tetap urutan antrean (stabil). Kosong = urutan antrean apa adanya.
+ */
+function urutPrioritasFotoMig_(todo, prioritas) {
+  var daftar = String(prioritas || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return /^\d{4}$/.test(x); });
+  if (!daftar.length) return todo;
+  var depan = [], belakang = [];
+  todo.forEach(function (q) {
+    var b = blokFotoMig_(q);
+    (b && daftar.indexOf(b.slice(9, 13)) !== -1 ? depan : belakang).push(q);
+  });
+  return depan.concat(belakang);
+}
+
+/**
  * Editor: TAHAP C, hitung ulang Section + Rabas/Sedang/Besar realisasi dan WA Text header hasil migrasi, per bulan
  * (mesin yang sama dengan sync). Jalankan setelah foto selesai (atau ulang lagi setelah foto susulan). Bulan yang
  * sudah selesai dicatat di MIG_HITUNG_SELESAI; dihapus ADMIN_migrasiJalan. Memegang lock: jalankan di luar jam kerja.
+ * v0.60.2: blok (sub-tim + bulan) yang fotonya masih ANTRE / ULANG di mig_Foto dilewati, kecuali MIG_HITUNG_PAKSA=TRUE.
  */
 function ADMIN_migrasiHitung() {
   pastikanPemilik_();
   var mulai = Date.now(), BATAS = 240000;
   var props = PropertiesService.getScriptProperties();
+  // v0.60.1 / v0.60.2: tahap C per bulan hanya setelah foto bulan itu habis. Hitungan realisasi = eksekusi AKTIF foto
+  // lengkap, jadi dihitung sebelum foto tersalin = 0 dan bulan itu tercatat di MIG_HITUNG_SELESAI. Bulan yang fotonya
+  // belum habis dilewati (tidak dicatat selesai). Fail closed: tanpa mig_Foto ditolak, antrean tanpa kode menahan semua.
+  var ssRow = bukaSpreadsheet_(cfg_().ROW_SHEET_ID);
+  if (!ssRow.getSheetByName('mig_Foto')) throw new SisiError_('SHEET_TIDAK_ADA', 'mig_Foto (jalankan ADMIN_migrasiJalan dulu)');
+  var antreF = sisaAntreFotoMig_(bacaSumberMig_(ssRow, 'mig_Foto').rows);
+  var paksa = props.getProperty('MIG_HITUNG_PAKSA') === 'TRUE';
+  if (antreF.tanpaKode && !paksa) {
+    throw new SisiError_('TAHAP_B_BELUM_SELESAI', antreF.tanpaKode + ' foto antre tanpa Kode Eksekusi yang sah, semua bulan ditahan. ' +
+      'Tunggu ADMIN_migrasiFoto habis, atau MIG_HITUNG_PAKSA=TRUE.');
+  }
+  var ditahan = paksa ? {} : antreF.perBlok;
+  console.log('MIGRASI HITUNG: antrean foto selesai ' + antreF.selesai + ', gagal ' + antreF.gagal + ', sisa ' + antreF.sisa +
+    (paksa && antreF.sisa ? ' | MIG_HITUNG_PAKSA: bulan dengan foto tersisa ikut dihitung, ulang setelah tahap B' : ''));
   var hasil = denganLock_(function () {
     var T = {};
     ['header', 'realisasi', 'eksekusi'].forEach(function (j) { T[j] = tabel_('ROW_SHEET_ID', ROW_SHEET_[j]); });
@@ -1086,7 +1220,9 @@ function ADMIN_migrasiHitung() {
     var realPerHeader = {}, eksPerReal = {};
     T.realisasi.rows.forEach(function (r) { (realPerHeader[String(r.header_id)] = realPerHeader[String(r.header_id)] || []).push(r); });
     T.eksekusi.rows.forEach(function (e) { (eksPerReal[String(e.realisasi_id)] = eksPerReal[String(e.realisasi_id)] || []).push(e); });
-    var bulan = Object.keys(perBulan).sort().filter(function (b) { return selesai.indexOf(b) === -1; });
+    var belum = Object.keys(perBulan).sort().filter(function (b) { return selesai.indexOf(b) === -1; });
+    var lewat = belum.filter(function (b) { return ditahan[b]; });
+    var bulan = belum.filter(function (b) { return !ditahan[b]; });
     var dikerjakan = [];
     for (var i = 0; i < bulan.length && Date.now() - mulai < BATAS; i++) {
       var ctx = { master: master, waktu: { sekarang: new Date() }, byId: { header: {}, realisasi: {}, eksekusi: {} },
@@ -1109,8 +1245,12 @@ function ADMIN_migrasiHitung() {
     }
     var sel = tulisKolomBerubah_(T.realisasi, T.realisasi.rows) + tulisKolomBerubah_(T.header, T.header.rows);
     props.setProperty('MIG_HITUNG_SELESAI', selesai.concat(dikerjakan).join(','));
-    return { bulan: dikerjakan.length, sisa: bulan.length - dikerjakan.length, blokDitulis: sel };
+    return { bulan: dikerjakan.length, sisa: bulan.length - dikerjakan.length, blokDitulis: sel,
+             dikerjakan: dikerjakan, menungguFoto: lewat.length,
+             contohMenunggu: lewat.slice(0, 12).map(function (b) { return b + ' (' + ditahan[b] + ')'; }) };
   }, 60000);
   console.log('MIGRASI HITUNG: ' + JSON.stringify(hasil) + ' | ' + Math.round((Date.now() - mulai) / 1000) + ' s' +
-    (hasil.sisa ? ' | jalankan lagi untuk sisa bulan' : ' | selesai. Cek rekonsiliasi: mig_Ringkas vs row_Realisasi.'));
+    (hasil.sisa ? ' | jalankan lagi untuk sisa bulan' :
+      hasil.menungguFoto ? ' | ' + hasil.menungguFoto + ' blok menunggu foto, jalankan lagi setelah fotonya habis' :
+      ' | selesai. Cek rekonsiliasi: mig_Ringkas vs row_Realisasi.'));
 }

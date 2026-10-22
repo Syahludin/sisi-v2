@@ -181,9 +181,11 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
       ),
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: AppColors.neutral100,
+        backgroundColor: AppColors.surface,
         selectedColor: AppColors.brand100,
         side: const BorderSide(color: AppColors.neutral200),
+        checkmarkColor: AppColors.brand700,
+        secondaryLabelStyle: const TextStyle(color: AppColors.brand900, fontSize: 12, fontWeight: FontWeight.w800),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         labelStyle: const TextStyle(color: AppColors.neutral700, fontSize: 12, fontWeight: FontWeight.w700),
       ),
@@ -193,6 +195,33 @@ class AppTheme {
         backgroundColor: AppColors.neutral900,
         contentTextStyle: TextStyle(color: AppColors.neutral50, fontSize: 13, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
+      ),
+      // v1.0.18 (Jaringan SiSi): kontrol pilihan, tab, dan menu aksi satu gaya di semua layar
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+          side: const WidgetStatePropertyAll(BorderSide(color: AppColors.neutral200)),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.brand700 : AppColors.surface),
+          foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.surface : AppColors.brand800),
+          iconColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.surface : AppColors.brand700),
+          textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: AppColors.brand800,
+        unselectedLabelColor: AppColors.neutral500,
+        indicatorColor: AppColors.brand700,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: AppColors.neutral200,
+        labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        unselectedLabelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        elevation: 6,
+        color: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16)), side: BorderSide(color: AppColors.neutral200)),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.brand600, linearTrackColor: AppColors.brand100, circularTrackColor: AppColors.brand100),
       checkboxTheme: CheckboxThemeData(

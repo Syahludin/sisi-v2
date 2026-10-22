@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/deps.dart';
+import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
+import 'batal_row.dart';
 import 'eksekusi_detail_screen.dart';
 import 'form_eksekusi_screen.dart';
+import 'perbaikan_repository.dart';
 import 'row_model.dart';
 
 /// Daftar eksekusi satu penyulang (desain lama): kartu dengan ikon potong, FAB amber "Input Eksekusi".
@@ -26,6 +29,7 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
   Map<String, String> _jenis = const {};
   Map<String, String> _sec = const {};
   bool _menyegarkan = false;
+  bool _bisaUrungkan = false;
 
   @override
   void initState() {
@@ -50,8 +54,10 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
     final slot = await widget.deps.foto.jumlahSlot([for (final x in e) x.id]);
     final sec = r == null ? const <String, String>{} : {for (final x in await widget.deps.master.section(r.penyulang)) x.id: x.nama};
     final jenis = {for (final j in await widget.deps.master.jenisPekerjaan()) j['id'] as String: j['nama'] as String};
+    final u = r != null && !r.aktif && await widget.deps.perbaikan.bisaUrungkan(widget.sesi.userId, 'realisasi', r.id);
     if (!mounted) return;
     setState(() {
+      _bisaUrungkan = u;
       _r = r;
       _eks = e;
       _slot = slot;
@@ -68,7 +74,9 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
     try {
       await ctl.sinkron();
       await _muat();
-      if (mounted) tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Daftar eksekusi diperbarui.');
+      if (mounted) {
+        tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Daftar eksekusi diperbarui.');
+      }
     } finally {
       if (mounted) setState(() => _menyegarkan = false);
     }
@@ -80,6 +88,28 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
     final ok = await Navigator.push<bool>(
         context, MaterialPageRoute(builder: (_) => FormEksekusiScreen(deps: widget.deps, sesi: widget.sesi, realisasi: r)));
     if (ok == true) await _muat();
+  }
+
+  Future<void> _batal() async {
+    final r = _r;
+    if (r == null) {
+      return;
+    }
+    final hapus = await batalkanRow(context, widget.deps, widget.sesi,
+        jenis: 'realisasi', id: r.id, label: 'penyulang ${r.penyulang}');
+    if (!mounted || hapus == null) {
+      return;
+    }
+    if (hapus) {
+      Navigator.pop(context);
+      return;
+    }
+    await _muat();
+  }
+
+  Future<void> _urungkan() async {
+    await urungkanBatalRow(context, widget.deps, widget.sesi, jenis: 'realisasi', id: widget.realisasiId);
+    await _muat();
   }
 
   Future<void> _buka(RowEksekusi e) async {
@@ -96,6 +126,12 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
       backgroundColor: AppColors.neutral100,
       appBar: sisiAppBar(r == null ? 'Penyulang' : 'Penyulang ${r.penyulang}', subjudul: r?.kode, actions: [
         TombolSegarkan(sibuk: _menyegarkan || widget.deps.syncCtl.sedangSync, onPressed: _segarkan),
+        MenuDataRow(
+            labelBatal: 'Batalkan penyulang',
+            bisaBatal: boleh && PerbaikanRepository.dalamBatas(r.kode),
+            bisaUrungkan: _bisaUrungkan,
+            onBatal: _batal,
+            onUrungkan: _urungkan),
       ]),
       body: r == null
           ? const SisiLoading(ukuran: 60)
@@ -173,7 +209,11 @@ class _KartuEksekusi extends StatelessWidget {
             ]),
             if (e.alasan != null) ...[
               const SizedBox(height: 4),
-              Text('Server: ${e.alasan}', style: const TextStyle(fontSize: 11.5, color: AppColors.red700)),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.info_outline_rounded, size: 15, color: AppColors.red700),
+                const SizedBox(width: 6),
+                Expanded(child: Text(KodeError.alasanSinkron(e.alasan), style: const TextStyle(fontSize: 11.5, color: AppColors.red700))),
+              ]),
             ],
           ]),
         ),

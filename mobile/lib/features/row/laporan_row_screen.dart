@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,12 +9,17 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/kartu_laporan_tim.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../../widgets/wa_panel.dart';
 import 'arsip_hari_screen.dart';
 import 'form_header_screen.dart';
 import 'header_detail_screen.dart';
+import 'ringkasan_row_screen.dart';
 import 'row_model.dart';
+import '../kalender/kalender_tim_screen.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Laporan Harian ROW (desain laporan_row_screen lama): tab "Hari ini" (data lokal) | "Arsip" (server, rentang tanggal).
 class LaporanRowScreen extends StatefulWidget {
@@ -66,6 +73,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
         penyulang: real,
         eksekusi: eks.values.fold(0, (a, b) => a + b),
         jenis: [for (final j in jenis) (j['nama'] as String, perJenis[j['id']] ?? 0)],
+        tertunda: await r.jumlahTertundaHeader(widget.sesi.userId, h.id),
       );
     }
     final kodeOk = await r.sudahTarikKode(widget.sesi.timKode, hariIni);
@@ -75,7 +83,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
   /// Refresh menu Laporan (v0.45): tarik layar atau tombol kanan atas, sesuai tab yang terbuka.
   ///  - Hari ini: kirim data tertunda + tarik kode + status WA dari server (sinkron), lalu muat ulang kartu.
   ///  - Arsip: download ulang rentang yang sedang dipilih dari server, lalu muat ulang.
-  ///  - WO ROW: belum ada data.
+  /// v1.0.16: tab WO ROW dihapus (WO tim sudah punya tab WO sendiri di bottom bar).
   Future<void> _segarkan() async {
     if (_menyegarkan) return;
     setState(() => _menyegarkan = true);
@@ -83,10 +91,8 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
       switch (_tab) {
         case 0:
           await _segarkanHariIni();
-        case 2:
-          await _kunciArsip.currentState?.segarkan();
         default:
-          tampilPesan(context, 'WO ROW belum ada data.');
+          await _kunciArsip.currentState?.segarkan();
       }
     } finally {
       if (mounted) setState(() => _menyegarkan = false);
@@ -119,8 +125,103 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
     if (h != null && mounted) await _buka(h);
   }
 
-  Future<void> _buka(RowHeader h) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => HeaderDetailScreen(deps: widget.deps, sesi: widget.sesi, headerId: h.id)));
+  /// v0.90.0: kartu laporan tim (pola sama dengan Hartek dan kartu shift Yandal). Ketuk = ringkasan detail,
+  /// pensil = ubah header, + = tambah penyulang.
+  Widget _kartu(RowHeader h, _Ringkas r) {
+    final ubah = widget.sesi.bisaUbah('ROW_EKSEKUSI') && h.aktif;
+    final catatan = h.alasan != null && h.alasan!.isNotEmpty
+        ? KodeError.alasanSinkron(h.alasan)
+        : switch (h.sinkron) {
+            'LOKAL' => 'Belum terkirim ke server. Dikirim otomatis saat ada sinyal.',
+            'KONFLIK' => 'Perlu dicek di Masalah Sinkron.',
+            'DITOLAK' => 'Ditolak server. Buka Masalah Sinkron.',
+            _ => h.kurangUntukWa.isEmpty ? null : 'Belum diisi: ${h.kurangUntukWa.join(', ').toLowerCase()}.',
+          };
+    return KartuLaporanTim(
+      judul: h.kode,
+      sub: DateFormat('EEEE, d MMM y', 'id_ID').format(DateTime.parse(h.tanggal)),
+      ikon: Icons.forest_rounded,
+      kmAwal: h.kmAwal,
+      kmAkhir: h.kmAkhir,
+      koordinatAwal: h.koordinatAwal,
+      koordinatAkhir: h.koordinatAkhir,
+      // v1.0.16: seragam dengan kartu Hartek / Inspeksi: angka per jenis + total bisa diketuk (ringkasan), ketuk KM /
+      // koordinat = ubah data perjalanan, ikon status kirim di baris bawah.
+      angka: [
+        for (final j in r.jenis) AngkaRingkas(labelJenisRow(j.$1), j.$2, onTap: () => _ringkasan(h)),
+        AngkaRingkas('Total Eksekusi', r.eksekusi, onTap: () => _ringkasan(h)),
+      ],
+      onTapNilai: ubah ? (_) => _ubahHeader(h) : null,
+      catatan: catatan,
+      bawahKiri: Row(children: [
+        Icon(
+          h.sinkron == 'KONFLIK' || h.sinkron == 'DITOLAK'
+              ? Icons.error_outline_rounded
+              : h.sinkron == 'LOKAL'
+                  ? Icons.cloud_upload_outlined
+                  : Icons.cloud_done_rounded,
+          size: 16,
+          color: h.sinkron == 'KONFLIK' || h.sinkron == 'DITOLAK'
+              ? AppColors.red100
+              : h.sinkron == 'LOKAL'
+                  ? AppColors.accent400
+                  : const Color(0xFF4ADE80),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text('${r.penyulang} penyulang · ${r.eksekusi} eksekusi',
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+        ),
+      ]),
+      onTap: () => _ringkasan(h),
+      onUbah: ubah ? () => _ubahHeader(h) : null,
+      tampilWa: true,
+      // v1.0.17 (sinkron atomik): SIAP WA server baru dipakai sesudah semua data laporan ini diterima server
+      waSiap: h.waSiap && r.tertunda == 0,
+      onKirimWa: () {
+        if (h.waSiap && r.tertunda > 0) {
+          tampilPesan(context, 'SiSi Sedang Proses Sinkron Data: ${r.tertunda} Data Sedang Proses Sinkron. WA tersedia sesudah semua data diterima server.');
+          unawaited(widget.deps.syncCtl.sinkron());
+          return;
+        }
+        if (h.waSiap) {
+          tampilkanWa(context, judul: 'WA ${h.kode}', teks: h.waText!);
+          return;
+        }
+        final kurang = <String>[
+          ...h.kurangUntukWa,
+          if (r.eksekusi == 0) 'Eksekusi pekerjaan ROW (minimal 1 eksekusi dengan foto lengkap)',
+          if (h.kurangUntukWa.isEmpty && r.eksekusi > 0) 'Sinkronisasi ke server untuk membentuk teks WA',
+        ];
+        tampilkanWaBelumSiap(
+          context,
+          kurang: kurang,
+          onLengkapi: ubah && h.kurangUntukWa.isNotEmpty ? () => _ubahHeader(h) : null,
+        );
+      },
+      onTambah: ubah ? () => _buka(h, tambahPenyulang: true) : null,
+      labelTambah: 'Tambah penyulang',
+    );
+  }
+
+  Future<void> _ringkasan(RowHeader h) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => RingkasanRowScreen(deps: widget.deps, sesi: widget.sesi, headerId: h.id)));
+    if (!mounted) return;
+    setState(() {
+      _data = _muat();
+    });
+  }
+
+  Future<void> _ubahHeader(RowHeader h) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => FormHeaderScreen(deps: widget.deps, sesi: widget.sesi, header: h)));
+    if (!mounted) return;
+    setState(() {
+      _data = _muat();
+    });
+  }
+
+  Future<void> _buka(RowHeader h, {bool tambahPenyulang = false}) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => HeaderDetailScreen(deps: widget.deps, sesi: widget.sesi, headerId: h.id, tambahPenyulang: tambahPenyulang)));
     if (!mounted) return;
     setState(() {
       _data = _muat();
@@ -154,7 +255,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
           tooltip: 'Refresh',
           onPressed: _menyegarkan || ctl.sedangSync ? null : _segarkan,
           icon: _menyegarkan || ctl.sedangSync
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white))
+              ? const SisiLoader(ukuran: 20, warna: Colors.white)
               : const Icon(Icons.refresh_rounded),
         ),
       ]),
@@ -164,14 +265,14 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: AppColors.neutral150, borderRadius: BorderRadius.circular(999)),
-            child: Row(children: [_pill('Hari ini', 0), _pill('WO ROW', 1), _pill('Arsip', 2)]),
+            child: Row(children: [_pill('Hari ini', 0), _pill('Arsip', 1), _pill('Kalender', 2)]), // v1.0.17: + kalender tim
           ),
         ),
         Expanded(
           child: IndexedStack(index: _tab, children: [
             _hariIni(),
-            _WoRowView(onRefresh: _segarkan),
             ArsipView(key: _kunciArsip, deps: widget.deps, sesi: widget.sesi),
+            KalenderTimView(deps: widget.deps, sesi: widget.sesi), // v1.0.17
           ]),
         ),
       ]),
@@ -222,7 +323,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
                 const SisiKosong(ikon: Icons.forest_outlined, judul: 'Belum ada laporan ROW hari ini.', pesan: 'Tekan + untuk mulai laporan.')
               else
                 for (final h in d.header) ...[
-                  _LaporanHeaderCard(header: h, ringkas: d.ringkas[h.id]!, onDetail: () => _buka(h)),
+                  _kartu(h, d.ringkas[h.id]!),
                   const SizedBox(height: 12),
                 ],
             ],
@@ -234,10 +335,13 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
 }
 
 class _Ringkas {
-  const _Ringkas({required this.penyulang, required this.eksekusi, required this.jenis});
+  const _Ringkas({required this.penyulang, required this.eksekusi, required this.jenis, this.tertunda = 0});
   final int penyulang;
   final int eksekusi;
   final List<(String, int)> jenis;
+
+  /// v1.0.17 (sinkron atomik): data laporan ini yang belum diterima server (outbox + foto).
+  final int tertunda;
 }
 
 class _Data {
@@ -247,7 +351,7 @@ class _Data {
   final bool kodeOk;
 }
 
-/// Ringkasan angka (panel neutral100 radius 11, kartu lama).
+/// Ringkasan angka (panel neutral100 radius 11), dipakai kartu arsip harian.
 Widget _panelRingkas(String atas, List<(String, int)> jenis) {
   return Container(
     width: double.infinity,
@@ -281,104 +385,9 @@ Widget _tombolWa(BuildContext context, {required bool siap, required String? tek
       : FilledButton.icon(onPressed: null, icon: const Icon(Icons.lock_clock_outlined, size: 18), label: const Text('Belum Siap'));
 }
 
-/// Kartu header (laporan_header_card lama): badge SIAP WA / PROSES, ringkasan per jenis, Detail + Kirim WA.
-class _LaporanHeaderCard extends StatelessWidget {
-  const _LaporanHeaderCard({required this.header, required this.ringkas, required this.onDetail});
-  final RowHeader header;
-  final _Ringkas ringkas;
-  final VoidCallback onDetail;
-
-  @override
-  Widget build(BuildContext context) {
-    final h = header;
-    final tgl = DateFormat('EEEE, d MMM y', 'id_ID').format(DateTime.parse(h.tanggal));
-    final Widget badge = !h.aktif
-        ? const StatusBadge('BATAL', warna: AppColors.red700, latar: AppColors.red100)
-        : h.sinkron != 'TERKIRIM'
-            ? StatusBadge.sinkron(h.sinkron)
-            : h.waSiap
-                ? const StatusBadge('SIAP WA', warna: AppColors.success700, latar: AppColors.success100)
-                : const StatusBadge('PROSES', warna: AppColors.accent700, latar: AppColors.accent100);
-    return Opacity(
-      opacity: h.aktif ? 1 : .6,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFFCFDFF),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.neutral200),
-          boxShadow: [BoxShadow(color: AppColors.navy900.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 5))],
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: AppColors.accent100, borderRadius: BorderRadius.circular(13)),
-              child: const Icon(Icons.forest_rounded, color: AppColors.accent700),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(h.kode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.navy900)),
-                Text(tgl, style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
-              ]),
-            ),
-            badge,
-          ]),
-          const SizedBox(height: 12),
-          _panelRingkas('${ringkas.penyulang} penyulang · ${ringkas.eksekusi} eksekusi', h.aktif ? ringkas.jenis : const []),
-          if (h.aktif && h.kurangUntukWa.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('Header belum lengkap: ${h.kurangUntukWa.join(', ')}', style: const TextStyle(fontSize: 11.5, color: AppColors.accent700)),
-          ],
-          if (h.alasan != null) ...[
-            const SizedBox(height: 8),
-            Text('Server: ${h.alasan}', style: const TextStyle(fontSize: 11.5, color: AppColors.red700)),
-          ],
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: onDetail, icon: const Icon(Icons.chevron_right_rounded), label: const Text('Detail'))),
-            if (h.aktif) ...[
-              const SizedBox(width: 10),
-              Expanded(child: _tombolWa(context, siap: h.waSiap, teks: h.waText, judul: 'WA ${h.kode}')),
-            ],
-          ]),
-        ]),
-      ),
-    );
-  }
-}
-
 /// Tab Arsip (revisi 3 Okt 2026): download arsip tim sendiri untuk rentang tanggal (sampai kemarin, hari H tidak
 /// termasuk), disimpan di HP, lalu ditampilkan berurutan: kartu tahun > kartu bulan > kartu harian.
 /// Download per bulan (getArsipRow maks 31 hari) supaya ada progres nyata. Melihat arsip yang sudah diunduh bisa offline.
-/// Tab WO ROW (3 Okt 2026): tempat fitur Work Order ROW dari temuan inspeksi (eksekusi sumber = TEMUAN, temuan_id
-/// sudah disiapkan di row_Eksekusi). Sementara hanya penanda; isi dan alurnya dibahas di pembaruan berikutnya.
-class _WoRowView extends StatelessWidget {
-  const _WoRowView({required this.onRefresh});
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
-        children: const [
-          SisiKosong(
-            ikon: Icons.assignment_outlined,
-            judul: 'WO ROW segera hadir',
-            pesan: 'Work Order ROW dari temuan inspeksi akan tampil di sini: daftar WO untuk tim, status pengerjaan, '
-                'dan eksekusi yang terhubung ke temuan.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Tab Arsip. Dipakai juga di menu Operasi > Laporan per Tim (v0.50) dengan timId = tim yang dipilih admin.
 class ArsipView extends StatefulWidget {
   const ArsipView({super.key, required this.deps, required this.sesi, this.timId});
@@ -440,7 +449,13 @@ class ArsipViewState extends State<ArsipView> {
           });
       _buka.clear();
       await _muatLokal(bukaTerbaru: true);
-      if (mounted) tampilPesan(context, n == 0 ? 'Tidak ada laporan di rentang ini.' : '$n laporan tersimpan di HP.');
+      if (mounted) {
+        if (n == 0) {
+          tampilPesan(context, 'Tidak ada laporan di rentang ini.');
+        } else {
+          unawaited(tampilPopupBerhasil(context, judul: 'Arsip berhasil didownload', keterangan: '$n laporan tersimpan di HP'));
+        }
+      }
     } on ApiException catch (e) {
       if (mounted) {
         setState(() => _pesan = e.kode.startsWith('HTTP_') ? 'Download arsip butuh sinyal. Coba lagi saat online.' : KodeError.pesan(e.kode));

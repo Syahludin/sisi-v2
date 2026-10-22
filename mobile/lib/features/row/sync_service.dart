@@ -27,6 +27,7 @@ class SyncService {
   Future<HasilSync> kirim(Sesi s) async {
     var ok = 0, konflik = 0, ditolak = 0;
     for (var putaran = 0; putaran < 10; putaran++) {
+      await _outbox.pulihkanIkutInduk(s.userId);
       final ops = await _outbox.tertunda(s.userId);
       if (ops.isEmpty) break;
       final d = await _api.call('syncRow', token: s.token, data: {
@@ -70,7 +71,7 @@ class SyncService {
           }
           maju++;
           await _repo.terapkanHasil(op['jenis'] as String, op['id'] as String, status!,
-              kode: h['kode'] as String?, revision: (h['revision'] as num?)?.toInt(), alasan: alasan);
+              kode: h['kode'] as String?, revision: (h['revision'] as num?)?.toInt(), alasan: alasan, aksi: op['aksi'] as String?);
         }
       }
       if (maju == 0) break;
@@ -79,9 +80,11 @@ class SyncService {
   }
 
   /// getKodeRow untuk hari ini (wajib setelah login / reinstall sebelum membuat data baru).
-  Future<void> tarikKode(Sesi s, {String? tanggal}) async {
+  /// Hasil = respons getKodeRow (M4 memakai revision / isi server untuk konflik revisi).
+  Future<Map<String, dynamic>> tarikKode(Sesi s, {String? tanggal}) async {
     final d = await _api.call('getKodeRow', token: s.token, data: {if (tanggal != null) 'tanggal': tanggal});
     await _repo.simpanDariServer(s, d);
+    return d;
   }
 
   static String hariIni() => Wib.tanggal(DateTime.now());

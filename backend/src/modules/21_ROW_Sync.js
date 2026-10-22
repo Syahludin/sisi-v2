@@ -48,12 +48,14 @@ function tanggalDariKode_(kode) {
 function headerRowTerverifikasi_(sh, nama) {
   var skema = skemaHeader_().ROW_SHEET_ID[nama];
   var cache = CacheService.getScriptCache();
-  if (cache.get('hdr-ok:' + nama)) return skema;
+  // v0.62.6: kunci ikut SESI_EPOCH, jadi ADMIN_bersihkanCache langsung memaksa header dicek ulang (dulu tunggu 6 jam).
+  var kunci = 'hdr-ok:' + cfg_().SESI_EPOCH + ':' + nama;
+  if (cache.get(kunci)) return skema;
   var ada = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0]
     .map(function (h) { return String(h).trim(); });
   while (ada.length && !ada[ada.length - 1]) ada.pop();
   if (ada.join('|') !== skema.join('|')) throw new SisiError_('CONFIG_TIDAK_VALID', 'header ' + nama);
-  cache.put('hdr-ok:' + nama, '1', 21600);   // 6 jam (batas CacheService); header ROW jarang berubah
+  try { cache.put(kunci, '1', 21600); } catch (eC) { /* abaikan bila cache penuh */ }   // 6 jam (batas CacheService); header ROW jarang berubah
   return skema;
 }
 
@@ -89,7 +91,9 @@ function jendelaRow_(jenis, cutoff, awalanKunci) {
     }
     if (!kosong) rows.push(o);
   }
-  if (geser > 0) props.setProperty(kunci, String(p + geser));
+  if (geser > 0) {
+    try { props.setProperty(kunci, String(p + geser)); } catch (eP) { /* abaikan */ }
+  }
   return { sheet: sh, nama: nama, header: header, rows: rows, akhir: akhir, dalamLock: LOCK_AKTIF_.ya };
 }
 
@@ -97,7 +101,9 @@ function jendelaRow_(jenis, cutoff, awalanKunci) {
 function masterRow_() {
   var cache = CacheService.getScriptCache();
   var ada = cache.get('master-row:v3');
-  if (ada) return JSON.parse(ada);
+  if (ada) {
+    try { return JSON.parse(ada); } catch (eJ) { /* baca ulang */ }
+  }
   var jaringan = {};
   tabel_('MASTER_SHEET_ID', 'db_Jaringan').rows.forEach(function (r) {
     if (!r.section_id) return;
@@ -114,7 +120,7 @@ function masterRow_() {
                urutan: Number(r.urutan) || 0, diameter_min: r.diameter_min, diameter_max: r.diameter_max, aktif: r.aktif };
     });
   var hasil = { jaringan: jaringan, jenis: jenis };
-  cache.put('master-row:v3', JSON.stringify(hasil), cfg_().CACHE_DETIK);
+  try { cache.put('master-row:v3', JSON.stringify(hasil), cfg_().CACHE_DETIK); } catch (eC) { /* >100KB: tanpa cache */ }
   return hasil;
 }
 
@@ -225,12 +231,12 @@ var ISI_ROW_ = {
 var BOLEH_KOSONG_ROW_ = { header: ['koordinatAwal', 'koordinatAkhir', 'kmAwal', 'kmAkhir', 'kendala'], eksekusi: ['koordinatTiang', 'nomorTiang'] };   // nomorTiang opsional (3 Okt 2026), boleh dihapus lewat Edit
 
 function syncRow_(sesi, data, platform) {
+  wajibPetugasRow_(sesi);   // v0.62.4: role PETUGAS + tim ROW. v0.66.2: dicek PALING AWAL (sebelum isi data dibaca)
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new SisiError_('DATA_TIDAK_VALID');
   Object.keys(data).forEach(function (k) { if (k !== 'operasi') throw new SisiError_('FIELD_TIDAK_DIKENAL', k); });
   var mentah = data.operasi;
   if (!Array.isArray(mentah) || !mentah.length) throw new SisiError_('FIELD_WAJIB', 'operasi');
   if (mentah.length > ROW_MAKS_OP_) throw new SisiError_('TERLALU_BANYAK_OPERASI', mentah.length);
-  if (sesi.jenisTim !== 'ROW' || !sesi.timId) throw new SisiError_('AKSES_DITOLAK', 'bukan petugas ROW');
   var c = cfg_();
   if (!c.ROW_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_SHEET_ID');
 
@@ -252,6 +258,7 @@ function syncRow_(sesi, data, platform) {
     var hitung = {};
     hasil.forEach(function (h) { hitung[h.status] = (hitung[h.status] || 0) + 1; });
     auditLog_(sesi, 'SYNC_ROW', '', JSON.stringify(hitung), platform, logT);
+    (ctx.auditBatal || []).forEach(function (b) { auditLog_(sesi, 'BATAL_ROW', b.kode, b.detail, platform, logT); });
     hasil.filter(function (h) { return h.status === 'KODE_BENTROK' && h.alasan !== 'INDUK_BENTROK'; }).forEach(function (h) {
       auditLog_(sesi, 'KODE_BENTROK', h.kode || '', 'opId ' + h.opId, platform, logT);
     });
@@ -361,6 +368,8 @@ function satuOperasiRow_(ctx, op) {
   var h = headerDari_(ctx, j, ada);
   if (!h || String(h.tim_id) !== ctx.sesi.timId) return ditolak_('BUKAN_MILIK_TIM');
   if (!dalamBatasTanggal_(ctx, tanggalDariKode_(ada[ROW_KODE_[j]]))) return ditolak_('DATA_TERKUNCI');
+  // v1.0.10: eksekusi dari WO tindak lanjut temuan (sumber TEMUAN) dikunci, supaya realisasi tetap sama dengan WO Selesai
+  if (j === 'eksekusi' && String(ada.sumber || '') === 'TEMUAN') return ditolak_('TERKUNCI_WO');
   if (op.aksi === 'batal') return batalRow_(ctx, op, ada);
   return ubahRow_(ctx, op, ada);
 }
@@ -551,8 +560,14 @@ function ubahRow_(ctx, op, row) {
   return terapkan_(ctx, op.jenis, row, u);
 }
 
+/** v0.62 (M4): isi batal opsional, dicatat di log_Audit BATAL_ROW. Tanpa isi tetap diterima (APK lama). */
+var ISI_BATAL_ROW_ = {
+  alasan: { tipe: 'pilihan', pilihan: ['SALAH_INPUT', 'DOBEL', 'SALAH_LOKASI', 'LAINNYA'] },
+  catatan: { tipe: 'teks', maks: 100 }
+};
+
 function batalRow_(ctx, op, row) {
-  if (Object.keys(op.isi).length) throw new SisiError_('FIELD_TIDAK_DIKENAL', Object.keys(op.isi)[0]);
+  var d = validasi_(op.isi, ISI_BATAL_ROW_);
   if (row.status === 'BATAL') return hasilSimpan_(op.jenis, row, 'DUPLIKAT');
   var rev = Number(row.revision) || 0;
   if (rev !== op.revision) return { status: 'KONFLIK_REVISION', revision: rev };
@@ -566,7 +581,10 @@ function batalRow_(ctx, op, row) {
     if (masihAda) return ditolak_('MASIH_ADA_ANAK');
   }
   if (op.jenis === 'eksekusi') ctx.kotorRealisasi[String(row.realisasi_id)] = true;
-  return terapkan_(ctx, op.jenis, row, { status: 'BATAL' });
+  var hasil = terapkan_(ctx, op.jenis, row, { status: 'BATAL' });
+  (ctx.auditBatal = ctx.auditBatal || []).push({ kode: String(row[ROW_KODE_[op.jenis]]),
+    detail: op.jenis + ' | ' + (d.alasan || '-') + (d.catatan ? ' | ' + d.catatan : '') });
+  return hasil;
 }
 
 /** Section + Rabas/Sedang/Besar realisasi yang tersentuh. Hanya eksekusi AKTIF & foto lengkap. */

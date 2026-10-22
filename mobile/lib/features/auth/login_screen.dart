@@ -9,8 +9,13 @@ import '../../core/env.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/login_gagal_card.dart';
 import '../../widgets/mock_gps_warning_dialog.dart';
 import '../../widgets/sisi_brand.dart';
+import '../yandal/pilih_petugas_screen.dart';
+import '../yandal/yandal_login.dart';
+import 'auth_repository.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Login (desain lama): halaman brand + tombol Login, form di bottom sheet.
 /// PRD Alur B: login -> getMaster -> getKodeRow -> dashboard.
@@ -20,13 +25,22 @@ class LoginScreen extends StatelessWidget {
   final void Function(Sesi) onMasuk;
 
   Future<void> _bukaForm(BuildContext context) async {
-    final s = await showModalBottomSheet<Sesi>(
+    // v0.63.0: form mengembalikan Sesi (akun biasa) atau TiketYandal (akun YANDAL: pilih petugas dulu)
+    final hasil = await showModalBottomSheet<Object>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _FormLogin(deps: deps),
     );
+    if (hasil == null || !context.mounted) return;
+    Sesi? s = hasil is Sesi ? hasil : null;
+    if (hasil is TiketYandal) {
+      s = await Navigator.of(context).push<Sesi>(
+        MaterialPageRoute(builder: (_) => PilihPetugasScreen(deps: deps, tiket: hasil)),
+      );
+    }
     if (s == null || !context.mounted) return;
+    final masuk = s;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -35,10 +49,10 @@ class LoginScreen extends StatelessWidget {
         Future.delayed(const Duration(seconds: 2), () {
           if (c.mounted) Navigator.of(c).pop();
         });
-        return _DialogBerhasil(sesi: s);
+        return _DialogBerhasil(sesi: masuk);
       },
     );
-    onMasuk(s);
+    onMasuk(masuk);
   }
 
   @override
@@ -111,6 +125,7 @@ class _FormLoginState extends State<_FormLogin> {
   bool _proses = false;
   bool _lihat = false;
   String? _pesan;
+  int _salah = 0; // v0.62.3: salah berturut-turut di HP ini (untuk kartu login gagal)
 
   @override
   void dispose() {
@@ -139,14 +154,33 @@ class _FormLoginState extends State<_FormLogin> {
         if (mounted) setState(() => _pesan = CekLokasi.pesan(lokasi));
         return;
       }
-      final s = await widget.deps.auth.login(_username.text, _password.text);
+      final hasil = await widget.deps.auth.login(_username.text, _password.text);
+      final Sesi s;
+      switch (hasil) {
+        case LoginPilihPetugas(:final tiket):
+          // v0.63.0: akun YANDAL belum punya token. Pilih petugas + konfirmasi di layar berikutnya.
+          _salah = 0;
+          if (mounted) Navigator.pop(context, tiket);
+          return;
+        case LoginSelesai(:final sesi):
+          s = sesi;
+      }
       await widget.deps.master.segarkan(s);
       // Wajib sebelum input ROW (PRD F-ROW-INPUT), hanya untuk petugas ROW. v0.56.1: dulu dipanggil untuk semua akun,
       // jadi ADMIN / SUPER / ADMIN_ES / petugas non-ROW gagal login dengan AKSES_DITOLAK (getKodeRow khusus petugas ROW).
       if (s.petugasRow) await widget.deps.sync.tarikKode(s);
+      _salah = 0;
       if (mounted) Navigator.pop(context, s);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _pesan = KodeError.pesan(e.kode));
+      if (!mounted) return;
+      final kartu = jenisLoginGagal(e.kode);
+      if (kartu == JenisLoginGagal.salah) {
+        _salah++;
+        _password.clear(); // kata sandi diketik ulang, username tetap
+      }
+      // v0.63.2 (keputusan kvlar 8 Okt 2026): ada kartu = pesan merah di atas kolom tidak ditampilkan (tidak dobel)
+      setState(() => _pesan = kartu == null ? KodeError.pesan(e.kode) : null);
+      if (kartu != null) await tampilkanLoginGagal(context, kode: e.kode, username: _username.text, percobaan: _salah);
     } catch (_) {
       if (mounted) setState(() => _pesan = 'Tidak bisa terhubung. Cek sinyal.');
     } finally {
@@ -245,7 +279,7 @@ class _FormLoginState extends State<_FormLogin> {
               ),
               child: _proses
                   ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                      SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.navy950)),
+                      SisiLoader(ukuran: 18, warna: AppColors.navy950),
                       SizedBox(width: 10),
                       Text('Verifikasi Akun'),
                     ])
@@ -295,10 +329,13 @@ class _DialogBerhasil extends StatelessWidget {
             child: Column(children: [
               Text(sesi.nama, style: const TextStyle(fontWeight: FontWeight.w800)),
               Text('${sesi.username} · ${sesi.role}', style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+              if (sesi.petugasShift.isNotEmpty)
+                Text(sesi.petugasShift.join(' & '),
+                    textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navy700)),
             ]),
           ),
           const SizedBox(height: 14),
-          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SisiLoader(ukuran: 20),
           const SizedBox(height: 8),
           const Text('Mengalihkan ke dashboard...', style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
         ]),

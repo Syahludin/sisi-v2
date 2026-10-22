@@ -11,9 +11,11 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/kolom_pilih.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../../widgets/wa_panel.dart';
 import 'laporan_up3_repository.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Operasi > Laporan UP3 atau Laporan UIW (v0.57: menu dipecah, satu layar per laporan; keputusan kvlar 5 Okt 2026).
 /// Status tim + input harian laporan itu saja (UP3: C4A per penyulang; UIW: Cuaca + C4A per section) + teks WA dari server.
@@ -143,16 +145,22 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
     FocusScope.of(context).unfocus();
     setState(() => _menyimpan = true);
     try {
-      final hasil = _isUp3
-          ? await _repo.simpanUp3(widget.sesi, tanggal: _tanggal, revision: _rev, c4a: _up3)
-          : await _repo.simpanUiw(widget.sesi, tanggal: _tanggal, revision: _rev, cuaca: _cuaca.text.trim(), c4a: _c4a);
+      // v0.62.9: payload dibekukan sekali; gagal jaringan dikirim ulang persis sama (server aman diulang).
+      final data = _isUp3
+          ? LaporanUp3Repository.dataUp3(tanggal: _tanggal, revision: _rev, c4a: _up3)
+          : LaporanUp3Repository.dataUiw(tanggal: _tanggal, revision: _rev, cuaca: _cuaca.text.trim(), c4a: _c4a);
+      final hasil = await _repo.simpanPulih(widget.sesi, widget.bagian, data);
       if (!mounted) return;
       setState(() => _terapkan(hasil));
       tampilPesan(context, 'Laporan ${widget.bagian} tersimpan.');
     } catch (e) {
       if (!mounted) return;
       final konflik = e is ApiException && e.kode == 'KONFLIK_REVISION';
-      tampilPesan(context, konflik ? 'Laporan ${widget.bagian} sudah diubah admin lain. Refresh dulu, lalu isi lagi.' : _pesanGagal(e));
+      tampilPesan(
+          context,
+          konflik
+              ? 'Laporan ${widget.bagian} sudah diubah admin lain. Refresh dulu, lalu isi lagi.'
+              : '${_pesanGagal(e)} Belum tersimpan, isian masih di layar.');
     } finally {
       if (mounted) setState(() => _menyimpan = false);
     }
@@ -245,7 +253,6 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
       ));
     } else {
       isi = ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 40), children: [
-        if (_memuat) const Padding(padding: EdgeInsets.only(bottom: 8), child: LinearProgressIndicator(minHeight: 3)),
         if (_pesan != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -280,7 +287,12 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
 
   List<Widget> _banner(Map<String, dynamic> d) {
     String? teks;
-    if (d['sumber'] == 'ARSIP') {
+    if (d['tertunda'] == true) {
+      // v0.62.9: C4A sempat tertulis tapi baris harian belum dikunci (simpan terputus) = belum final.
+      teks = _bisaUbah
+          ? 'Simpan terakhir belum selesai. Periksa isian lalu tekan Simpan supaya laporan final.'
+          : 'Simpan terakhir belum selesai. Laporan ini belum final.';
+    } else if (d['sumber'] == 'ARSIP') {
       teks = 'Lebih dari 7 hari: ini salinan terakhir yang disimpan. Hanya lihat.';
     } else if (!_bisaUbah) {
       teks = d['hariIni'] == true ? 'Akun ini hanya bisa melihat laporan.' : 'Tanggal lewat: hanya lihat. Input hanya untuk hari ini.';
@@ -305,9 +317,14 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
     final row = d['row'] as Map<String, dynamic>?;
     final peny = (row?['penyulang'] as List<dynamic>? ?? const <dynamic>[]).whereType<Map<String, dynamic>>().toList();
     final kom = row?['komulatif'] as Map<String, dynamic>?;
+    final htk = d['hartek'] as Map<String, dynamic>?;
+    final penyH = (htk?['penyulang'] as List<dynamic>? ?? const <dynamic>[]).whereType<Map<String, dynamic>>().toList();
+    final komH = htk?['komulatif'] as Map<String, dynamic>?;
+    final statusHartek = '${htk?['status'] ?? 'V1'}';
     return SectionCard(judul: 'Status tim', ikon: Icons.groups_rounded, children: [
       for (final t in status) _BarisStatus(nama: '${t['nama']}', status: '${t['status']}'),
-      for (final n in const ['Hartek', 'Inspeksi Jaringan', 'Inspeksi Gardu']) _BarisStatus(nama: n, status: 'V1'),
+      _BarisStatus(nama: 'Hartek', status: statusHartek),
+      for (final n in const ['Inspeksi Jaringan', 'Inspeksi Gardu']) _BarisStatus(nama: n, status: 'V1'),
       const Divider(height: 22),
       const Text('ROW HARI INI (TARGET / REALISASI)',
           style: TextStyle(fontSize: 10.5, letterSpacing: .6, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
@@ -325,6 +342,25 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
       if (kom != null)
         Text('Komulatif bulan ini: Rabas ${kom['rabas']} Gawang · Tebang ${kom['tebang']} Batang',
             style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+      if (htk != null) ...[
+        const Divider(height: 22),
+        const Text('HARTEK HARI INI (GARDU / JARINGAN)',
+            style: TextStyle(fontSize: 10.5, letterSpacing: .6, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
+        const SizedBox(height: 6),
+        if (penyH.isEmpty)
+          const Text('Belum ada pekerjaan Hartek hari ini.', style: TextStyle(fontSize: 12.5, color: AppColors.neutral500)),
+        for (final p in penyH)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '${p['penyulang']}   Gardu ${p['gardu']} Unit   Jaringan ${p['jaringan']} Gawang',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.neutral700),
+            ),
+          ),
+        if (komH != null)
+          Text('Komulatif bulan ini: Gardu ${komH['gardu']} Unit · Jaringan ${komH['jaringan']} Gawang',
+              style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+      ],
     ]);
   }
 
@@ -424,7 +460,7 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
         child: FilledButton.icon(
           onPressed: _menyimpan ? null : () => unawaited(_simpan()),
           icon: _menyimpan
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              ? const SisiLoader(ukuran: 18, warna: Colors.white)
               : Icon(_kotor ? Icons.save_rounded : Icons.save_outlined, size: 18),
           label: Text(_menyimpan ? 'Menyimpan...' : (_kotor ? 'Simpan ${widget.bagian} *' : 'Simpan ${widget.bagian}')),
         ),
@@ -433,6 +469,12 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
   Widget _kartuWa(Map<String, dynamic> d) {
     final teks = (d['waText'] as String?) ?? '';
     return SectionCard(judul: 'Teks WA ${widget.bagian}', ikon: Icons.chat_outlined, children: [
+      if (d['tertunda'] == true && !_kotor)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Text('Belum final: simpan terakhir belum selesai. Jangan kirim teks ini dulu.',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent700)),
+        ),
       if (_kotor)
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
@@ -694,7 +736,7 @@ class _FormC4aState extends State<_FormC4a> {
 
   Future<void> _muatSection(String p) async {
     final s = await widget.deps.master.section(p);
-    if (!mounted) return;
+    if (!mounted || p != _p) return; // v0.62.7: jawaban untuk penyulang yang sudah diganti = abaikan
     setState(() {
       _section = s.where((x) => !widget.dipakai.contains(x.id)).toList();
       _s = null;
@@ -765,12 +807,13 @@ class _FormC4aState extends State<_FormC4a> {
                     style: TextStyle(fontSize: 11.5, color: AppColors.red700)),
               ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_p),
-              initialValue: _s,
-              isExpanded: true,
-              decoration: sisiInput('Section'),
-              items: [for (final s in _section) DropdownMenuItem(value: s.id, child: Text(s.nama, overflow: TextOverflow.ellipsis))],
+            KolomPilih(
+              key: ValueKey('section-$_p-${_section.length}-$_s'),
+              label: 'Section',
+              judulSheet: 'Pilih Section',
+              keteranganSheet: _p == null ? null : 'Penyulang $_p · urut dari PMT sampai ujung jaringan (yang sudah ada di C4A tidak tampil)',
+              pilihan: [for (final s in _section) PilihanItem(s.id, s.nama)],
+              nilaiAwal: _s,
               onChanged: (v) => setState(() => _s = v),
               validator: (v) => v == null ? 'Pilih section' : null,
             ),

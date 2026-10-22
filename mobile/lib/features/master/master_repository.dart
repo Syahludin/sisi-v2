@@ -141,6 +141,18 @@ class MasterRepository {
     return daftar;
   }
 
+  /// v0.98.6: Semua tim aktif dari db_Tim (ROW, HARTEK, YANDAL, INSPEKSI_JARINGAN, INSPEKSI_GARDU, dll.), urut jenis & kode.
+  Future<List<Map<String, dynamic>>> semuaTimAktif() async {
+    const urutJenis = {'ROW': 0, 'HARTEK': 1, 'INSPEKSI_JARINGAN': 2, 'INSPEKSI_GARDU': 3, 'YANDAL': 4};
+    final daftar = _daftar(await lokal(), 'tim').where((t) => t['aktif'] == true).toList()
+      ..sort((a, b) {
+        final ja = '${a['jenis'] ?? ''}'.toUpperCase(), jb = '${b['jenis'] ?? ''}'.toUpperCase();
+        final u = (urutJenis[ja] ?? 9).compareTo(urutJenis[jb] ?? 9);
+        return u != 0 ? u : '${a['kode']}'.compareTo('${b['kode']}');
+      });
+    return daftar;
+  }
+
   /// Jenis pekerjaan dari master (mentah, untuk JenisPekerjaan.dariMaster).
   Future<List<Map<String, dynamic>>> jenisPekerjaan() async => _daftar(await lokal(), 'jenisPekerjaan');
 

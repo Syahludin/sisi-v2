@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:sqflite/sqflite.dart';
 
@@ -15,6 +16,11 @@ class RowError implements Exception {
   final String pesan;
   @override
   String toString() => pesan;
+}
+
+/// v0.62.8: kode rencana sudah dipakai saat transaksi simpan dimulai (pemanggil merender ulang foto lalu mencoba lagi).
+class KodeRencanaDipakai implements Exception {
+  const KodeRencanaDipakai();
 }
 
 /// Semua tulis data ROW di HP: baris lokal + operasi outbox dalam SATU transaksi (PRD F-ROW-INPUT, F-ROW-SYNC).
@@ -81,6 +87,22 @@ class RowRepository {
         AND (SELECT COUNT(DISTINCT f.jenis_foto) FROM foto_antre f WHERE f.eksekusi_id = e.id) < 3
       GROUP BY e.realisasi_id''', [headerId]);
     return {for (final x in r) x['rid'] as String: (x['n'] as int?) ?? 0};
+  }
+
+  /// v1.0.17 (sinkron atomik): jumlah data laporan [headerId] yang belum diterima server: operasi outbox (header,
+  /// penyulang, eksekusi) + foto eksekusi di antrean. Selama > 0, status SIAP WA dari server belum boleh dipakai
+  /// (ringkasan server sudah berubah tetapi rincian / foto / WA belum lengkap).
+  Future<int> jumlahTertundaHeader(String userId, String headerId) async {
+    final r = await _d.rawQuery('''
+      SELECT
+        (SELECT COUNT(*) FROM outbox o WHERE o.user_id = ? AND o.status != 'TERKIRIM' AND (
+            o.id = ?
+            OR o.id IN (SELECT id FROM row_realisasi WHERE header_id = ?)
+            OR o.id IN (SELECT e.id FROM row_eksekusi e JOIN row_realisasi r ON r.id = e.realisasi_id WHERE r.header_id = ?)))
+        + (SELECT COUNT(*) FROM foto_antre f WHERE f.user_id = ? AND f.status != 'TERKIRIM' AND f.eksekusi_id IN
+            (SELECT e.id FROM row_eksekusi e JOIN row_realisasi r ON r.id = e.realisasi_id WHERE r.header_id = ? AND e.status = 'AKTIF'))
+        AS n''', [userId, headerId, headerId, headerId, userId, headerId]);
+    return (r.first['n'] as int?) ?? 0;
   }
 
   /// Wajib true sebelum membuat data baru (PRD F-ROW-INPUT): kode hari itu sudah ditarik dari server.
@@ -168,15 +190,16 @@ class RowRepository {
         where: 'id = ?',
         whereArgs: [h.id],
       );
-      final buat = await _outbox.tertundaUntuk(tx, s.userId, h.id, 'buat');
+      // v0.62 (M4): operasi yang DITOLAK validasi server ikut digabung lalu kembali ke antrean (Perbaiki).
+      final buat = await _outbox.tertundaUntuk(tx, s.userId, h.id, 'buat', jugaDitolak: true);
       if (buat != null) {
         final isi = _isi(buat)..addAll(perubahan)..removeWhere((k, v) => v == null);
-        await _outbox.gantiIsi(tx, buat['op_id'] as String, isi);
+        await _gantiAtauKembalikan(tx, buat, isi);
         return;
       }
-      final ubah = await _outbox.tertundaUntuk(tx, s.userId, h.id, 'ubah');
+      final ubah = await _outbox.tertundaUntuk(tx, s.userId, h.id, 'ubah', jugaDitolak: true);
       if (ubah != null) {
-        await _outbox.gantiIsi(tx, ubah['op_id'] as String, _isi(ubah)..addAll(perubahan));
+        await _gantiAtauKembalikan(tx, ubah, _isi(ubah)..addAll(perubahan));
         return;
       }
       await _outbox.tambah(
@@ -210,7 +233,17 @@ class RowRepository {
     return (await realisasi(id))!;
   }
 
+  /// v0.62.8: id + kode eksekusi baru yang AKAN dipakai, supaya foto bisa dirender (watermark memuat kode) sebelum
+  /// eksekusi disimpan. Kode dicek ulang di dalam transaksi [buatEksekusi].
+  Future<({String id, String kode})> rencanaEksekusi(RowRealisasi r) async {
+    final ada = await eksekusiDari(r.id);
+    final maks = ada.fold<int>(0, (m, e) => (KodeRow.urutAnak(e.kode) ?? 0) > m ? KodeRow.urutAnak(e.kode)! : m);
+    return (id: RowOutbox.uuidBaru(), kode: KodeRow.eksekusi(r.kode, KodeRow.urutBerikutnya(maks)));
+  }
+
   /// Hasil: id eksekusi baru.
+  /// v0.62.8: [rencana] (dari [rencanaEksekusi]) + [dalamTransaksi] = foto dicatat di transaksi yang SAMA dengan
+  /// eksekusi + outbox. App mati / gagal sebelum commit = tidak ada yang tersimpan (belum disimpan = belum fix).
   Future<String> buatEksekusi(
     Sesi s,
     RowRealisasi r, {
@@ -221,14 +254,27 @@ class RowRepository {
     required String koordinatPekerjaan,
     required int diameter,
     required JenisPekerjaan jenis,
+    ({String id, String kode})? rencana,
+    Future<void> Function(DatabaseExecutor tx, String id, String kode)? dalamTransaksi,
   }) async {
     _pastikanBolehInput(s);
     if (!r.aktif) throw RowError('Penyulang ini sudah BATAL.');
-    final ada = await eksekusiDari(r.id);
-    final maks = ada.fold<int>(0, (m, e) => (KodeRow.urutAnak(e.kode) ?? 0) > m ? KodeRow.urutAnak(e.kode)! : m);
-    final id = RowOutbox.uuidBaru();
-    final kode = KodeRow.eksekusi(r.kode, KodeRow.urutBerikutnya(maks));
+    final awal = rencana ?? await rencanaEksekusi(r);
+    final id = awal.id;
+    var kode = awal.kode;
     await _d.transaction((tx) async {
+      // v0.62.8: kode rencana sudah dipakai (mis. tarikKode / sync di antara render foto dan simpan). Dengan foto
+      // (dalamTransaksi) = batal, pemanggil merender ulang foto dengan kode baru (watermark memuat kode). Tanpa foto =
+      // langsung nomor berikutnya.
+      final dipakai = await tx.query('row_eksekusi', columns: ['kode'], where: 'realisasi_id = ?', whereArgs: [r.id]);
+      if (dipakai.any((x) => x['kode'] == kode)) {
+        if (dalamTransaksi != null) throw const KodeRencanaDipakai();
+        final maks = dipakai.fold<int>(0, (m, x) {
+          final u = KodeRow.urutAnak(x['kode'] as String) ?? 0;
+          return u > m ? u : m;
+        });
+        kode = KodeRow.eksekusi(r.kode, KodeRow.urutBerikutnya(maks));
+      }
       await tx.insert('row_eksekusi', {
         'id': id,
         'user_id': s.userId,
@@ -254,6 +300,7 @@ class RowRepository {
         'jenisId': jenis.id,
         'sumber': 'LANGSUNG',
       });
+      if (dalamTransaksi != null) await dalamTransaksi(tx, id, kode);
     });
     return id;
   }
@@ -305,15 +352,16 @@ class RowRepository {
     await _d.transaction((tx) async {
       await tx.update('row_eksekusi', {...lokal, 'diubah_pada': _sekarang(), 'sinkron': 'LOKAL'},
           where: 'id = ?', whereArgs: [e.id]);
-      final buat = await _outbox.tertundaUntuk(tx, s.userId, e.id, 'buat');
+      // v0.62 (M4): operasi yang DITOLAK validasi server ikut digabung lalu kembali ke antrean (Perbaiki).
+      final buat = await _outbox.tertundaUntuk(tx, s.userId, e.id, 'buat', jugaDitolak: true);
       if (buat != null) {
         final isi = _isi(buat)..addAll(perubahan)..removeWhere((k, v) => v == null);
-        await _outbox.gantiIsi(tx, buat['op_id'] as String, isi);
+        await _gantiAtauKembalikan(tx, buat, isi);
         return;
       }
-      final ubah = await _outbox.tertundaUntuk(tx, s.userId, e.id, 'ubah');
+      final ubah = await _outbox.tertundaUntuk(tx, s.userId, e.id, 'ubah', jugaDitolak: true);
       if (ubah != null) {
-        await _outbox.gantiIsi(tx, ubah['op_id'] as String, _isi(ubah)..addAll(perubahan));
+        await _gantiAtauKembalikan(tx, ubah, _isi(ubah)..addAll(perubahan));
         return;
       }
       await _outbox.tambah(
@@ -321,6 +369,19 @@ class RowRepository {
           revision: e.revision, isi: perubahan);
     });
     return true;
+  }
+
+  /// v0.90.0: jumlah eksekusi AKTIF per penyulang (realisasi) > section > jenis, untuk ringkasan detail ROW.
+  Future<List<({String realisasiId, String section, String jenisId, int n})>> rincianJenis(String headerId) async {
+    final r = await _d.rawQuery('''
+      SELECT e.realisasi_id AS rid, COALESCE(e.section, '-') AS s, COALESCE(e.jenis_id, '') AS j, COUNT(*) AS n
+      FROM row_eksekusi e JOIN row_realisasi r ON r.id = e.realisasi_id
+      WHERE r.header_id = ? AND r.status = 'AKTIF' AND e.status = 'AKTIF'
+      GROUP BY e.realisasi_id, e.section, e.jenis_id ORDER BY e.section''', [headerId]);
+    return [
+      for (final x in r)
+        (realisasiId: x['rid'] as String, section: (x['s'] as String?) ?? '-', jenisId: (x['j'] as String?) ?? '', n: (x['n'] as int?) ?? 0),
+    ];
   }
 
   /// Jumlah eksekusi AKTIF per jenis_id dalam satu header (penyulang AKTIF saja).
@@ -340,7 +401,25 @@ class RowRepository {
   // ---------- dari server ----------
 
   /// Hasil syncRow per operasi -> salinan lokal.
-  Future<void> terapkanHasil(String jenis, String id, String status, {String? kode, int? revision, String? alasan}) async {
+  Future<void> terapkanHasil(String jenis, String id, String status,
+      {String? kode, int? revision, String? alasan, String? aksi}) async {
+    // v0.62 (M4): batal eksekusi diterima server = foto lokal eksekusi itu tidak dipakai lagi (tidak ada Urungkan).
+    if (aksi == 'batal' && jenis == 'eksekusi' && (status == 'OK' || status == 'DUPLIKAT')) {
+      final f = await _d.query('foto_antre', where: 'eksekusi_id = ?', whereArgs: [id]);
+      await _d.delete('foto_antre', where: 'eksekusi_id = ?', whereArgs: [id]);
+      for (final x in f) {
+        for (final k in const ['path', 'path_asli']) {
+          final p = x[k];
+          if (p is! String || p.isEmpty) continue;
+          try {
+            final file = File(p);
+            if (await file.exists()) await file.delete();
+          } catch (_) {
+            // dibiarkan
+          }
+        }
+      }
+    }
     final tabel = 'row_$jenis';
     final sinkron = switch (status) {
       'OK' || 'DUPLIKAT' => 'TERKIRIM',
@@ -362,6 +441,18 @@ class RowRepository {
 
   /// Isi salinan lokal dari getKodeRow (setelah login / reinstall / KODE_BENTROK).
   /// Baris yang masih LOKAL (perubahan belum terkirim) tidak ditimpa isinya.
+  /// v0.62.5: sync menandai operasi TERKIRIM lalu baru memperbarui baris (2 langkah). App mati di antaranya = baris
+  /// tetap LOKAL selamanya karena operasinya tidak dikirim lagi. Baris LOKAL tanpa operasi terbuka tapi punya operasi
+  /// TERKIRIM = sudah diterima server; boleh ditimpa data server seperti baris TERKIRIM.
+  Future<bool> _diterimaTapiBasi(DatabaseExecutor tx, String userId, String id) async {
+    final r = await tx.rawQuery(
+        "SELECT SUM(CASE WHEN status = 'TERKIRIM' THEN 1 ELSE 0 END) AS kirim, SUM(CASE WHEN status != 'TERKIRIM' THEN 1 ELSE 0 END) AS buka "
+        'FROM outbox WHERE user_id = ? AND id = ?',
+        [userId, id]);
+    final kirim = (r.first['kirim'] as int?) ?? 0, buka = (r.first['buka'] as int?) ?? 0;
+    return kirim > 0 && buka == 0;
+  }
+
   Future<void> simpanDariServer(Sesi s, Map<String, dynamic> d) async {
     final tanggal = d['tanggal'] as String;
     final now = _sekarang();
@@ -375,7 +466,8 @@ class RowRepository {
         final ada = await tx.query(tabel, columns: ['sinkron'], where: 'id = ?', whereArgs: [id], limit: 1);
         if (ada.isEmpty) {
           await tx.insert(tabel, {...isiBaru, ...isiUpdate, 'user_id': s.userId, 'sinkron': 'TERKIRIM', 'diubah_pada': now});
-        } else if (ada.first['sinkron'] != 'LOKAL') {
+        } else if (ada.first['sinkron'] == 'TERKIRIM' || (ada.first['sinkron'] == 'LOKAL' && await _diterimaTapiBasi(tx, s.userId, id))) {
+          // v0.62 (M4): baris KONFLIK / DITOLAK tidak ditimpa diam-diam; diselesaikan di Pusat Masalah.
           await tx.update(tabel, {...isiUpdate, 'sinkron': 'TERKIRIM', 'alasan': null}, where: 'id = ?', whereArgs: [id]);
         }
       }
@@ -423,6 +515,14 @@ class RowRepository {
         });
       }
     });
+  }
+
+  Future<void> _gantiAtauKembalikan(DatabaseExecutor tx, Map<String, Object?> op, Map<String, dynamic> isi) async {
+    if (op['status'] == 'DITOLAK') {
+      await _outbox.kembalikanTertunda(tx, op['op_id'] as String, isi: isi);
+    } else {
+      await _outbox.gantiIsi(tx, op['op_id'] as String, isi);
+    }
   }
 
   Map<String, dynamic> _isi(Map<String, Object?> op) =>

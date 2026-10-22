@@ -8,6 +8,12 @@ import 'package:sqflite/sqflite.dart';
 /// foto_antre    : foto eksekusi (file di folder app) + status upload TERTUNDA | TERKIRIM | GAGAL (PRD F-ROW-FOTO).
 ///                 Foto kamera: path = sudah watermark, path_asli = tanpa watermark (v5)
 /// arsip_row     : salinan arsip laporan (getArsipRow) yang diunduh petugas, untuk dilihat offline (v4)
+/// arsip_yandal  : salinan arsip shift + P0 akun YANDAL (getArsipYandal), dilihat offline (v8)
+/// hartek_lokal  : laporan Hartek harian tim di HP (json = bentuk getHartekHarian + tanda _sinkron per data) (v10)
+/// hartek_antre  : antrean kirim Hartek FIFO (aksi + data), status MENUNGGU | GAGAL (v10)
+/// wo_lokal, wo_antre : WO tindak lanjut tim di HP (cache getWoTim + pekerjaan / foto / mulai / selesai offline) dan
+///                 antreannya, bentuk sama dengan hartek_lokal / hartek_antre (v11)
+/// yan_p0        : Penugasan P0 shift berjalan yang dibuat di HP (json = P0Lokal, foto di folder foto_p0) (v9)
 /// kode_terpakai : nomor urut Header terbesar per sub-tim per tanggal, dari getKodeRow (PRD F-ROW-INPUT)
 /// row_header, row_realisasi, row_eksekusi : salinan data tim sendiri (7 hari). Layar SELALU membaca dari sini.
 ///
@@ -16,7 +22,7 @@ class LocalDb {
   LocalDb._(this.db);
 
   final Database db;
-  static const int versiSkema = 7;
+  static const int versiSkema = 11;
 
   static Future<LocalDb> buka() async {
     final dir = await getDatabasesPath();
@@ -32,6 +38,10 @@ class LocalDb {
         _skemaV5(b);
         _skemaV6(b);
         _skemaV7(b);
+        _skemaV8(b);
+        _skemaV9(b);
+        _skemaV10(b);
+        _skemaV11(b);
         await b.commit(noResult: true);
       },
       // Migrasi: hanya MENAMBAH. Jangan hapus tabel (data offline bisa hilang).
@@ -43,6 +53,10 @@ class LocalDb {
         if (lama < 5) _skemaV5(b);
         if (lama < 6) _skemaV6(b);
         if (lama < 7) _skemaV7(b);
+        if (lama < 8) _skemaV8(b);
+        if (lama < 9) _skemaV9(b);
+        if (lama < 10) _skemaV10(b);
+        if (lama < 11) _skemaV11(b);
         await b.commit(noResult: true);
       },
     );
@@ -189,6 +203,87 @@ class LocalDb {
   static void _skemaV5(Batch b) {
     b.execute('ALTER TABLE foto_antre ADD COLUMN path_asli TEXT');
     b.execute('ALTER TABLE foto_antre ADD COLUMN wm_tanda TEXT');
+  }
+
+  /// v11 (v1.0.16): WO tindak lanjut offline. Struktur sama dengan hartek_lokal / hartek_antre (GudangHartekSql).
+  static void _skemaV11(Batch b) {
+    b.execute('''
+      CREATE TABLE wo_lokal (
+        user_id TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        json TEXT NOT NULL,
+        diubah_pada TEXT NOT NULL,
+        PRIMARY KEY (user_id, tanggal)
+      )''');
+    b.execute('''
+      CREATE TABLE wo_antre (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        aksi TEXT NOT NULL,
+        target TEXT NOT NULL,
+        data TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'MENUNGGU',
+        galat TEXT,
+        dibuat_pada TEXT NOT NULL
+      )''');
+    b.execute('CREATE INDEX wo_antre_user ON wo_antre (user_id, status, id)');
+  }
+
+  /// v10 (v0.95.0): Hartek lokal + kirim otomatis. Layar membaca hartek_lokal, simpan = tulis lokal + antre.
+  static void _skemaV10(Batch b) {
+    b.execute('''
+      CREATE TABLE hartek_lokal (
+        user_id TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        json TEXT NOT NULL,
+        diubah_pada TEXT NOT NULL,
+        PRIMARY KEY (user_id, tanggal)
+      )''');
+    b.execute('''
+      CREATE TABLE hartek_antre (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        aksi TEXT NOT NULL,
+        target TEXT NOT NULL,
+        data TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'MENUNGGU',
+        galat TEXT,
+        dibuat_pada TEXT NOT NULL
+      )''');
+    b.execute('CREATE INDEX hartek_antre_user ON hartek_antre (user_id, status, id)');
+  }
+
+  /// v9 (v0.64.0): P0 Yandal yang dibuat di HP. sinkron = LOKAL (kirim ke server menyusul) | TERKIRIM.
+  static void _skemaV9(Batch b) {
+    b.execute('''
+      CREATE TABLE yan_p0 (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        shift_id TEXT NOT NULL,
+        no INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        sinkron TEXT NOT NULL DEFAULT 'LOKAL',
+        json TEXT NOT NULL,
+        dibuat_pada TEXT NOT NULL,
+        diubah_pada TEXT NOT NULL
+      )''');
+    b.execute('CREATE INDEX yan_p0_shift ON yan_p0 (user_id, shift_id, no)');
+  }
+
+  /// v8 (v0.63.5): arsip shift Yandal. json = satu objek shift getArsipYandal (rekap + daftar P0) apa adanya.
+  static void _skemaV8(Batch b) {
+    b.execute('''
+      CREATE TABLE arsip_yandal (
+        shift_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        tanggal TEXT NOT NULL,
+        shift INTEGER NOT NULL,
+        json TEXT NOT NULL,
+        diunduh_pada TEXT NOT NULL
+      )''');
+    b.execute('CREATE INDEX arsip_yandal_tgl ON arsip_yandal (user_id, tanggal)');
   }
 
   /// v7 (v0.50): arsip per tim untuk menu Operasi > Laporan per Tim (admin mengunduh arsip beberapa tim).

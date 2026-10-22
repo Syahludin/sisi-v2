@@ -5,6 +5,7 @@ import '../features/row/row_model.dart';
 import '../theme/app_colors.dart';
 import 'mock_gps_warning_dialog.dart';
 import 'sisi_widgets.dart';
+import 'sisi_loader.dart';
 
 class HasilGps {
   HasilGps(this.koordinat, this.akurasiM);
@@ -142,7 +143,7 @@ class _TombolGps extends StatelessWidget {
             onTap: onTap,
             child: Center(
               child: berjalan
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SisiLoader(ukuran: 18, warna: Colors.white)
                   : const Icon(Icons.my_location_rounded, size: 19, color: Colors.white),
             ),
           ),
@@ -187,7 +188,7 @@ class ChipAkurasi extends StatelessWidget {
         decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (berjalan) ...[
-            SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.6, color: warna)),
+            SisiLoader(ukuran: 10, warna: warna),
             const SizedBox(width: 6),
           ],
           Text(teks, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: warna)),

@@ -64,10 +64,14 @@ function samaAman_(a, b) {
   return r === 0;
 }
 
-/** Cegah formula injection: teks diawali = + - @ tab CR dipaksa jadi teks biasa. */
+/**
+ * Cegah formula injection: teks diawali = + - @ tab CR dipaksa jadi teks biasa.
+ * v1.0.18: teks angka berawalan 0 (OwnerId '06135', kode '01') juga dipaksa teks; tanpa awalan ' Sheets
+ * mengubahnya jadi angka 6135 dan 0 di depan hilang.
+ */
 function amanSheet_(v) {
   if (typeof v !== 'string') return v;
-  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+  return /^[=+\-@\t\r]/.test(v) || /^0\d+$/.test(v) ? "'" + v : v;
 }
 
 function ulpCocok_(nilai, alias) {

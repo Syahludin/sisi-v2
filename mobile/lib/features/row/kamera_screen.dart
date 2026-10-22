@@ -11,15 +11,22 @@ import '../../widgets/foto_slot.dart';
 import '../../widgets/mock_gps_warning_dialog.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'foto_repository.dart';
+import 'row_repository.dart' show RowError;
 import 'row_model.dart';
 import 'watermark.dart';
+import '../../widgets/sisi_loader.dart';
 
 /// Ketuk kotak foto. Sudah ada foto (`pathAda`): Lihat / Ambil Ulang dari Kamera / Galeri; belum ada: Kamera / Galeri.
+/// `bolehGaleri: false` (P0 Yandal): sudah ada = Lihat Foto / Ambil Ulang dari Kamera; belum ada = langsung kamera.
 /// Kamera = kamera SiSi (landscape, watermark tampil langsung). Hasil: foto baru, null = batal atau hanya melihat.
 /// `pratinjau` = isi watermark yang sudah diketahui layar pemanggil (kode, penyulang, section, diameter, ...).
 Future<FotoBaru?> ambilFotoRow(BuildContext context,
-    {required String slot, required DataWatermark pratinjau, String? pathAda, String? keterangan, String? namaGaleri}) async {
-  final pilih = await pilihSumberFoto(context, slot, adaFoto: pathAda != null);
+    {required String slot, required DataWatermark pratinjau, String? pathAda, String? keterangan, String? namaGaleri,
+    bool bolehGaleri = true, String? alasanTidakUlang, bool p0 = false, Future<void> Function(FotoBaru foto)? simpan}) async {
+  // v0.64.5: kamera saja + slot kosong = satu-satunya pilihan, langsung buka kamera (tanpa menu).
+  final pilih = !bolehGaleri && pathAda == null
+      ? 'KAMERA'
+      : await pilihSumberFoto(context, slot, adaFoto: pathAda != null, bolehGaleri: bolehGaleri, alasanTidakUlang: alasanTidakUlang);
   if (pilih == null || !context.mounted) return null;
   if (pilih == 'LIHAT') {
     await lihatFoto(context, path: pathAda!, slot: slot, keterangan: keterangan, namaGaleri: namaGaleri);
@@ -27,9 +34,10 @@ Future<FotoBaru?> ambilFotoRow(BuildContext context,
   }
   if (pilih == 'KAMERA') {
     return Navigator.of(context).push<FotoBaru>(
-      MaterialPageRoute(fullscreenDialog: true, builder: (_) => KameraRowScreen(pratinjau: pratinjau)),
+      MaterialPageRoute(fullscreenDialog: true, builder: (_) => KameraRowScreen(pratinjau: pratinjau, p0: p0, simpan: simpan)),
     );
   }
+  if (!bolehGaleri) return null;
   final f = await FotoRepository.ambil(ImageSource.gallery);
   if (f == null) return null;
   final b = await f.readAsBytes();
@@ -47,9 +55,22 @@ Future<FotoBaru?> ambilFotoRow(BuildContext context,
 /// Kamera ROW (paket camera): layar dikunci landscape, GPS hidup terus selama kamera terbuka (diambil ulang
 /// otomatis tiap foto), watermark tampil di pratinjau sama persis dengan yang dibakar saat disimpan.
 /// Lokasi palsu (mock) ditolak. Hasil: FotoBaru (file + waktu jepret + posisi GPS saat jepret).
+///
+/// v0.65.3 (P0) / v0.65.4 (ROW juga), keputusan kvlar 8 Okt 2026: shutter TIDAK dikunci GPS. Sesudah jepret tampil
+/// REVIEW foto + watermark (proporsi sama dengan hasil akhir). Fix segar saat jepret = koordinat langsung terkunci.
+/// Belum ada = GPS terus dicari selama review maks [GpsSusulan.jendela] sejak jepret, watermark ikut terisi begitu titik
+/// didapat; lewat = tanpa koordinat GPS (bukan titik salah). Gunakan tanpa koordinat = kartu verifikasi dulu
+/// ("Koordinat belum didapat"). Ambil Ulang = kembali ke kamera.
+/// `p0`: jam watermark = jam terpercaya pemanggil (pratinjau.waktu) dan watermark menandai "susulan N dtk".
+/// ROW: jam = jam HP saat jepret (FotoBaru.diambil, sama dengan yang dibakar), tanpa GPS = koordinat input pekerjaan.
+///
+/// v0.65.5 `simpan` (P0; v0.65.6 juga detail eksekusi ROW, keputusan kvlar 8 Okt 2026): verifikasi foto langsung di review kamera. Tombol Simpan Foto
+/// memanggil [simpan] (foto disimpan + dikunci); gagal = pesan, tetap di review (bisa Ambil Ulang). Berhasil = kamera ditutup.
 class KameraRowScreen extends StatefulWidget {
-  const KameraRowScreen({super.key, required this.pratinjau});
+  const KameraRowScreen({super.key, required this.pratinjau, this.p0 = false, this.simpan});
   final DataWatermark pratinjau;
+  final bool p0;
+  final Future<void> Function(FotoBaru foto)? simpan;
 
   @override
   State<KameraRowScreen> createState() => _KameraRowScreenState();
@@ -67,12 +88,23 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
   Timer? _jam;
   DateTime _sekarang = DateTime.now();
 
+  /// v0.65.3: foto sedang direview. null = layar kamera.
+  _Review? _review;
+  final List<SampelSusulan> _susulan = [];
+
+  /// v0.65.5: [KameraRowScreen.simpan] sedang berjalan.
+  bool _menyimpan = false;
+
+  /// Selisih jam watermark (jam terpercaya dari pemanggil) terhadap jam HP, supaya jam di review = jam yang dibakar.
+  Duration _geserJam = Duration.zero;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (widget.p0) _geserJam = widget.pratinjau.waktu.difference(DateTime.now());
     _jam = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _sekarang = DateTime.now());
     });
@@ -95,6 +127,7 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final c = _c;
     if (state == AppLifecycleState.inactive) {
+      _genKamera++; // v0.62.7: pembukaan kamera yang masih berjalan jadi basi
       _c = null;
       c?.dispose();
       if (mounted) setState(() {});
@@ -103,15 +136,25 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
     }
   }
 
+  /// v0.62.7 (audit 7 Okt 2026): app ke latar saat kamera masih dibuka lalu kembali = dua pembukaan berjalan bersamaan.
+  /// Hanya yang terbaru yang dipasang; yang basi langsung ditutup (dulu bisa terpasang controller lama / bocor).
+  int _genKamera = 0;
+
   Future<void> _bukaKamera() async {
+    final gen = ++_genKamera;
     try {
       final daftar = await availableCameras();
       if (daftar.isEmpty) throw CameraException('NoCamera', 'tidak ada kamera');
       final belakang = daftar.firstWhere((k) => k.lensDirection == CameraLensDirection.back, orElse: () => daftar.first);
       final c = CameraController(belakang, ResolutionPreset.veryHigh, enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
-      await c.initialize();
-      await c.setFlashMode(_flash);
-      if (!mounted) {
+      try {
+        await c.initialize();
+        await c.setFlashMode(_flash);
+      } catch (_) {
+        await c.dispose();
+        rethrow;
+      }
+      if (!mounted || gen != _genKamera) {
         await c.dispose();
         return;
       }
@@ -120,7 +163,7 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
         _galat = null;
       });
     } on CameraException catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _genKamera) return;
       setState(() => _galat = e.code.startsWith('CameraAccess')
           ? 'Izin kamera ditolak. Izinkan kamera untuk SiSi di Pengaturan HP.'
           : 'Kamera tidak bisa dibuka (${e.code}).');
@@ -144,6 +187,20 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
       _gps = Gps.aliran().listen((p) {
         if (!mounted) return;
         if (!p.isMocked && !Gps.valid(p)) return; // akurasi 0 / tidak valid dibuang (v0.41.1)
+        final rv = _review;
+        if (rv != null) {
+          // v0.65.3: review. Lokasi palsu = foto dibuang. Belum ada titik = sampel dikumpulkan selama jendela susulan.
+          if (p.isMocked) {
+            _ulang();
+            unawaited(tampilkanMockGpsWarning(context));
+            return;
+          }
+          if (rv.titik == null && rv.sejak.elapsed <= GpsSusulan.jendela) {
+            _susulan.add((s: Gps.sampel(p), t: rv.waktu.add(rv.sejak.elapsed)));
+            setState(() {});
+          }
+          return;
+        }
         if (!p.isMocked) {
           _baru.add(p);
           _baru.removeWhere((x) => DateTime.now().difference(x.timestamp).abs() > const Duration(seconds: 10));
@@ -163,6 +220,94 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
     }
   }
 
+  /// v0.65.2: fix segar saat jepret (<= Gps.umurMaks). Mode susulan tidak memakai posisi basi.
+  bool _segar(Position? p) => p != null && !p.isMocked && DateTime.now().difference(p.timestamp).abs() <= Gps.umurMaks;
+
+  /// Ambil Ulang dari review: foto dibuang, kembali ke kamera.
+  void _ulang() {
+    if (!mounted || _menyimpan) return;
+    setState(() {
+      _review = null;
+      _susulan.clear();
+    });
+  }
+
+  /// Titik review saat ini: terkunci saat jepret, atau susulan terpilih (null = belum / tidak didapat).
+  ({double lat, double lng, double akurasi, int? detik})? _titikReview(_Review rv) {
+    final t = rv.titik;
+    if (t != null) return (lat: t.lat, lng: t.lng, akurasi: t.akurasi, detik: null);
+    final h = GpsSusulan.pilih(_susulan, rv.waktu);
+    return h == null ? null : (lat: h.lat, lng: h.lng, akurasi: h.akurasi, detik: h.detik);
+  }
+
+  bool _masihMencari(_Review rv) => rv.titik == null && _galatGps == null && rv.sejak.elapsed < GpsSusulan.jendela;
+
+  /// Gunakan Foto. Tanpa koordinat = kartu verifikasi dulu.
+  Future<void> _gunakan() async {
+    final rv = _review;
+    if (rv == null || _menyimpan) return;
+    var h = _titikReview(rv);
+    if (h == null) {
+      final pilih = await _kartuTanpaKoordinat(rv);
+      if (!mounted || _review != rv) return;
+      if (pilih == 'ULANG') {
+        _ulang();
+        return;
+      }
+      if (pilih != 'TANPA') return; // tunggu GPS / batal
+      h = _titikReview(rv); // GPS bisa datang selagi kartu terbuka
+    }
+    final foto = FotoBaru(rv.file, 'KAMERA',
+        diambil: rv.waktu, lat: h?.lat, lng: h?.lng, akurasiM: h?.akurasi, gpsSusulanDetik: h?.detik, sejakJepret: rv.sejak);
+    final simpan = widget.simpan;
+    if (simpan != null) {
+      // v0.65.5: verifikasi di kamera. Gagal = tetap di review supaya bisa Ambil Ulang.
+      setState(() => _menyimpan = true);
+      try {
+        await simpan(foto);
+      } on RowError catch (e) {
+        if (mounted) tampilPesan(context, e.pesan);
+        return;
+      } catch (_) {
+        if (mounted) tampilPesan(context, 'Foto gagal disimpan. Coba lagi.');
+        return;
+      } finally {
+        if (mounted) setState(() => _menyimpan = false);
+      }
+      if (!mounted) return;
+    }
+    _review = null;
+    _susulan.clear();
+    Navigator.pop(context, foto);
+  }
+
+  /// Kartu verifikasi: koordinat belum didapat. Hasil: TANPA | ULANG | TUNGGU | null.
+  Future<String?> _kartuTanpaKoordinat(_Review rv) => showDialog<String>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.location_off_rounded, color: Color(0xFFB91C1C), size: 32),
+          title: const Text('Koordinat belum didapat'),
+          content: Text([
+            _galatGps != null
+                ? 'GPS tidak bisa dipakai ($_galatGps).'
+                : _masihMencari(rv)
+                    ? 'GPS masih dicari (sisa ${(GpsSusulan.jendela - rv.sejak.elapsed).inSeconds} detik).'
+                    : 'GPS tidak didapat dalam ${GpsSusulan.jendela.inSeconds} detik sesudah foto diambil.',
+            widget.p0
+                ? 'Kalau tetap dipakai, foto disimpan TANPA koordinat: titik pekerjaan / closing dan jarak bisa kosong, '
+                    'dan akan terlihat oleh admin saat verifikasi.'
+                : (widget.pratinjau.koordinat ?? '').trim().isEmpty
+                    ? 'Kalau tetap dipakai, foto disimpan TANPA koordinat GPS dan koordinat di watermark kosong.'
+                    : 'Kalau tetap dipakai, foto disimpan TANPA koordinat GPS. Watermark memakai koordinat pekerjaan (input).',
+          ].join('\n\n')),
+          actions: [
+            if (_masihMencari(rv)) TextButton(onPressed: () => Navigator.pop(c, 'TUNGGU'), child: const Text('Tunggu GPS')),
+            TextButton(onPressed: () => Navigator.pop(c, 'ULANG'), child: const Text('Ambil Ulang')),
+            FilledButton(onPressed: () => Navigator.pop(c, 'TANPA'), child: Text(widget.simpan != null ? 'Simpan tanpa koordinat' : 'Pakai tanpa koordinat')),
+          ],
+        ),
+      );
+
   DataWatermark get _data {
     final p = _pos;
     return p == null
@@ -176,13 +321,14 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
     final baru = _flash == FlashMode.off ? FlashMode.auto : (_flash == FlashMode.auto ? FlashMode.always : FlashMode.off);
     try {
       await c.setFlashMode(baru);
+      if (!mounted) return; // v0.62.5
       setState(() => _flash = baru);
     } on CameraException catch (_) {/* HP tanpa flash */}
   }
 
   Future<void> _ambil() async {
     final c = _c;
-    if (c == null || !c.value.isInitialized || c.value.isTakingPicture || _jepret) return;
+    if (c == null || !c.value.isInitialized || c.value.isTakingPicture || _jepret || _review != null) return;
     final p = _pos;
     if (p != null && p.isMocked) {
       await tampilkanMockGpsWarning(context);
@@ -191,6 +337,7 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
     setState(() => _jepret = true);
     try {
       final f = await c.takePicture();
+      final sejak = Stopwatch()..start(); // v0.65.3: umur foto (monoton) sampai disimpan
       final waktu = DateTime.now();
       final b = await f.readAsBytes();
       if (!await Watermark.landscape(b)) {
@@ -198,13 +345,23 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
         return;
       }
       if (!mounted) return;
-      // titik = rata-rata berbobot sampel 10 detik terakhir (lebih stabil); tanpa sampel = posisi terakhir
+      // titik = rata-rata berbobot sampel 10 detik terakhir (lebih stabil); tanpa sampel = posisi terakhir.
+      // v0.65.3: sampel basi dibuang dulu (selama review aliran tidak mengisi _baru; dulu hanya dibuang saat sampel baru datang).
+      _baru.removeWhere((x) => DateTime.now().difference(x.timestamp).abs() > const Duration(seconds: 10));
       final t = Gps.gabung([for (final x in _baru) Gps.sampel(x)]);
-      Navigator.pop(
-        context,
-        FotoBaru(f, 'KAMERA',
-            diambil: waktu, lat: t?.lat ?? p?.latitude, lng: t?.lng ?? p?.longitude, akurasiM: t?.akurasi ?? p?.accuracy),
-      );
+      // v0.65.3 / v0.65.4: review dulu (P0 + ROW). Titik terkunci saat jepret = rata-rata 10 detik / fix segar (posisi basi
+      // tidak dipakai lagi, petugas bisa sudah pindah); selain itu susulan selama review.
+      final ukuran = await decodeImageFromList(b);
+      final rasio = ukuran.width / ukuran.height;
+      ukuran.dispose();
+      if (!mounted) return;
+      final titik = t != null
+          ? (lat: t.lat, lng: t.lng, akurasi: t.akurasi)
+          : (_segar(p) ? (lat: p!.latitude, lng: p.longitude, akurasi: p.accuracy) : null);
+      setState(() {
+        _susulan.clear();
+        _review = _Review(file: f, bytes: b, waktu: waktu, rasio: rasio, sejak: sejak, titik: titik);
+      });
     } on CameraException catch (e) {
       if (mounted) tampilPesan(context, 'Gagal mengambil foto (${e.code}).');
     } finally {
@@ -237,9 +394,112 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final c = _c;
     final siap = c != null && c.value.isInitialized;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Row(children: [
+    return PopScope(
+      canPop: !_menyimpan, // v0.65.5: jangan keluar selagi foto disimpan
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: _review != null ? _layarReview(_review!) : _layarKamera(c, siap),
+      ),
+    );
+  }
+
+  /// v0.65.3: review foto + watermark (sama proporsi dengan hasil akhir) sebelum dipakai.
+  Widget _layarReview(_Review rv) {
+    final h = _titikReview(rv);
+    final mencari = h == null && _masihMencari(rv);
+    final sisa = (GpsSusulan.jendela - rv.sejak.elapsed).inSeconds.clamp(0, GpsSusulan.jendela.inSeconds);
+    final data = DataWatermark(
+      kodeEksekusi: widget.pratinjau.kodeEksekusi,
+      ulp: widget.pratinjau.ulp,
+      tim: widget.pratinjau.tim,
+      subTim: widget.pratinjau.subTim,
+      penyulang: widget.pratinjau.penyulang,
+      section: widget.pratinjau.section,
+      waktu: rv.waktu.add(_geserJam),
+      // tanpa GPS: ROW = koordinat input pekerjaan "(input)" (sama dengan hasil akhir), P0 = kosong
+      koordinat: h == null ? widget.pratinjau.koordinat : Koordinat.format(h.lat, h.lng),
+      akurasiM: h?.akurasi,
+      diameter: widget.pratinjau.diameter,
+      jenis: widget.pratinjau.jenis,
+      slot: widget.pratinjau.slot,
+      sumber: widget.pratinjau.sumber,
+      labelKode: widget.pratinjau.labelKode,
+      labelSubTim: widget.pratinjau.labelSubTim,
+      tampilDiameter: widget.pratinjau.tampilDiameter,
+      gpsSusulanDetik: widget.p0 ? h?.detik : null, // ROW: penanda susulan tidak dibakar ke foto
+    );
+    final (String teks, Color warna, IconData ikon) = h != null
+        ? ('Koordinat ±${h.akurasi.toStringAsFixed(0)} m${h.detik == null ? '' : ' (susulan ${h.detik} dtk)'}',
+            const Color(0xFF15803D), Icons.my_location_rounded)
+        : mencari
+            ? ('Mencari GPS... $sisa dtk. Tetap di titik foto.', const Color(0xFFB45309), Icons.gps_not_fixed_rounded)
+            : ('Koordinat belum didapat', const Color(0xFFB91C1C), Icons.location_off_rounded);
+    return Row(children: [
+      Expanded(
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: rv.rasio,
+            child: Stack(fit: StackFit.expand, children: [
+              Image.memory(rv.bytes, fit: BoxFit.fill, gaplessPlayback: true),
+              WatermarkPratinjau(data: data),
+            ]),
+          ),
+        ),
+      ),
+      SafeArea(
+        left: false,
+        child: SizedBox(
+          width: 150,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('Review foto', textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: warna, borderRadius: BorderRadius.circular(12)),
+                child: Column(children: [
+                  Icon(ikon, color: Colors.white, size: 20),
+                  const SizedBox(height: 4),
+                  Text(teks, textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (widget.simpan != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                        widget.p0
+                            ? 'Sudah benar? Foto yang disimpan tidak bisa diambil ulang.'
+                            : 'Sudah benar? Foto langsung disimpan ke HP.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+                  onPressed: _menyimpan ? null : _ulang,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Ambil Ulang'),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _menyimpan ? null : () => unawaited(_gunakan()),
+                  icon: _menyimpan
+                      ? const SisiLoader(ukuran: 16, warna: Colors.white)
+                      : Icon(widget.simpan != null ? Icons.verified_rounded : Icons.check_rounded, size: 18),
+                  label: Text(widget.simpan != null ? 'Simpan Foto' : 'Gunakan'),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _layarKamera(CameraController? c, bool siap) {
+    return Row(children: [
         Expanded(
           child: Center(
             child: _galat != null
@@ -247,8 +507,8 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
                     padding: const EdgeInsets.all(24),
                     child: Text(_galat!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15)),
                   )
-                : !siap
-                    ? const CircularProgressIndicator(color: Colors.white)
+                : !siap || c == null
+                    ? const SisiLoader(warna: Colors.white)
                     : AspectRatio(
                         aspectRatio: c.value.aspectRatio > 1 ? c.value.aspectRatio : 1 / c.value.aspectRatio,
                         child: Stack(fit: StackFit.expand, children: [
@@ -279,7 +539,7 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
                     color: siap && !_jepret ? Colors.white24 : Colors.white10,
                   ),
                   child: _jepret
-                      ? const Padding(padding: EdgeInsets.all(22), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      ? const Padding(padding: EdgeInsets.all(22), child: SisiLoader(warna: Colors.white))
                       : const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 32),
                 ),
               ),
@@ -298,9 +558,19 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
             ]),
           ),
         ),
-      ]),
-    );
+      ]);
   }
+}
+
+/// v0.65.3: foto yang sedang direview (belum keluar dari kamera).
+class _Review {
+  _Review({required this.file, required this.bytes, required this.waktu, required this.rasio, required this.sejak, this.titik});
+  final XFile file;
+  final Uint8List bytes;
+  final DateTime waktu; // jam HP saat jepret
+  final double rasio;
+  final Stopwatch sejak; // monoton sejak jepret
+  final ({double lat, double lng, double akurasi})? titik; // terkunci saat jepret; null = susulan
 }
 
 /// Pratinjau watermark di atas kamera, proporsi sama dengan hasil akhir (Watermark._gambarWatermark).

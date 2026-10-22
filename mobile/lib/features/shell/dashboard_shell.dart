@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api_client.dart';
 import '../../core/deps.dart';
+import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../arsip/arsip_tim.dart';
+import '../arsip/arsip_tim_view.dart';
+import '../hartek/hartek_screen.dart';
+import '../kalender/kalender_tim_screen.dart';
 import '../home/beranda_screen.dart';
+import '../insdu/insdu_screen.dart';
+import '../insjar/insjar_screen.dart';
 import '../operasi/operasi_screen.dart';
 import '../row/laporan_row_screen.dart';
 import '../settings/pengaturan_screen.dart';
+import '../wo/wo_tim_screen.dart';
+import '../yandal/shift_yandal_screen.dart';
 
 /// Kerangka dashboard (desain lama): latar bg-sisi.png 50%, bottom bar putih dengan gelembung navy.
 /// PETUGAS: Laporan · Beranda · Pengaturan. ADMIN / SUPER / ADMIN_ES (v0.50): Operasi · Beranda · Pengaturan.
+/// v1.0.11: tim ROW / HARTEK / YANDAL ber-menu OPS_WO_TIM: Laporan · Beranda · WO · Pengaturan; tim Inspeksi Gardu = tab Inspeksi Gardu.
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key, required this.deps, required this.sesi, required this.onSesiBerubah});
   final Deps deps;
@@ -33,11 +44,16 @@ class _DashboardShellState extends State<DashboardShell> {
   Future<void> _segarkanSesi() async {
     try {
       final baru = await widget.deps.auth.cekSesi(widget.sesi);
+      if (!mounted) return; // v0.62.5: sudah logout / ganti akun selama cekSesi berjalan
       widget.onSesiBerubah(baru);
       await widget.deps.master.segarkan(baru);
+    } on ApiException catch (e) {
+      if (e.kode == KodeError.sesiBerganti) return; // v0.62.5: sesi ini sudah bukan sesi aktif, jangan sync
+      // offline atau sesi habis: SyncController / ApiClient yang menangani sesi habis
     } catch (_) {
-      // offline atau sesi habis: SyncController yang menangani sesi habis
+      // offline (timeout / soket)
     }
+    if (!mounted) return;
     await widget.deps.syncCtl.sinkron();
   }
 
@@ -46,8 +62,30 @@ class _DashboardShellState extends State<DashboardShell> {
   @override
   Widget build(BuildContext context) {
     final halaman = [
-      if (widget.sesi.modeAdmin) OperasiScreen(deps: widget.deps, sesi: widget.sesi) else LaporanRowScreen(deps: widget.deps, sesi: widget.sesi),
+      if (widget.sesi.modeAdmin)
+        OperasiScreen(deps: widget.deps, sesi: widget.sesi)
+      else if (widget.sesi.petugasYandal)
+        ShiftYandalScreen(deps: widget.deps, sesi: widget.sesi) // v0.63.0; v1.0.16: TO P0 = tab WO di bottom bar
+      // v1.0.17: Hartek / Inspeksi Jaringan / Inspeksi Gardu = pil "Hari ini | Arsip" (pola Laporan Harian ROW)
+      else if (widget.sesi.petugasHartek) // v0.88.0: menu OPS_HARTEK_INPUT
+        LaporanTimDenganArsip(
+            hariIni: HartekScreen(deps: widget.deps, sesi: widget.sesi),
+            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.hartek),
+            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+      else if (widget.sesi.petugasInsJar) // v1.0.0: menu OPS_INSJAR_INPUT
+        LaporanTimDenganArsip(
+            hariIni: InsJarScreen(deps: widget.deps, sesi: widget.sesi),
+            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insjar),
+            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+      else if (widget.sesi.petugasInsDu) // v1.0.11: menu OPS_INSDU_INPUT
+        LaporanTimDenganArsip(
+            hariIni: InsDuScreen(deps: widget.deps, sesi: widget.sesi),
+            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insdu),
+            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+      else
+        LaporanRowScreen(deps: widget.deps, sesi: widget.sesi),
       BerandaScreen(deps: widget.deps, sesi: widget.sesi, keLaporan: () => _keTab(0)),
+      if (widget.sesi.petugasWo) WoTimScreen(deps: widget.deps, sesi: widget.sesi), // v1.0.11: tab WO
       PengaturanScreen(deps: widget.deps, sesi: widget.sesi, onLogout: () => widget.onSesiBerubah(null)),
     ];
     return PopScope(
@@ -63,12 +101,24 @@ class _DashboardShellState extends State<DashboardShell> {
             color: AppColors.neutral100,
             image: DecorationImage(image: AssetImage('assets/images/bg-sisi.png'), fit: BoxFit.cover, opacity: .5),
           ),
-          child: IndexedStack(index: _tab, children: halaman),
+          child: IndexedStack(index: _tab.clamp(0, halaman.length - 1), children: halaman), // v1.0.11: tab WO bisa hilang saat menu berubah
         ),
         bottomNavigationBar: _SisiBottomBar(
-          indeks: _tab,
+          indeks: _tab.clamp(0, halaman.length - 1),
           onPilih: _keTab,
-          pertama: widget.sesi.modeAdmin ? const _ItemNav('Operasi', Icons.dashboard_customize_outlined) : const _ItemNav('Laporan', Icons.assignment_outlined),
+          pertama: widget.sesi.modeAdmin
+              ? const _ItemNav('Operasi', Icons.dashboard_customize_outlined)
+              : widget.sesi.petugasYandal
+                  ? const _ItemNav('Shift', Icons.badge_outlined)
+                  : widget.sesi.petugasHartek
+                      ? const _ItemNav('Hartek', Icons.edit_note_rounded)
+                      : widget.sesi.petugasInsJar
+                          ? const _ItemNav('Inspeksi', Icons.travel_explore_rounded)
+                          : widget.sesi.petugasInsDu
+                              ? const _ItemNav('Gardu', Icons.electrical_services_rounded)
+                              : const _ItemNav('Laporan', Icons.assignment_outlined),
+          wo: widget.sesi.petugasWo,
+          labelWo: widget.sesi.petugasYandal ? 'TO P0' : 'WO', // v1.0.16: WO Yandal = TO P0
         ),
       ),
     );
@@ -83,14 +133,17 @@ class _ItemNav {
 
 /// Bottom bar lama: tinggi 80, putih, garis navy 3px dengan lekukan, gelembung navy berbingkai cyan.
 class _SisiBottomBar extends StatelessWidget {
-  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama});
+  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.labelWo = 'WO'});
   final int indeks;
   final ValueChanged<int> onPilih;
   final _ItemNav pertama; // Laporan (PETUGAS) atau Operasi (admin, v0.50)
+  final bool wo; // v1.0.11: tab WO tindak lanjut (tim ROW / HARTEK / YANDAL)
+  final String labelWo;
 
   List<_ItemNav> get _item => [
         pertama,
         const _ItemNav('Beranda', Icons.home_rounded),
+        if (wo) _ItemNav(labelWo, Icons.assignment_turned_in_outlined),
         const _ItemNav('Pengaturan', Icons.settings_outlined),
       ];
 

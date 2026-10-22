@@ -59,3 +59,11 @@ function klasifikasiJenis_(diameter, daftarJenis) {
   if (!cocok.length) throw new SisiError_('DIAMETER_DI_LUAR_KATEGORI', String(diameter));
   return cocok[0];
 }
+
+/**
+ * v0.62.4 (audit 6 Okt 2026): tulis / ambil kode ROW hanya untuk PETUGAS tim ROW. Dulu cuma dicek jenis tim, jadi
+ * akun ADMIN / ADMIN_ES / SUPER yang tim_id-nya diisi tim ROW bisa syncRow / uploadFotoRow / getKodeRow atas nama tim itu.
+ */
+function wajibPetugasRow_(sesi) {
+  if (!sesi || sesi.role !== 'PETUGAS' || sesi.jenisTim !== 'ROW' || !sesi.timId) throw new SisiError_('AKSES_DITOLAK', 'bukan petugas ROW');
+}

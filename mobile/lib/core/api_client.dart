@@ -3,10 +3,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'env.dart';
+import 'kode_error.dart';
+import 'versi.dart';
 
 class ApiException implements Exception {
-  ApiException(this.kode);
+  ApiException(this.kode, {this.kolom});
   final String kode;
+
+  /// v0.72.0: nama kolom isian yang ditolak validasi server (mis. tahunPhb). null = bukan error validasi.
+  final String? kolom;
   @override
   String toString() => 'ApiException($kode)';
 }
@@ -16,6 +21,18 @@ class ApiException implements Exception {
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
+
+  /// v0.62.4: dipanggil sekali untuk tiap respons "sesi habis" dari panggilan bertoken, dari layar MANA PUN
+  /// (dulu hanya lewat SyncController, yang tidak jalan untuk admin, jadi admin tidak pernah dilempar ke login).
+  /// v0.62.6: ikut token panggilan itu, supaya jawaban terlambat dari sesi lama tidak mengakhiri / menahan sesi baru.
+  void Function(String kode, String token)? onSesiHabis;
+
+  /// v0.64.2: jam server dari setiap jawaban (`waktu`) = patokan jam terpercaya (JamTerpercaya.setelServer).
+  void Function(DateTime waktuServer)? onWaktuServer;
+
+  /// v0.81.0: versi backend terakhir dari jawaban server; berubah = [onVersiServer] (HP cek update).
+  String? versiServer;
+  void Function(String versi)? onVersiServer;
 
   static const _hostRedirect = {'script.googleusercontent.com', 'script.google.com'};
 
@@ -28,7 +45,8 @@ class ApiClient {
     final req = http.Request('POST', Uri.parse(Env.apiUrl))
       ..followRedirects = false
       ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'action': action, if (token != null) 'token': token, 'data': data});
+      // v0.81.1: versiApp ikut di setiap panggilan (server bisa menolak app di bawah versi minimum)
+      ..body = jsonEncode({'action': action, if (token != null) 'token': token, 'data': data, 'versiApp': versiApp});
 
     var res = await http.Response.fromStream(await _client.send(req).timeout(timeout));
 
@@ -50,7 +68,22 @@ class ApiClient {
       throw ApiException('RESPON_BUKAN_JSON');
     }
     if (json is! Map<String, dynamic>) throw ApiException('RESPON_TIDAK_VALID');
-    if (json['ok'] != true) throw ApiException((json['kode'] as String?) ?? 'GAGAL');
+    final waktu = json['waktu'];
+    if (waktu is String && json['env'] == Env.name) {
+      final w = DateTime.tryParse(waktu);
+      if (w != null) onWaktuServer?.call(w);
+    }
+    final versi = json['versi'];
+    if (versi is String && json['env'] == Env.name && versi != versiServer) {
+      versiServer = versi;
+      onVersiServer?.call(versi);
+    }
+    if (json['ok'] != true) {
+      final kode = (json['kode'] as String?) ?? 'GAGAL';
+      if (token != null && KodeError.sesiHabis.contains(kode)) onSesiHabis?.call(kode, token);
+      final kolom = json['kolom'];
+      throw ApiException(kode, kolom: kolom is String && kolom.isNotEmpty ? kolom : null);
+    }
     if (json['env'] != Env.name) throw ApiException('ENV_TIDAK_COCOK'); // APK staging nyambung ke production = tolak
     final isi = json['data'];
     return isi is Map<String, dynamic> ? isi : <String, dynamic>{};

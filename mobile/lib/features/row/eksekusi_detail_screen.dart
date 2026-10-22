@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../widgets/sisi_loader.dart';
+
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/kode_error.dart';
@@ -9,17 +11,21 @@ import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/foto_slot.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
+import 'batal_row.dart';
 import 'foto_repository.dart';
 import 'form_eksekusi_screen.dart';
 import 'kamera_screen.dart';
+import 'perbaikan_repository.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
 import 'watermark.dart';
 
 /// Detail eksekusi + foto. Foto Pekerjaan / Sesudah biasanya menyusul dari sini.
-/// Foto yang baru diambil belum disimpan sampai tombol Simpan ditekan (simpan ke HP, offline pun bisa),
-/// lalu terkirim otomatis saat online. Edit = ubah data pekerjaan. Download ulang = tarik foto dari server.
+/// v0.65.6 (keputusan kvlar 8 Okt 2026): foto kamera diverifikasi di review kamera, tombol Simpan Foto di kamera langsung
+/// menyimpan ke HP (offline pun bisa); foto galeri langsung disimpan sesudah dipilih. Tidak ada lagi tombol Simpan di
+/// halaman ini. Terkirim otomatis saat online. Edit = ubah data pekerjaan. Download ulang = tarik foto dari server.
 class EksekusiDetailScreen extends StatefulWidget {
   const EksekusiDetailScreen({super.key, required this.deps, required this.sesi, required this.eksekusiId});
   final Deps deps;
@@ -33,10 +39,10 @@ class EksekusiDetailScreen extends StatefulWidget {
 class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
   RowEksekusi? _e;
   Map<String, FotoLokal> _foto = const {};
-  final Map<String, FotoBaru> _baru = {}; // slot -> foto baru (kamera SiSi / galeri), belum disimpan
   bool _menyegarkan = false;
   bool _proses = false;
   ({int selesai, int total, String? slot})? _unduh;
+  bool _bisaUrungkan = false;
 
   @override
   void initState() {
@@ -58,15 +64,16 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
   Future<void> _muat() async {
     final e = await widget.deps.row.eksekusi(widget.eksekusiId);
     final f = await widget.deps.foto.untukEksekusi(widget.eksekusiId);
+    final u = e != null && !e.aktif && await widget.deps.perbaikan.bisaUrungkan(widget.sesi.userId, 'eksekusi', e.id);
     if (!mounted) return;
     setState(() {
+      _bisaUrungkan = u;
       _e = e;
       _foto = f;
     });
   }
 
   /// Refresh (v0.49): sinkron (kirim tertunda + tarik kode/status), lalu muat ulang dari HP.
-  /// Foto baru yang belum disimpan (_baru) tidak disentuh.
   Future<void> _segarkan() async {
     if (_menyegarkan) return;
     setState(() => _menyegarkan = true);
@@ -74,7 +81,9 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     try {
       await ctl.sinkron();
       await _muat();
-      if (mounted) tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Detail eksekusi diperbarui.');
+      if (mounted) {
+        tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Detail eksekusi diperbarui.');
+      }
     } finally {
       if (mounted) setState(() => _menyegarkan = false);
     }
@@ -90,6 +99,25 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     return tgl.compareTo(Wib.tanggal(DateTime.now().subtract(const Duration(days: 7)))) >= 0;
   }
 
+  Future<void> _batal() async {
+    final e = _e;
+    if (e == null) return;
+    final hapus = await batalkanRow(context, widget.deps, widget.sesi, jenis: 'eksekusi', id: e.id, label: 'eksekusi ini');
+    if (!mounted || hapus == null) return;
+    if (hapus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
+      return;
+    }
+    await _muat();
+  }
+
+  Future<void> _urungkan() async {
+    await urungkanBatalRow(context, widget.deps, widget.sesi, jenis: 'eksekusi', id: widget.eksekusiId);
+    await _muat();
+  }
+
   /// Sudah pernah diterima server (revision dari server) = fotonya bisa diunduh ulang.
   bool get _adaDiServer => (_e?.revision ?? 0) > 0;
 
@@ -101,12 +129,10 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
 
   /// Ketuk kotak foto. Tanpa akses ubah (atau lewat 7 hari) = hanya bisa melihat.
   Future<void> _ketuk(String slot) async {
-    final baru = _baru[slot];
     final lokal = _foto[slot];
-    final path = baru?.file.path ?? lokal?.path;
-    final ket = baru != null ? 'Baru, belum disimpan' : _ketStatus[lokal?.status];
-    // hanya foto yang sudah disimpan (ber-watermark) yang boleh disalin ke galeri
-    final namaGaleri = baru == null && lokal != null ? '${_e?.kode ?? widget.eksekusiId}_$slot' : null;
+    final path = lokal?.path;
+    final ket = _ketStatus[lokal?.status];
+    final namaGaleri = lokal != null ? '${_e?.kode ?? widget.eksekusiId}_$slot' : null;
     if (!_bolehUbah) {
       if (path != null) await lihatFoto(context, path: path, slot: slot, keterangan: ket, namaGaleri: namaGaleri);
       return;
@@ -131,38 +157,36 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
       diameter: e.diameter,
       jenis: e.jenisNama,
       slot: FotoRepository.label[slot]!,
-    ), pathAda: pathAda, keterangan: keterangan, namaGaleri: namaGaleri);
+    ), pathAda: pathAda, keterangan: keterangan, namaGaleri: namaGaleri,
+        // v0.65.6: kamera = disimpan dari review kamera (gagal = pesan di kamera, tetap di review)
+        simpan: (foto) => _simpanKe(slot, foto));
     if (f == null || !mounted) return;
-    setState(() => _baru[slot] = f);
-  }
-
-  /// Simpan foto baru ke HP (offline pun bisa), lalu sync jalan di latar.
-  Future<void> _simpan() async {
-    if (_baru.isEmpty) return;
-    setState(() => _proses = true);
-    final gagal = <String>[];
-    for (final e in Map.of(_baru).entries) {
+    if (f.sumber != 'KAMERA') {
+      // galeri: tanpa review kamera, langsung disimpan sesudah dipilih
+      setState(() => _proses = true);
       try {
-        await widget.deps.foto.simpan(widget.sesi, eksekusiId: widget.eksekusiId, slotFoto: e.key, foto: e.value);
-        _baru.remove(e.key);
+        await _simpanKe(slot, f);
       } on RowError catch (x) {
-        gagal.add('${FotoRepository.label[e.key]}: ${x.pesan}');
+        if (mounted) tampilPesan(context, '${FotoRepository.label[slot]}: ${x.pesan}');
+        return;
       } catch (_) {
-        gagal.add('${FotoRepository.label[e.key]}: gagal disimpan');
+        if (mounted) tampilPesan(context, '${FotoRepository.label[slot]}: gagal disimpan');
+        return;
+      } finally {
+        if (mounted) setState(() => _proses = false);
       }
     }
     await _muat();
     if (!mounted) return;
-    setState(() => _proses = false);
-    if (gagal.isNotEmpty) {
-      tampilPesan(context, gagal.join('\n'));
-    } else {
-      tampilPesan(context, widget.deps.syncCtl.online == true
-          ? 'Foto tersimpan di HP, sedang dikirim.'
-          : 'Foto tersimpan di HP. Terkirim otomatis saat online.');
-    }
+    tampilPesan(context, widget.deps.syncCtl.online == true
+        ? 'Foto ${FotoRepository.label[slot]} tersimpan di HP, sedang dikirim.'
+        : 'Foto ${FotoRepository.label[slot]} tersimpan di HP. Terkirim otomatis saat online.');
     unawaited(widget.deps.syncCtl.sinkron());
   }
+
+  /// Simpan satu foto ke HP (watermark + antre kirim). Foto lama di slot itu diganti.
+  Future<void> _simpanKe(String slot, FotoBaru foto) =>
+      widget.deps.foto.simpan(widget.sesi, eksekusiId: widget.eksekusiId, slotFoto: slot, foto: foto);
 
   Future<void> _edit() async {
     final e = _e;
@@ -191,13 +215,15 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
         ..clearLiveImages();
       await _muat();
       if (mounted) {
-        tampilPesan(
-            context,
-            h.unduh == 0
-                ? 'Belum ada foto di server.'
-                : !galeri
-                    ? '${h.unduh} foto diunduh. Izin galeri ditolak, foto hanya tersimpan di app.'
-                    : '${h.unduh} foto diunduh, ${h.galeri} masuk galeri (album ${FotoRepository.albumGaleri}).');
+        if (h.unduh == 0) {
+          tampilPesan(context, 'Belum ada foto di server.');
+        } else {
+          unawaited(tampilPopupBerhasil(context,
+              judul: 'Foto berhasil didownload',
+              keterangan: !galeri
+                  ? '${h.unduh} foto tersimpan di app\nIzin galeri ditolak, foto tidak masuk galeri'
+                  : '${h.unduh} foto diunduh, ${h.galeri} masuk galeri\nalbum ${FotoRepository.albumGaleri}'));
+        }
       }
     } on ApiException catch (x) {
       if (mounted) {
@@ -208,25 +234,6 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     } finally {
       if (mounted) setState(() => _unduh = null);
     }
-  }
-
-  Future<bool> _konfirmasiKeluar() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Foto belum disimpan'),
-        content: Text('${_baru.length} foto baru belum disimpan. Keluar dan buang foto ini?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Tetap di sini')),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.red700),
-            child: const Text('Buang & keluar'),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
   }
 
   Widget _baris(String label, String? nilai) => Padding(
@@ -266,21 +273,19 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     final sibuk = _proses || _unduh != null;
     final isi = <String, IsiSlot>{
       for (final f in _foto.values) f.slot: IsiSlot(path: f.path, status: f.status),
-      for (final b in _baru.entries) b.key: IsiSlot(path: b.value.file.path), // "Baru" (belum disimpan)
     };
     return PopScope(
-      canPop: _baru.isEmpty,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        if (await _konfirmasiKeluar() && context.mounted) {
-          _baru.clear();
-          Navigator.pop(context);
-        }
-      },
+      canPop: !_proses, // v0.65.6: jangan keluar selagi foto galeri disimpan
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: sisiAppBar('Detail Eksekusi', subjudul: e?.kode, actions: [
           TombolSegarkan(sibuk: _menyegarkan || sibuk || widget.deps.syncCtl.sedangSync, onPressed: _segarkan),
+          MenuDataRow(
+              labelBatal: 'Batalkan eksekusi',
+              bisaBatal: !sibuk && _bolehUbah && e != null && PerbaikanRepository.dalamBatas(e.kode),
+              bisaUrungkan: !sibuk && _bisaUrungkan,
+              onBatal: _batal,
+              onUrungkan: _urungkan),
         ]),
         body: e == null
             ? const SisiLoading(ukuran: 60)
@@ -291,7 +296,7 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
                 child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
                   SectionCard(judul: 'Foto pekerjaan', ikon: Icons.photo_camera_outlined, children: [
                     FotoSlotRow(isi: isi, onPilih: _bolehUbah || _foto.isNotEmpty ? _ketuk : null, lengkapDiServer: e.fotoLengkap),
-                    if (_proses) const Padding(padding: EdgeInsets.only(top: 10), child: LinearProgressIndicator()),
+                    if (_proses) const Padding(padding: EdgeInsets.only(top: 10), child: Center(child: SisiLoader(ukuran: 28))),
                     if (gagal.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text('Foto gagal: ${gagal.map((f) => '${FotoRepository.label[f.slot]} (${f.alasan})').join(', ')}',
@@ -308,12 +313,10 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      _baru.isNotEmpty
-                          ? '${_baru.length} foto baru belum disimpan. Tekan Simpan.'
-                          : e.fotoLengkap
-                              ? 'Foto lengkap di server, eksekusi ini masuk laporan WA.'
-                              : 'Dapat dikerjakan secara bertahap. Kamera: posisi HP mendatar (landscape).',
-                      style: TextStyle(fontSize: 11.5, color: _baru.isNotEmpty ? AppColors.accent700 : AppColors.neutral500),
+                      e.fotoLengkap
+                          ? 'Foto lengkap di server, eksekusi ini masuk laporan WA.'
+                          : 'Dapat dikerjakan secara bertahap. Kamera: posisi HP mendatar (landscape), foto dicek & disimpan di layar review kamera.',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500),
                     ),
                     if (_adaDiServer) ...[
                       const SizedBox(height: 10),
@@ -346,33 +349,10 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
                       _baris('Nomor Tiang', e.nomorTiang),
                       _baris('Koordinat Tiang', e.koordinatTiang),
                       _baris('Koordinat Pekerjaan', e.koordinatPekerjaan),
-                      if (e.alasan != null) _baris('Catatan server', e.alasan),
+                      if (e.alasan != null) _baris('Keterangan', KodeError.alasanSinkron(e.alasan)),
                     ],
                   ),
                 ]),
-                ),
-              ),
-        bottomNavigationBar: e == null || !_bolehUbah
-            ? null
-            : Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AppColors.neutral200))),
-                child: SafeArea(
-                  top: false,
-                  child: SizedBox(
-                    height: 50,
-                    child: FilledButton.icon(
-                      onPressed: _baru.isEmpty || sibuk ? null : _simpan,
-                      icon: _proses
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.save_outlined),
-                      label: Text(_proses
-                          ? 'Menyimpan...'
-                          : _baru.isEmpty
-                              ? 'Simpan'
-                              : 'Simpan ${_baru.length} foto'),
-                    ),
-                  ),
                 ),
               ),
       ),

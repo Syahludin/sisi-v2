@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,13 +7,19 @@ import 'package:flutter/material.dart';
 import '../features/row/foto_repository.dart';
 import '../features/row/row_repository.dart';
 import '../theme/app_colors.dart';
+import 'popup_berhasil.dart';
 import 'sisi_widgets.dart';
 
 /// Isi satu kotak foto: file lokal (path) + status upload. path null = kosong.
 class IsiSlot {
-  const IsiSlot({this.path, this.status});
+  const IsiSlot({this.path, this.status, this.label, this.warnaLabel, this.ikon});
   final String? path;
   final String? status; // null (belum disimpan) | TERTUNDA | TERKIRIM | GAGAL
+  /// v0.64.7: teks di bawah foto (menggantikan teks status upload), mis. P0 "Disimpan" / "Belum disimpan".
+  final String? label;
+  final Color? warnaLabel;
+  /// Ikon kecil di pojok foto (mis. gembok foto P0 yang sudah disimpan).
+  final IconData? ikon;
 }
 
 /// Tiga kotak foto Sebelum / Pekerjaan / Sesudah (pola eksekusi_row_screen lama).
@@ -42,7 +50,7 @@ class _Kotak extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = isi.path;
-    final (String teks, Color warna) = switch (isi.status) {
+    final (String teks, Color warna) = isi.label != null ? (isi.label!, isi.warnaLabel ?? AppColors.neutral500) : switch (isi.status) {
       'TERKIRIM' => ('Terkirim', AppColors.success700),
       'TERTUNDA' => ('Menunggu', AppColors.accent700),
       'GAGAL' => ('Gagal', AppColors.red700),
@@ -62,8 +70,20 @@ class _Kotak extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: path != null
-                ? Image.file(File(path), fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => const Icon(Icons.broken_image_outlined, color: AppColors.neutral400))
+                ? Stack(fit: StackFit.expand, children: [
+                    Image.file(File(path), fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => const Icon(Icons.broken_image_outlined, color: AppColors.neutral400)),
+                    if (isi.ikon != null)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: isi.warnaLabel ?? AppColors.navy700, shape: BoxShape.circle),
+                          child: Icon(isi.ikon, size: 14, color: Colors.white),
+                        ),
+                      ),
+                  ])
                 : Icon(server ? Icons.cloud_done_outlined : Icons.add_a_photo_outlined,
                     color: onTap == null ? AppColors.neutral300 : AppColors.navy700, size: 26),
           ),
@@ -78,7 +98,9 @@ class _Kotak extends StatelessWidget {
 
 /// Menu ketuk kotak foto. Sudah ada foto: Lihat Foto / Ambil Ulang dari Kamera / Ambil Ulang dari Galeri.
 /// Belum ada: Ambil dari Kamera / Ambil dari Galeri. Hasil: 'LIHAT' | 'KAMERA' | 'GALERI', null = batal.
-Future<String?> pilihSumberFoto(BuildContext context, String slot, {bool adaFoto = false}) {
+/// v0.64.5: `alasanTidakUlang` diisi = Ambil Ulang tampil nonaktif dengan alasannya (P0: tahap berikutnya sudah difoto).
+Future<String?> pilihSumberFoto(BuildContext context, String slot,
+    {bool adaFoto = false, bool bolehGaleri = true, String? alasanTidakUlang}) {
   final ulang = adaFoto ? 'Ambil Ulang' : 'Ambil';
   return showModalBottomSheet<String>(
     context: context,
@@ -97,13 +119,16 @@ Future<String?> pilihSumberFoto(BuildContext context, String slot, {bool adaFoto
           ListTile(
             leading: const Icon(Icons.photo_camera_outlined),
             title: Text('$ulang dari Kamera'),
+            subtitle: alasanTidakUlang == null ? null : Text(alasanTidakUlang),
+            enabled: alasanTidakUlang == null,
             onTap: () => Navigator.pop(c, 'KAMERA'),
           ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: Text('$ulang dari Galeri'),
-            onTap: () => Navigator.pop(c, 'GALERI'),
-          ),
+          if (bolehGaleri && alasanTidakUlang == null) // v0.64.1: P0 Yandal wajib kamera SiSi (jam + GPS bukti pekerjaan)
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text('$ulang dari Galeri'),
+              onTap: () => Navigator.pop(c, 'GALERI'),
+            ),
         ]),
       ),
     ),
@@ -134,7 +159,10 @@ class LihatFotoScreen extends StatelessWidget {
     }
     try {
       await FotoRepository.keGaleri(path, nama: namaGaleri!);
-      if (context.mounted) tampilPesan(context, 'Foto tersimpan di galeri (album ${FotoRepository.albumGaleri}).');
+      if (context.mounted) {
+        unawaited(tampilPopupBerhasil(context,
+            judul: 'Foto berhasil didownload', keterangan: 'Tersimpan di galeri\nalbum ${FotoRepository.albumGaleri}'));
+      }
     } on RowError catch (e) {
       if (context.mounted) tampilPesan(context, e.pesan);
     } catch (_) {

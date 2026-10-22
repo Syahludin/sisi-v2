@@ -58,14 +58,16 @@ class GuardLokasi with WidgetsBindingObserver {
   }
 
   Future<void> periksa() async {
-    if (_sesi == null || _sedangCek || !_diDepan) return;
+    final awal = _sesi;
+    if (awal == null || _sedangCek || !_diDepan) return;
     _sedangCek = true;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return;
       final izin = await Geolocator.checkPermission();
       if (izin != LocationPermission.always && izin != LocationPermission.whileInUse) return;
       final pos = await Gps.sampelPertama(batas: const Duration(seconds: 20));
-      if (pos != null && pos.isMocked) await _paksaKeluar();
+      // v0.62.5: cek GPS bisa makan 20 detik. Sesi sudah berganti (logout / akun lain) = hasil ini bukan miliknya.
+      if (pos != null && pos.isMocked && _sesi?.token == awal.token) await _paksaKeluar();
     } catch (_) {
       // gagal baca lokasi: coba lagi di putaran berikutnya
     } finally {

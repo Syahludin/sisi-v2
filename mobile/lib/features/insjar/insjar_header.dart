@@ -1,0 +1,86 @@
+import 'package:flutter/material.dart';
+
+import '../../widgets/sisi_motif.dart';
+import '../hartek/hartek_gaya.dart';
+
+/// v1.0.5 (permintaan kvlar 20 Okt 2026): header halaman Inspeksi Jaringan dan Input Temuan Inspeksi, satu gaya untuk
+/// semua layar. [aksi] = tombol di kanan atas (Segarkan di halaman utama, Kembali di halaman rincian).
+/// v1.0.18: gaya "Jaringan SiSi" (gradien teal + motif tiang & kawat, percik kuning di kicker), dipakai semua modul.
+class HeaderInsJar extends StatelessWidget {
+  const HeaderInsJar({
+    super.key,
+    required this.kicker,
+    required this.judul,
+    required this.ikon,
+    this.sub = '',
+    this.aksi = const <Widget>[],
+  });
+
+  final String kicker, judul, sub;
+  final IconData ikon;
+  final List<Widget> aksi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: LatarSisi(
+        padding: const EdgeInsets.fromLTRB(16, 16, 10, 18),
+        child: Row(children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: .22)),
+            ),
+            child: Icon(ikon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const PercikSisi(tinggi: 11),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(kicker.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: HartekGaya.putih85)),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Text(judul,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, letterSpacing: -.3, color: Colors.white)),
+              if (sub.isNotEmpty)
+                Text(sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: HartekGaya.putih85)),
+            ]),
+          ),
+          if (aksi.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            ...aksi,
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// Tombol bulat di header (putih transparan).
+Widget tombolHeaderInsJar(IconData ikon, String tip, VoidCallback? aksi) => IconButton(
+      tooltip: tip,
+      onPressed: aksi,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: .16),
+        foregroundColor: Colors.white,
+        disabledForegroundColor: Colors.white38,
+        side: BorderSide(color: Colors.white.withValues(alpha: .18)),
+      ),
+      icon: Icon(ikon),
+    );

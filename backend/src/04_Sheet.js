@@ -6,7 +6,15 @@
 var BUKA_SS_ = {};
 
 function bukaSpreadsheet_(id) {
-  if (!Object.prototype.hasOwnProperty.call(BUKA_SS_, id)) BUKA_SS_[id] = SpreadsheetApp.openById(id);
+  if (!id) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'SHEET_ID');
+  if (!Object.prototype.hasOwnProperty.call(BUKA_SS_, id)) {
+    try {
+      BUKA_SS_[id] = SpreadsheetApp.openById(id);
+    } catch (e) {
+      if (e && e.kode) throw e;
+      throw new SisiError_('CONFIG_TIDAK_VALID', 'Spreadsheet tidak bisa dibuka');
+    }
+  }
   return BUKA_SS_[id];
 }
 
@@ -101,6 +109,53 @@ function ubahBaris_(t, kolomId, id, perubahan, revisionLama) {
   });
   if (idxRev !== -1) t.sheet.getRange(baris, idxRev + 1).setValue(revSekarang + 1);
   return revSekarang === null ? null : revSekarang + 1;
+}
+
+/**
+ * v0.62.9 (Laporan UP3 / UIW): tulis beberapa perubahan baris + baris baru satu sheet dalam SATU setValues.
+ * Blok = dari baris ubah teratas s.d. baris baru terakhir, dibaca ulang dulu (dalam lock) supaya sel yang tidak
+ * diubah ditulis kembali apa adanya. Satu panggilan tulis = masuk semua atau tidak sama sekali, beda dengan
+ * ubahBarisDikenal_ yang menulis sel per sel (gagal di tengah = setengah jadi).
+ * ubah = [{ r, u }] (r = baris dari tabel_ yang sama, u = kolom baru); revision baris ubah +1; kolom *_id & revision terkunci.
+ * baru = objek baris lengkap (ditambah di bawah). WAJIB dipanggil di dalam denganLock_().
+ */
+function tulisBlok_(t, ubah, baru, opsi) {
+  // v0.66.4: opsi.bolehId = kolom *_id REFERENSI yang boleh diubah (mis. section_id P0); id baris tetap terkunci.
+  var bolehId = (opsi && opsi.bolehId) || [];
+  if (!t.dalamLock || !LOCK_AKTIF_.ya) throw new SisiError_('HARUS_DALAM_LOCK', t.nama);
+  ubah = ubah || []; baru = baru || [];
+  if (!ubah.length && !baru.length) return;
+  var lebar = t.header.length, akhir = Math.max(t.sheet.getLastRow(), 1);
+  var idxRev = t.header.indexOf('revision');
+  ubah.forEach(function (x) {
+    if (!x.r || !x.r._baris || x.r._baris < 2 || x.r._baris > akhir) throw new SisiError_('DATA_TIDAK_DITEMUKAN', t.nama);
+    Object.keys(x.u).forEach(function (k) {
+      if (t.header.indexOf(k) === -1) throw new SisiError_('KOLOM_TIDAK_ADA', k);
+      if (k === 'revision' || (/_id$/.test(k) && bolehId.indexOf(k) === -1)) throw new SisiError_('KOLOM_TERKUNCI', k);
+    });
+  });
+  var mulai = ubah.length ? Math.min.apply(null, ubah.map(function (x) { return x.r._baris; })) : akhir + 1;
+  var lama = mulai <= akhir ? t.sheet.getRange(mulai, 1, akhir - mulai + 1, lebar).getValues() : [];
+  var data = lama.map(function (b) { return b.map(amanSheet_); });
+  ubah.forEach(function (x) {
+    var b = data[x.r._baris - mulai];
+    // baris di sheet harus baris yang sama dengan yang dibaca (semua kolom *_id sama)
+    t.header.forEach(function (h, i) {
+      if (/_id$/.test(h) && String(lama[x.r._baris - mulai][i]) !== String(x.r[h] === undefined ? '' : x.r[h])) {
+        throw new SisiError_('DATA_BERUBAH', t.nama + ' baris ' + x.r._baris);
+      }
+    });
+    Object.keys(x.u).forEach(function (k) { b[t.header.indexOf(k)] = amanSheet_(x.u[k]); });
+    if (idxRev !== -1) b[idxRev] = (Number(x.r.revision) || 0) + 1;
+  });
+  baru.forEach(function (o) { data.push(barisDariObjek_(t.header, o)); });
+  t.sheet.getRange(mulai, 1, data.length, lebar).setValues(data);
+  // memori diperbarui hanya setelah tulis berhasil
+  ubah.forEach(function (x) {
+    Object.keys(x.u).forEach(function (k) { x.r[k] = x.u[k]; });
+    if (idxRev !== -1) x.r.revision = (Number(x.r.revision) || 0) + 1;
+  });
+  baru.forEach(function (o, i) { o._baris = akhir + 1 + i; });
 }
 
 /**

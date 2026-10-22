@@ -19,6 +19,45 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $mobile = Join-Path $root "mobile"
 $envFile = "env/$Target.json"
+
+# v0.64.2: MainActivity dengan kanal jam monoton (docs\android\MainActivity.kt) disalin ke folder android lokal.
+function Pasang-MainActivity([string]$root, [string]$mobile) {
+  $sumber = Join-Path $root "docs\android\MainActivity.kt"
+  $tujuan = Join-Path $mobile "android\app\src\main\kotlin\id\co\pln\toboali\sisi_row\MainActivity.kt"
+  if (-not (Test-Path (Join-Path $mobile "android"))) { Write-Warning "Folder mobile\android belum ada, MainActivity dilewati."; return }
+  $lain = Get-ChildItem (Join-Path $mobile "android\app\src\main") -Recurse -Include MainActivity.kt, MainActivity.java -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -ne $tujuan }
+  foreach ($f in $lain) { Write-Warning "MainActivity lain ditemukan: $($f.FullName). Hapus manual kalau paketnya sama." }
+  $ada = (Test-Path $tujuan) -and ((Get-Content $tujuan -Raw) -eq (Get-Content $sumber -Raw))
+  if (-not $ada) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $tujuan) | Out-Null
+    Copy-Item $sumber $tujuan -Force
+    Write-Host "MainActivity.kt (jam monoton) dipasang." -ForegroundColor Cyan
+  }
+}
+# v1.0.12: izin + layanan sinkron latar (flutter_foreground_task) dipasang ke AndroidManifest.xml lokal (idempoten).
+function Pasang-ManifestLatar([string]$mobile) {
+  $man = Join-Path $mobile "android\app\src\main\AndroidManifest.xml"
+  if (-not (Test-Path $man)) { Write-Warning "AndroidManifest.xml belum ada, sinkron latar dilewati."; return }
+  $x = Get-Content $man -Raw
+  $awal = $x
+  $izin = @("FOREGROUND_SERVICE", "FOREGROUND_SERVICE_DATA_SYNC", "POST_NOTIFICATIONS", "WAKE_LOCK", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS")
+  foreach ($i in $izin) {
+    if ($x -notmatch ('android\.permission\.' + $i + '"')) {
+      $x = $x -replace '(\s*)<application', ('$1<uses-permission android:name="android.permission.' + $i + '" />$1<application')
+    }
+  }
+  if ($x -notmatch 'flutter_foreground_task\.service\.ForegroundService') {
+    $svc = '        <service android:name="com.pravera.flutter_foreground_task.service.ForegroundService" android:foregroundServiceType="dataSync" android:exported="false" />' + "`r`n    </application>"
+    $x = $x -replace '\s*</application>', ("`r`n" + $svc)
+  }
+  if ($x -ne $awal) {
+    Set-Content -Path $man -Value $x -NoNewline -Encoding UTF8
+    Write-Host "AndroidManifest.xml: izin + layanan sinkron latar dipasang." -ForegroundColor Cyan
+  }
+}
+Pasang-ManifestLatar $mobile
+Pasang-MainActivity $root $mobile
 if (-not (Test-Path (Join-Path $mobile $envFile))) { throw "mobile/$envFile belum ada (salin dari $Target.example.json)" }
 if ($Target -eq "production" -and -not $TanpaReset) { throw "Reset data di production dilarang. Pakai -TanpaReset kalau memang perlu." }
 $gradleApp = Join-Path $mobile "android\app\build.gradle.kts"

@@ -1,0 +1,7 @@
+.gcloudignore
+.git
+__pycache__/
+*.pyc
+test_engine.py
+README.md
+deploy.sh

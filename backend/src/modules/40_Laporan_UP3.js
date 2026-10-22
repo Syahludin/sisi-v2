@@ -187,7 +187,259 @@ function grupC4a_(c4a) {
   return urut.map(function (k) { return peta[k]; });
 }
 
-/** d: { tanggal, ulp, row (dataRowLaporan_), c4aUp3: [...], target: {rabas, tebang} } */
+/** Satuan WA Hartek: huruf awal kapital bila masih huruf kecil semua ('buah' -> 'Buah'). */
+function satuanWaLapHartek_(v) {
+  var s = lapTeks_(v);
+  if (!s) return '';
+  if (s.length === 1) return s;
+  return s === s.toLowerCase() ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function jumlahSatuanLapHartek_(jml, sat) {
+  var j = jml === '' || jml === null || jml === undefined ? '' : String(jml).trim();
+  var s = satuanWaLapHartek_(sat);
+  return [j, s].filter(Boolean).join(' ');
+}
+
+function tambahUnikTeks_(daftar, v) {
+  var s = lapTeks_(v);
+  if (!s) return;
+  var kecil = s.toLowerCase();
+  if (!daftar.some(function (x) { return x.toLowerCase() === kecil; })) daftar.push(s);
+}
+
+/**
+ * v0.98.7: Data modul Hartek untuk satu tanggal + komulatif bulan itu (tgl 1 s.d. tanggal).
+ * Dipakai Laporan UP3 (C. Hartek) dan Laporan UIW (Tim Hartek + Realisasi Pekerjaan Hartek).
+ * Bila HARTEK_SHEET_ID belum diisi / sheet belum ada = hasil kosong (kompatibel lama).
+ */
+function dataHartekLaporan_(tanggal) {
+  var kosong = { aktif: false, timLapor: 0, statusTim: 'V1', perPenyulang: {}, komulatif: { gardu: 0, jaringan: 0 },
+                 penyulangUiw: [], sectionUiw: [], jaringan: [], gardu: [], nonTeknik: [] };
+  var c = cfg_();
+  if (!c || !c.HARTEK_SHEET_ID || typeof tabelHartek_ !== 'function') return kosong;
+  try {
+    var H = tabelHartek_(HARTEK_SHEET_.HEADER).rows;
+    var PG = tabelHartek_(HARTEK_SHEET_.PG).rows;
+    var PK = tabelHartek_(HARTEK_SHEET_.PEKERJAAN).rows;
+    var MT = tabelHartek_(HARTEK_SHEET_.MATERIAL).rows;
+    var GR = [];
+    var PM = [];
+    try { GR = tabelHartek_(HARTEK_SHEET_.GROUNDING).rows; } catch (eG) { GR = []; }
+    try { PM = tabelHartek_(HARTEK_SHEET_.PEMERATAAN).rows; } catch (eP) { PM = []; }
+    var bulan = String(tanggal || '').slice(0, 7);
+    var hdrBulan = {}, hdrHari = {}, timHari = {};
+    var adaSiap = false, adaLapor = false;
+    H.forEach(function (h) {
+      if (!h.header_id || h.status !== 'AKTIF') return;
+      var t = tglHartek_(h);
+      if (!t || t.slice(0, 7) !== bulan || t > tanggal) return;
+      var hid = String(h.header_id);
+      hdrBulan[hid] = h;
+      if (t === tanggal) {
+        hdrHari[hid] = h;
+        timHari[String(h.tim_id || hid)] = true;
+        adaLapor = true;
+        if (lapTeks_(h.koordinat_awal) && lapTeks_(h.koordinat_akhir) && h.km_awal !== '' && h.km_awal !== null && h.km_akhir !== '' && h.km_akhir !== null) {
+          adaSiap = true;
+        }
+      }
+    });
+    var pkPerPg = {}, mtPerPk = {}, grPerPk = {}, pmPerPk = {};
+    PK.forEach(function (x) {
+      var pid = String(x.pg_id || '');
+      if (pid) (pkPerPg[pid] = pkPerPg[pid] || []).push(x);
+    });
+    MT.forEach(function (m) {
+      var kid = String(m.pekerjaan_id || '');
+      if (kid) (mtPerPk[kid] = mtPerPk[kid] || []).push(m);
+    });
+    GR.forEach(function (g) {
+      var kid = String(g.pekerjaan_id || '');
+      if (kid) (grPerPk[kid] = grPerPk[kid] || []).push(g);
+    });
+    PM.forEach(function (q) {
+      var kid = String(q.pekerjaan_id || '');
+      if (kid) (pmPerPk[kid] = pmPerPk[kid] || []).push(q);
+    });
+
+    var perPenyulang = {}, komulatif = { gardu: 0, jaringan: 0 };
+    var penyulangUiw = [], sectionUiw = [];
+    var pgJaringan = [], pgGardu = [], pgNonTeknik = [];
+
+    PG.forEach(function (p) {
+      var hid = String(p.header_id || '');
+      if (!hdrBulan[hid]) return;
+      var pkList = pkPerPg[String(p.pg_id)] || [];
+      if (!pkList.length) return;
+      var jenis = lapTeks_(p.jenis_pekerjaan);
+      var peny = lapTeks_(p.penyulang) || '-';
+      var gawang = Number(p.jumlah_gawang) || 0;
+      if (jenis === 'Gardu') komulatif.gardu += 1;
+      else if (jenis === 'Jaringan') komulatif.jaringan += gawang;
+
+      if (!hdrHari[hid]) return;
+      if (jenis === 'Gardu' || jenis === 'Jaringan') {
+        var rowP = perPenyulang[peny] = perPenyulang[peny] || { gardu: 0, jaringan: 0 };
+        if (jenis === 'Gardu') rowP.gardu += 1;
+        else rowP.jaringan += gawang;
+      }
+      if (lapTeks_(p.penyulang)) tambahUnikTeks_(penyulangUiw, p.penyulang);
+      if (lapTeks_(p.section)) tambahUnikTeks_(sectionUiw, p.section);
+
+      var item = {
+        noGardu: lapTeks_(p.no_gardu),
+        penyulang: lapTeks_(p.penyulang),
+        section: lapTeks_(p.section),
+        pekerjaan: pkList.map(function (x) {
+          var kid = String(x.pekerjaan_id || '');
+          return {
+            nama: lapTeks_(x.pekerjaan),
+            hasil: jumlahSatuanLapHartek_(x.jumlah_pekerjaan, x.satuan_pekerjaan),
+            material: (mtPerPk[kid] || []).map(function (m) {
+              return {
+                nama: lapTeks_(m.material),
+                hasil: jumlahSatuanLapHartek_(m.jumlah, m.satuan),
+                kepemilikan: lapTeks_(m.kepemilikan)
+              };
+            }),
+            grounding: (grPerPk[kid] || []).map(function (g) {
+              return {
+                jenisPeralatan: lapTeks_(g.jenis_peralatan),
+                hasilSebelum: lapTeks_(g.hasil_sebelum),
+                hasilSesudah: lapTeks_(g.hasil_sesudah)
+              };
+            }),
+            pemerataan: (pmPerPk[kid] || []).map(function (q) {
+              return {
+                noGardu: lapTeks_(q.no_gardu),
+                sebR: lapTeks_(q.seb_r), sebS: lapTeks_(q.seb_s), sebT: lapTeks_(q.seb_t),
+                sesR: lapTeks_(q.ses_r), sesS: lapTeks_(q.ses_s), sesT: lapTeks_(q.ses_t)
+              };
+            })
+          };
+        })
+      };
+      if (jenis === 'Jaringan') pgJaringan.push(item);
+      else if (jenis === 'Gardu') pgGardu.push(item);
+      else pgNonTeknik.push(item);
+    });
+
+    var adaPekerjaanHari = pgJaringan.length + pgGardu.length + pgNonTeknik.length > 0;
+    return {
+      aktif: true,
+      timLapor: Object.keys(timHari).length,
+      statusTim: adaSiap && adaPekerjaanHari ? 'SIAP' : (adaLapor ? 'LAPOR' : 'BELUM'),
+      perPenyulang: perPenyulang,
+      komulatif: komulatif,
+      penyulangUiw: penyulangUiw,
+      sectionUiw: sectionUiw,
+      jaringan: pgJaringan,
+      gardu: pgGardu,
+      nonTeknik: pgNonTeknik
+    };
+  } catch (e) {
+    return kosong;
+  }
+}
+
+function barisGroundingUiw_(pk) {
+  var out = [];
+  var gr = pk && pk.grounding ? pk.grounding : [];
+  if (!gr.length) return out;
+  var nm = String((pk && pk.nama) || '').toLowerCase();
+  var isPasang = nm.indexOf('pasang') !== -1 || nm.indexOf('pemasangan') !== -1;
+  var isPerbaikan = nm.indexOf('perbaikan') !== -1;
+  gr.forEach(function (g) {
+    var seb = lapTeks_(g.hasilSebelum), ses = lapTeks_(g.hasilSesudah);
+    if (!seb && !ses) return;
+    var alat = lapTeks_(g.jenisPeralatan);
+    var suffixAlat = alat ? ' (' + alat + ')' : '';
+    var mode = isPerbaikan ? 'perbaikan' : (isPasang ? 'pemasangan' : ((seb && ses) ? 'perbaikan' : 'pemasangan'));
+    if (mode === 'perbaikan') {
+      out.push('Hasil Pengukuran Grounding' + suffixAlat + ':');
+      out.push('- Sebelum : ' + (seb || '-') + ' \u03A9');
+      out.push('- Sesudah : ' + (ses || '-') + ' \u03A9');
+    } else {
+      out.push('Hasil Pengukuran Grounding' + suffixAlat + ' : ' + (ses || seb) + ' \u03A9');
+    }
+  });
+  return out;
+}
+
+function barisPemerataanUiw_(pk) {
+  var out = [];
+  var pm = pk && pk.pemerataan ? pk.pemerataan : [];
+  if (!pm.length) return out;
+  var amp = function (v) {
+    var s = lapTeks_(v);
+    if (!s) return '-';
+    return /a$/i.test(s) ? s.replace(/\s+a$/i, 'A') : (s + 'A');
+  };
+  var padRight = function (str, len) {
+    var s = String(str || '');
+    while (s.length < len) s += ' ';
+    return s;
+  };
+  pm.forEach(function (q) {
+    var sebR = lapTeks_(q.sebR), sebS = lapTeks_(q.sebS), sebT = lapTeks_(q.sebT);
+    var sesR = lapTeks_(q.sesR), sesS = lapTeks_(q.sesS), sesT = lapTeks_(q.sesT);
+    var adaSeb = !!(sebR || sebS || sebT), adaSes = !!(sesR || sesS || sesT);
+    if (!adaSeb && !adaSes) return;
+    var gar = lapTeks_(q.noGardu);
+    if (out.length) out.push('');
+    if (pm.length > 1 && gar) out.push('Gardu ' + gar + ':');
+    var kHdr = 'Beban Sebelum';
+    var kR = 'R : ' + amp(sebR);
+    var kS = 'S : ' + amp(sebS);
+    var kT = 'T : ' + amp(sebT);
+    var lebarKiri = Math.max(kHdr.length, kR.length, kS.length, kT.length) + 2;
+    out.push(padRight(kHdr, lebarKiri) + 'Beban Sesudah');
+    out.push(padRight(kR, lebarKiri) + 'R : ' + amp(sesR));
+    out.push(padRight(kS, lebarKiri) + 'S : ' + amp(sesS));
+    out.push(padRight(kT, lebarKiri) + 'T : ' + amp(sesT));
+  });
+  return out;
+}
+
+/** Blok pekerjaan + material (+ grounding & pemerataan bila ada) untuk seksi Jaringan / Non-Teknik pada Laporan UIW. */
+function blokPekerjaanMaterialUiw_(daftarPg) {
+  var L = [];
+  var semuaPk = [], semuaMt = [], semuaGr = [], semuaPm = [];
+  (daftarPg || []).forEach(function (pg) {
+    (pg.pekerjaan || []).forEach(function (pk) {
+      semuaPk.push(pk.nama + (pk.hasil ? ' : ' + pk.hasil : ''));
+      (pk.material || []).forEach(function (m) {
+        semuaMt.push(m.nama + (m.hasil ? ' : ' + m.hasil : ''));
+      });
+      barisGroundingUiw_(pk).forEach(function (b) { semuaGr.push(b); });
+      barisPemerataanUiw_(pk).forEach(function (b) { semuaPm.push(b); });
+    });
+  });
+  if (!semuaPk.length) {
+    L.push('Pekerjaan : -');
+  } else {
+    L.push('Pekerjaan :');
+    semuaPk.forEach(function (t, i) { L.push((i + 1) + '. ' + t); });
+  }
+  if (!semuaMt.length) {
+    L.push('Material : -');
+  } else {
+    L.push('Material :');
+    semuaMt.forEach(function (t) { L.push('- ' + t); });
+  }
+  if (semuaGr.length) {
+    L.push('');
+    semuaGr.forEach(function (b) { L.push(b); });
+  }
+  if (semuaPm.length) {
+    L.push('');
+    semuaPm.forEach(function (b) { L.push(b); });
+  }
+  return L;
+}
+
+/** d: { tanggal, ulp, row (dataRowLaporan_), hartek (dataHartekLaporan_), c4aUp3: [...], target: {rabas, tebang} } */
 function teksUp3_(d) {
   var L = [];
   L.push('*Laporan Harian Keandalan Distribusi*');
@@ -224,22 +476,54 @@ function teksUp3_(d) {
   L.push('- Rabas : ' + (d.row.komulatif.rabas || 0) + ' Gawang');
   L.push('- Tebang : ' + (d.row.komulatif.tebang || 0) + ' Batang');
   L.push('');
-  // C. Hartek & D. Inspeksi: belum di v2
+  // C. Hartek (v0.98.7: dari SiSi_Hartek bila aktif)
   L.push('*C. Hartek* \uD83D\uDD27');
   L.push('');
-  L.push(lapPenyBlok_(null, [{ label: 'Gardu', satuan: 'Unit' }, { label: 'Jaringan', satuan: 'Gawang' }]));
-  L.push('');
+  var htk = d.hartek || (d.row && d.row.hartek) || null;
+  var penyH = htk && htk.perPenyulang ? Object.keys(htk.perPenyulang).sort() : [];
+  if (penyH.length) {
+    penyH.forEach(function (p) {
+      var x = htk.perPenyulang[p];
+      L.push(lapPenyBlok_(p, [{ label: 'Gardu', satuan: 'Unit', target: x.gardu, rlz: x.gardu },
+                              { label: 'Jaringan', satuan: 'Gawang', target: x.jaringan, rlz: x.jaringan }]));
+      L.push('');
+    });
+  } else {
+    L.push(lapPenyBlok_(null, [{ label: 'Gardu', satuan: 'Unit' }, { label: 'Jaringan', satuan: 'Gawang' }]));
+    L.push('');
+  }
   L.push('*Komulatif*');
-  L.push('- Gardu : - Unit');
-  L.push('- Jaringan : - Gawang');
+  if (htk && htk.aktif) {
+    L.push('- Gardu : ' + (htk.komulatif.gardu || 0) + ' Unit');
+    L.push('- Jaringan : ' + (htk.komulatif.jaringan || 0) + ' Gawang');
+  } else {
+    L.push('- Gardu : - Unit');
+    L.push('- Jaringan : - Gawang');
+  }
   L.push('');
+  // D. Inspeksi (v1.0.6): Jaringan = total tiang per penyulang (Gawang), target = realisasi.
+  // v1.0.8: Gardu = jumlah gardu yang sudah ada LWBP (Unit), target tetap LAP_TARGET_GARDU_ per penyulang bila ada realisasi (v1).
   L.push('*D. Inspeksi* \uD83D\uDD2D');
   L.push('');
-  L.push(lapPenyBlok_(null, [{ label: 'Gardu', satuan: 'Unit' }, { label: 'Jaringan', satuan: 'Gawang' }]));
-  L.push('');
+  var ins = (d.row && d.row.inspeksi) || { perPenyulang: {}, komulatif: { jaringan: 0 } };
+  var insG = (d.row && d.row.inspeksiGardu) || { perPenyulang: {}, komulatif: 0 };
+  var insPeny = Object.keys(ins.perPenyulang);
+  Object.keys(insG.perPenyulang).forEach(function (p) { if (insPeny.indexOf(p) === -1) insPeny.push(p); });
+  insPeny.sort();
+  if (insPeny.length) {
+    insPeny.forEach(function (p) {
+      var x = ins.perPenyulang[p] || {}, gd = insG.perPenyulang[p] || 0;
+      L.push(lapPenyBlok_(p, [{ label: 'Gardu', satuan: 'Unit', target: gd ? LAP_TARGET_GARDU_ : '', rlz: gd },
+                              { label: 'Jaringan', satuan: 'Gawang', target: x.jaringan, rlz: x.jaringan }]));
+      L.push('');
+    });
+  } else {
+    L.push(lapPenyBlok_(null, [{ label: 'Gardu', satuan: 'Unit' }, { label: 'Jaringan', satuan: 'Gawang' }]));
+    L.push('');
+  }
   L.push('*Komulatif*');
-  L.push('- Jaringan : - Gawang');
-  L.push('- Gardu : - Unit');
+  L.push('- Jaringan : ' + lapAngka_(ins.komulatif.jaringan, 'Gawang'));
+  L.push('- Gardu : ' + lapAngka_(insG.komulatif, 'Unit'));
   L.push('');
   // E. C4A format UP3 (lap_C4A_UP3), satu blok per penyulang. Keterangan tidak masuk WA.
   L.push('*E. C4A* \uD83E\uDE7A');
@@ -264,18 +548,23 @@ function teksUp3_(d) {
   return L.join('\n');
 }
 
-/** d: { tanggal, ulp, row, c4aUiw, cuaca } */
+/** d: { tanggal, ulp, row, hartek, c4aUiw, cuaca } */
 function teksUiw_(d) {
+  var htk = d.hartek || (d.row && d.row.hartek) || null;
   var L = [];
   L.push('*ULP ' + String(d.ulp).toUpperCase() + '*');
   L.push('');
   L.push('\uD83D\uDCC5 Hari / Tanggal : ' + tglIndo_(d.tanggal));
   L.push('\uD83D\uDC77 Tim ROW : ' + d.row.tim.length + ' Tim');
-  L.push('\uD83D\uDC77 Tim Hartek : - Tim');
+  L.push('\uD83D\uDC77 Tim Hartek : ' + (htk && htk.aktif ? htk.timLapor : '-') + ' Tim');
   L.push('\uD83C\uDF24\uFE0F Cuaca : ' + (String(d.cuaca || '').trim() || '-'));
   L.push(LAP_SEP_);
   L.push('\uD83C\uDF3F CARE FOR ASSET');
-  var grup = grupC4a_(d.c4aUiw);
+  // v1.0.6: CARE FOR ASSET dari Inspeksi Jaringan (per penyulang, format v1). Tanpa data inspeksi = C4A manual.
+  var care = (d.row && d.row.inspeksi && d.row.inspeksi.care) || [];
+  var grup = care.length ? care.map(function (c) {
+    return { penyulang: c.penyulang, sections: [c.section], tiang: c.tiang, peralatan: c.peralatan, row: c.row };
+  }) : grupC4a_(d.c4aUiw);
   if (grup.length) {
     grup.forEach(function (g) {
       L.push('');
@@ -325,15 +614,54 @@ function teksUiw_(d) {
   }
   L.push(LAP_SEP_);
   L.push('\u26A1 REALISASI PEKERJAAN HARTEK');
-  L.push('Penyulang : -');
-  L.push('Section : -');
+  L.push('Penyulang : ' + (htk && htk.penyulangUiw && htk.penyulangUiw.length ? htk.penyulangUiw.join(', ') : '-'));
+  L.push('Section : ' + (htk && htk.sectionUiw && htk.sectionUiw.length ? htk.sectionUiw.join(', ') : '-'));
   L.push(LAP_SEP_);
-  ['\uD83D\uDD27 PEKERJAAN JARINGAN', '\uD83D\uDCCC PEKERJAAN GARDU', '\uD83D\uDCCB PEKERJAAN NON-TEKNIK'].forEach(function (j) {
-    L.push(j);
+  L.push('\uD83D\uDD27 PEKERJAAN JARINGAN');
+  blokPekerjaanMaterialUiw_(htk ? htk.jaringan : []).forEach(function (b) { L.push(b); });
+  L.push(LAP_SEP_);
+  L.push('\uD83D\uDCCC PEKERJAAN GARDU');
+  if (htk && htk.gardu && htk.gardu.length) {
+    htk.gardu.forEach(function (g, idx) {
+      if (idx > 0) L.push('');
+      L.push('Gardu : *' + (g.noGardu || '-') + '*');
+      L.push('Pekerjaan :');
+      if (!g.pekerjaan || !g.pekerjaan.length) {
+        L.push('-');
+      } else {
+        g.pekerjaan.forEach(function (pk, j) {
+          L.push((j + 1) + '. ' + pk.nama + (pk.hasil ? ' : ' + pk.hasil : ''));
+        });
+      }
+      var matG = [], grG = [], pmG = [];
+      (g.pekerjaan || []).forEach(function (pk) {
+        (pk.material || []).forEach(function (m) {
+          matG.push(m.nama + (m.hasil ? ' : ' + m.hasil : ''));
+        });
+        barisGroundingUiw_(pk).forEach(function (b) { grG.push(b); });
+        barisPemerataanUiw_(pk).forEach(function (b) { pmG.push(b); });
+      });
+      if (matG.length) {
+        L.push('Material :');
+        matG.forEach(function (m) { L.push('- ' + m); });
+      }
+      if (grG.length) {
+        L.push('');
+        grG.forEach(function (b) { L.push(b); });
+      }
+      if (pmG.length) {
+        L.push('');
+        pmG.forEach(function (b) { L.push(b); });
+      }
+    });
+  } else {
     L.push('Pekerjaan : -');
     L.push('Material : -');
-    L.push(LAP_SEP_);
-  });
+  }
+  L.push(LAP_SEP_);
+  L.push(htk && htk.aktif ? 'PEKERJAAN NON-TEKNIK' : '\uD83D\uDCCB PEKERJAAN NON-TEKNIK');
+  blokPekerjaanMaterialUiw_(htk ? htk.nonTeknik : []).forEach(function (b) { L.push(b); });
+  L.push(LAP_SEP_);
   L.push('Demikian laporan disampaikan. Terima kasih. \u26A1');
   return L.join('\n');
 }
@@ -435,17 +763,20 @@ function dataRowHari_(sesi, tanggal, waktu) {
   var row = dataRowLaporan_(ctx, tanggal);
   row.target = targetRowHarian_();
   row.statusTim = statusTimRow_(ctx, tanggal);
+  row.hartek = dataHartekLaporan_(tanggal);
+  row.inspeksi = dataInspeksiHari_(tanggal);   // v1.0.6
+  row.inspeksiGardu = dataInspeksiGarduHari_(tanggal);   // v1.0.8
   return row;
 }
 
-/** Laporan UP3 dari modul ROW + C4A UP3 (bagian lain "-"). */
-function laporanUp3_(row, tanggal, c4aUp3) {
-  return teksUp3_({ tanggal: tanggal, ulp: cfg_().ULP_NAMA, row: row, c4aUp3: c4aUp3, target: row.target });
+/** Laporan UP3 dari modul ROW + Hartek + C4A UP3. */
+function laporanUp3_(row, tanggal, c4aUp3, hartek) {
+  return teksUp3_({ tanggal: tanggal, ulp: cfg_().ULP_NAMA, row: row, hartek: hartek || (row && row.hartek), c4aUp3: c4aUp3, target: row.target });
 }
 
-/** Laporan UIW dari modul ROW + Cuaca + C4A UIW (Hartek dll "-"). */
-function laporanUiw_(row, tanggal, c4aUiw, cuaca) {
-  return teksUiw_({ tanggal: tanggal, ulp: cfg_().ULP_NAMA, row: row, c4aUiw: c4aUiw, cuaca: cuaca });
+/** Laporan UIW dari modul ROW + Hartek + Cuaca + C4A UIW. */
+function laporanUiw_(row, tanggal, c4aUiw, cuaca, hartek) {
+  return teksUiw_({ tanggal: tanggal, ulp: cfg_().ULP_NAMA, row: row, hartek: hartek || (row && row.hartek), c4aUiw: c4aUiw, cuaca: cuaca });
 }
 
 function teksBagian_(B, row, tanggal, c4a, cuaca) {
@@ -461,11 +792,27 @@ function ringkasRow_(row) {
            }), komulatif: row.komulatif, timLapor: row.tim.length, target: row.target };
 }
 
+/** Ringkasan Hartek untuk layar HP (status tim, per penyulang, komulatif). */
+function ringkasHartek_(htk) {
+  if (!htk || !htk.aktif) return null;
+  var peny = Object.keys(htk.perPenyulang || {}).sort();
+  return {
+    status: htk.statusTim || 'BELUM',
+    timLapor: htk.timLapor || 0,
+    penyulang: peny.map(function (p) {
+      return { penyulang: p, gardu: htk.perPenyulang[p].gardu || 0, jaringan: htk.perPenyulang[p].jaringan || 0 };
+    }),
+    komulatif: htk.komulatif || { gardu: 0, jaringan: 0 }
+  };
+}
+
 /** Hasil satu laporan (get & simpan). ganti = { c4a, cuaca } yang belum ditulis; kosong = dari sheet. */
 function susunBagian_(sesi, B, tanggal, waktu, T, ganti) {
   ganti = ganti || {};
   var lap = barisHarian_(T[B.sheet], tanggal);
-  var c4a = ganti.c4a || barisC4a_(T[B.c4a], lap).map(B.dariBaris);
+  // v0.62.9: belum ada baris harian tapi simpan pertama sempat menulis C4A = tampilkan C4A itu (tertunda)
+  var induk = lap || { lap_id: lapIdBaru_(T[B.sheet], B.bagian, tanggal) };
+  var c4a = ganti.c4a || barisC4a_(T[B.c4a], induk).map(B.dariBaris);
   var cuaca = B.cuaca ? (ganti.cuaca !== undefined ? ganti.cuaca : (lap ? lapTeks_(lap.Cuaca) : '')) : undefined;
   var row = dataRowHari_(sesi, tanggal, waktu);
   var h = {
@@ -473,8 +820,11 @@ function susunBagian_(sesi, B, tanggal, waktu, T, ganti) {
     bisaUbah: tanggal === waktu.hariIni && (sesi.role === 'ADMIN' || sesi.role === 'SUPER') &&
               aksesUntuk_(sesi.role, sesi.jenisTim, B.menu) === 'UBAH',
     laporan: ringkasLap_(lap), revision: lap ? Number(lap.revision) || 0 : 0, c4a: c4a,
+    tertunda: !ganti.c4a && simpanTertunda_(T[B.c4a], lap, induk.lap_id),
     statusTim: row.statusTim, row: ringkasRow_(row), waText: teksBagian_(B, row, tanggal, c4a, cuaca)
   };
+  var rkH = ringkasHartek_(row.hartek);
+  if (rkH) h.hartek = rkH;
   if (B.cuaca) h.cuaca = cuaca;
   return h;
 }
@@ -590,12 +940,42 @@ function rencanaC4a_(t, lapId, daftar, kolom, kunci, umum) {
   return { t: t, ubah: ubah, baru: baru, batal: batal };
 }
 
+/** v0.62.9: semua ubah + BATAL + baris baru C4A dalam satu panggilan tulis (tulisBlok_). */
 function tulisC4a_(rencana) {
-  rencana.ubah.forEach(function (x) { ubahBarisDikenal_(rencana.t, x.r, x.u); });
-  if (!rencana.baru.length) return;
+  if (!rencana.ubah.length && !rencana.baru.length) return;
   var akhir = rencana.t.rows.length ? Math.max.apply(null, rencana.t.rows.map(function (r) { return r._baris; })) : 1;
   rencana.baru.forEach(function (o, i) { o.No = akhir + i; });
-  tambahBanyak_(rencana.t, rencana.baru);
+  tulisBlok_(rencana.t, rencana.ubah, rencana.baru);
+}
+
+/**
+ * v0.62.9: lap_id baris harian baru = turunan bagian + tanggal (bukan uuid acak), jadi simpan ulang setelah gagal
+ * memakai id yang sama dan C4A yang sempat tertulis tetap terhubung (dulu: id baru -> ID_GANDA).
+ * Tanggal yang sudah punya baris (non-AKTIF) diberi urutan -2, -3, ... Dipanggil hanya kalau belum ada baris AKTIF.
+ */
+function lapIdBaru_(t, bagian, tanggal) {
+  var ada = {}, n = 0;
+  t.rows.forEach(function (r) {
+    if (!r.lap_id) return;
+    ada[String(r.lap_id)] = true;
+    if (tglSel_(r.Tanggal) === tanggal) n++;
+  });
+  var dasar = 'LAP-' + bagian + '-' + tanggal, id = n ? dasar + '-' + (n + 1) : dasar;
+  while (ada[id]) { n++; id = dasar + '-' + (n + 1); }
+  return id;
+}
+
+/**
+ * v0.62.9: simpan terakhir belum selesai? C4A ditulis dulu, baris harian (revision) terakhir sebagai tanda selesai.
+ * Tertunda = ada C4A laporan itu yang lebih baru dari baris harian (toleransi 2 dtk), atau C4A tanpa baris harian.
+ * Isi C4A saat tertunda tetap lengkap (satu panggilan tulis), hanya belum dikunci; simpan ulang menyelesaikannya.
+ */
+function simpanTertunda_(tC4a, lap, lapId) {
+  var milik = tC4a.rows.filter(function (r) { return r.c4a_id && String(r.lap_id) === String(lapId); });
+  if (!milik.length) return false;
+  if (!lap) return true;
+  var h = keDate_(lap['Timestamp Update']), batas = h ? h.getTime() + 2000 : 0;
+  return milik.some(function (r) { var u = keDate_(r['Timestamp Update']); return !!u && u.getTime() > batas; });
 }
 
 /** Baris harian baru di t (lap_Harian_UP3 / lap_Harian_UIW). Wajib di dalam lock. */
@@ -641,7 +1021,10 @@ function simpanLaporanBagian_(sesi, data, platform, bagian) {
     cuaca: { tipe: 'teks', maks: 40 } });
   var waktu = waktuRow_();
   if (d.tanggal !== waktu.hariIni) throw new SisiError_('HANYA_HARI_INI', d.tanggal);
-  var daftar = B.validasi(data.c4a === undefined ? [] : data.c4a, masterRow_());
+  // v0.62.7 (audit 7 Okt 2026): c4a WAJIB dikirim (kontrak API). Dulu tidak dikirim = dianggap [] dan SEMUA C4A laporan
+  // itu jadi BATAL diam-diam. Kosongkan semua tetap bisa dengan mengirim c4a: [].
+  if (!Array.isArray(data.c4a)) throw new SisiError_('FIELD_WAJIB', 'c4a');
+  var daftar = B.validasi(data.c4a, masterRow_());
   var cuaca = B.cuaca ? (d.cuaca || '') : undefined;
 
   return denganLock_(function () {
@@ -651,7 +1034,7 @@ function simpanLaporanBagian_(sesi, data, platform, bagian) {
     var tHarian = T[B.sheet];
     var lap = barisHarian_(tHarian, d.tanggal);
     if ((lap ? Number(lap.revision) || 0 : 0) !== d.revision) throw new SisiError_('KONFLIK_REVISION', B.bagian + ' ' + d.tanggal);
-    var lapId = lap ? String(lap.lap_id) : uuid_();
+    var lapId = lap ? String(lap.lap_id) : lapIdBaru_(tHarian, B.bagian, d.tanggal);
     var sekarang = new Date(), oleh = sesi.nama || sesi.username;
     var rencana = rencanaC4aBagian_(B.bagian, T[B.c4a], lapId, daftar, { sekarang: sekarang, oleh: oleh, userId: sesi.userId, tanggal: d.tanggal });
     var hasil = susunBagian_(sesi, B, d.tanggal, waktu, T, { c4a: daftar, cuaca: cuaca });
@@ -660,15 +1043,19 @@ function simpanLaporanBagian_(sesi, data, platform, bagian) {
     var isi = { 'Input Oleh': oleh, 'Timestamp Update': sekarang, diubah_oleh: sesi.userId };
     isi[B.kolomTeks] = hasil.waText;
     if (B.cuaca) { isi.Cuaca = cuaca; isi['Tim ROW'] = hasil.row.timLapor; }
-    // ---- tulis (tanpa baca lagi), hanya sheet laporan ini ----
-    if (lap) ubahBarisDikenal_(tHarian, lap, isi);
-    else lap = barisHarianBaru_(tHarian, d.tanggal, lapId, isi, sesi.userId);
+    // ---- tulis, hanya sheet laporan ini ----
+    // v0.62.9 (audit 7 Okt 2026): C4A DULU (satu panggilan), baris harian + revision TERAKHIR (satu panggilan) sebagai
+    // tanda simpan selesai. Gagal di antaranya = revision belum naik, simpan ulang payload yang sama aman (id sama,
+    // tidak dobel). Dulu baris harian ditulis duluan: gagal di C4A = revision sudah naik, ulang = KONFLIK_REVISION.
     tulisC4a_(rencana);
+    if (lap) tulisBlok_(tHarian, [{ r: lap, u: isi }], []);
+    else lap = barisHarianBaru_(tHarian, d.tanggal, lapId, isi, sesi.userId);
     auditLog_(sesi, 'SIMPAN_LAPORAN_' + B.bagian, d.tanggal, 'c4a=' + daftar.length + ' baru=' + rencana.baru.length +
               ' batal=' + rencana.batal + (B.cuaca ? ' cuaca=' + (cuaca ? 'ya' : 'kosong') : ''), platform, tLog);
     w('tulis');
     hasil.laporan = ringkasLap_(lap);
     hasil.revision = hasil.laporan.revision;
+    hasil.tertunda = false;
     if (cfg_().ENV === 'staging') hasil._waktu = w.ringkas();
     return hasil;
   });
@@ -690,9 +1077,9 @@ function buatBarisHarian_(tanggal) {
     var sistem = { userId: 'SISTEM', username: 'sistem', nama: 'SISTEM', role: 'SUPER', jenisTim: '' };
     var row = dataRowHari_(sistem, tanggal, waktuRow_());
     var isi = function () { return { 'Input Oleh': 'SISTEM', 'Timestamp Update': new Date(), diubah_oleh: 'SISTEM' }; };
-    if (!adaUp3) barisHarianBaru_(tUp3, tanggal, uuid_(), Object.assign(isi(), { 'Laporan UP3': laporanUp3_(row, tanggal, []) }), 'SISTEM');
+    if (!adaUp3) barisHarianBaru_(tUp3, tanggal, lapIdBaru_(tUp3, 'UP3', tanggal), Object.assign(isi(), { 'Laporan UP3': laporanUp3_(row, tanggal, []) }), 'SISTEM');
     if (!adaUiw) {
-      barisHarianBaru_(tUiw, tanggal, uuid_(), Object.assign(isi(), { Cuaca: '', 'Tim ROW': row.tim.length,
+      barisHarianBaru_(tUiw, tanggal, lapIdBaru_(tUiw, 'UIW', tanggal), Object.assign(isi(), { Cuaca: '', 'Tim ROW': row.tim.length,
         'Laporan UIW': laporanUiw_(row, tanggal, [], '') }), 'SISTEM');
     }
     return { up3: adaUp3 ? 'SUDAH_ADA' : 'DIBUAT', uiw: adaUiw ? 'SUDAH_ADA' : 'DIBUAT' };
@@ -700,8 +1087,13 @@ function buatBarisHarian_(tanggal) {
 }
 
 /** Pemicu harian (dan bisa dijalankan manual dari editor): baris lap_Harian_UP3 + lap_Harian_UIW hari ini. */
-function ADMIN_buatBarisHarian() {
+function ADMIN_buatBarisHarian(e) {
   pastikanPemilik_();
+  return jalanPemicu_('ADMIN_buatBarisHarian', e, buatBarisHarianPemicu_);   // v0.84.0: waktu jalan dicatat + rem kuota
+}
+
+/** v0.84.0: isi ADMIN_buatBarisHarian (dibungkus jalanPemicu_). */
+function buatBarisHarianPemicu_() {
   var tanggal = tglJakarta_(new Date());
   var h = buatBarisHarian_(tanggal);
   console.log(tanggal + ': lap_Harian_UP3 ' + h.up3 + ', lap_Harian_UIW ' + h.uiw);

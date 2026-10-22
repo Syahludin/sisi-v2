@@ -54,6 +54,7 @@ class AppColors {
   static const cyan100 = brand100;
   static const amber700 = accent700;
   static const amber600 = accent600;
+  static const amber500 = accent400;
 
   // Warna resmi PLN
   static const plnYellow = Color(0xFFFFDE00);

@@ -23,6 +23,12 @@ class DataWatermark {
     required this.jenis,
     required this.slot,
     this.sumber = 'KAMERA',
+    this.labelKode = 'Kode Eksekusi',
+    this.labelSubTim = 'Sub-Tim',
+    this.tampilDiameter = true,
+    this.gpsSusulanDetik,
+    this.barisKhusus,
+    this.judulKhusus,
   });
 
   final String kodeEksekusi;
@@ -39,6 +45,19 @@ class DataWatermark {
   final String slot; // label: Sebelum | Pekerjaan | Sesudah
   final String sumber; // KAMERA | GALERI
 
+  /// v0.64.0: watermark P0 Yandal memakai baris yang sama dengan label lain (Kode P0, Petugas, tanpa Diameter).
+  /// Default = ROW, isi watermark ROW tidak berubah.
+  final String labelKode;
+  final String labelSubTim;
+  final bool tampilDiameter;
+
+  /// v0.65.2 (P0): titik GPS menyusul N detik sesudah jepret, ditulis di baris Koordinat. null = ROW / fix saat jepret.
+  final int? gpsSusulanDetik;
+
+  /// v0.72.0 (BA Gardu): isi baris + judul sendiri (mis. No Gardu, Foto, Waktu, Koordinat). null = baris ROW / P0.
+  final List<(String, String)>? barisKhusus;
+  final String? judulKhusus;
+
   static String _isi(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();
 
   /// dd/MM/yyyy HH:mm:ss WIB
@@ -52,24 +71,26 @@ class DataWatermark {
     final k = _isi(koordinat);
     if (k == '-') return k;
     final a = akurasiM;
-    return a == null ? '$k (input)' : '$k (±${a.toStringAsFixed(0)} m)';
+    if (a == null) return '$k (input)';
+    final n = gpsSusulanDetik;
+    return n == null ? '$k (±${a.toStringAsFixed(0)} m)' : '$k (±${a.toStringAsFixed(0)} m, susulan $n dtk)';
   }
 
-  List<(String, String)> get baris => [
-        ('Kode Eksekusi', _isi(kodeEksekusi)),
+  List<(String, String)> get baris => barisKhusus ?? [
+        (labelKode, _isi(kodeEksekusi)),
         ('ULP', _isi(ulp)),
         ('Tim', _isi(tim)),
-        ('Sub-Tim', _isi(subTim)),
+        (labelSubTim, _isi(subTim)),
         ('Penyulang', _isi(penyulang)),
         ('Section', _isi(section)),
         ('Waktu', formatWaktu(waktu)),
         ('Koordinat', _koordinat),
-        ('Diameter', diameter == null ? '-' : '$diameter cm'),
+        if (tampilDiameter) ('Diameter', diameter == null ? '-' : '$diameter cm'),
         ('Jenis Pekerjaan', _isi(jenis)),
         if (sumber == 'GALERI') ('Sumber', 'Galeri (bukan kamera SiSi)'),
       ];
 
-  String get judul => 'Foto $slot';
+  String get judul => judulKhusus ?? 'Foto $slot';
 
   /// Tanda isi watermark. Beda = foto perlu dirender ulang dari file asli (mis. kode / diameter berubah).
   String get tanda => [judul, ...baris.map((b) => '${b.$1}=${b.$2}')].join('|');
@@ -88,6 +109,12 @@ class DataWatermark {
         jenis: jenis,
         slot: slot,
         sumber: sumber,
+        labelKode: labelKode,
+        labelSubTim: labelSubTim,
+        tampilDiameter: tampilDiameter,
+        gpsSusulanDetik: gpsSusulanDetik,
+        barisKhusus: barisKhusus,
+        judulKhusus: judulKhusus,
       );
 }
 

@@ -12,8 +12,10 @@ var ARSIP_FOTO_TTL_ = 21600;
 var URUT_SLOT_ = ['SEBELUM', 'PEKERJAAN', 'SESUDAH'];
 
 function kunciArsipFoto_(sesi, fotoId) { return 'arsip-foto:' + String(sesi._tokenHash || '').slice(0, 24) + ':' + fotoId; }
+// v0.62.7: izin tanpa tim (format v0.47-v0.62.5) dianggap kedaluwarsa; HP memanggil ulang getArsipHariRow.
 
 function getArsipHariRow_(sesi, data) {
+  timLaporan_(sesi, null);   // v0.76.1 audit guard: peran dicek PALING AWAL
   var d = validasi_(data, { tanggal: { tipe: 'tanggal', wajib: true }, timId: { tipe: 'uuid' } });
   var c = cfg_();
   if (!c.ROW_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'ROW_SHEET_ID');
@@ -65,11 +67,15 @@ function getArsipHariRow_(sesi, data) {
   });
   var izin = {};
   var eksPer = {};
+  // v0.62.7 (audit 7 Okt 2026): izin foto arsip menyimpan tim pemilik, dicek lagi saat foto diambil.
+  var timHdr = {}, timReal = {};
+  header.forEach(function (h) { timHdr[String(h.header_id)] = String(h.tim_id); });
+  R.forEach(function (r) { timReal[String(r.realisasi_id)] = timHdr[String(r.header_id)] || ''; });
   E.sort(urutKode('Kode Eksekusi')).forEach(function (e) {
     var m = fotoPer[String(e.eksekusi_id)] || {};
     var foto = URUT_SLOT_.filter(function (s) { return m[s]; }).map(function (s) {
       var f = m[s];
-      izin[kunciArsipFoto_(sesi, String(f.foto_id))] = JSON.stringify({ f: String(f.drive_file_id), s: teks(f.sha256) });
+      izin[kunciArsipFoto_(sesi, String(f.foto_id))] = JSON.stringify({ f: String(f.drive_file_id), s: teks(f.sha256), t: timReal[String(e.realisasi_id)] || '' });
       return { fotoId: String(f.foto_id), slot: s, sha256: teks(f.sha256), ukuranByte: Number(f.ukuran_byte) || 0,
                sumber: teks(f.sumber_foto) };
     });
@@ -115,13 +121,16 @@ function getArsipHariRow_(sesi, data) {
 
 /** 1 foto arsip (base64). Hanya foto yang sudah lolos cek kepemilikan di getArsipHariRow sesi yang sama. */
 function getFotoArsipRow_(sesi, data) {
+  timLaporan_(sesi, null);   // PETUGAS non-ROW ditolak (v0.76.1: sebelum isi data dibaca)
   var d = validasi_(data, { fotoId: { tipe: 'uuid', wajib: true } });
-  timLaporan_(sesi, null);   // PETUGAS non-ROW ditolak
   if (!sesi._tokenHash) throw new SisiError_('SESI_TIDAK_VALID');
   var izin = null;
   try { izin = JSON.parse(CacheService.getScriptCache().get(kunciArsipFoto_(sesi, d.fotoId)) || 'null'); } catch (e) { izin = null; }
   // izin format lama (v0.37-v0.46: teks ID saja) dianggap kedaluwarsa, HP memanggil ulang detail
-  if (!izin || typeof izin !== 'object' || !izin.f) throw new SisiError_('ARSIP_FOTO_KEDALUWARSA');
+  if (!izin || typeof izin !== 'object' || !izin.f || !izin.t) throw new SisiError_('ARSIP_FOTO_KEDALUWARSA');
+  // v0.62.7: izin berlaku 6 jam per token. Role / tim akun berubah di tengah jalan (mis. ADMIN_ES jadi PETUGAS tim
+  // lain) = sesi segar tidak lagi berhak atas tim itu, walau izinnya masih ada di cache.
+  timLaporan_(sesi, izin.t);
   var v = bytesFotoTerverifikasi_(izin.f, izin.s);
   return { fotoId: d.fotoId, mime: 'image/jpeg', ukuranByte: v.bytes.length, sha256: v.sha256,
            data: Utilities.base64Encode(v.bytes) };

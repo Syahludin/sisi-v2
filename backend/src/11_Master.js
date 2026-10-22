@@ -27,7 +27,8 @@ var MODUL_MASTER_ = {
     return tabel_('MASTER_SHEET_ID', 'db_Jenis_Pekerjaan').rows.filter(function (r) { return r.jenis_id; }).map(function (r) {
       return { id: String(r.jenis_id), modul: String(r.modul), nama: String(r.nama), satuan: String(r.satuan),
                diameterMin: angkaAtauNull(r.diameter_min), diameterMax: angkaAtauNull(r.diameter_max),
-               urutan: Number(r.urutan) || 0, aktif: isAktif_(r.aktif) };
+               urutan: Number(r.urutan) || 0, aktif: isAktif_(r.aktif),
+               bobot: angkaAtauNull(r.bobot) };   // v0.64.3: bobot P0 Yandal (null = kosong / sheet lama)
     });
   },
   pengguna: function (sesi) {
@@ -51,13 +52,17 @@ function getMaster_(sesi, data) {
   var skema = { versi: 1, modul: 1, versiModul: 1 };
   Object.keys(data).forEach(function (k) { if (!skema[k]) throw new SisiError_('FIELD_TIDAK_DIKENAL', k); });
   var semua = Object.keys(MODUL_MASTER_);
+  // v0.69.0: modul opsional (gardu, pejabatBa) hanya dikirim kalau diminta lewat `modul` (bukan bagian unduhan default)
+  var opsional = typeof MODUL_MASTER_OPSIONAL_ === 'object' && MODUL_MASTER_OPSIONAL_ ? MODUL_MASTER_OPSIONAL_ : {};
+  var boleh = semua.concat(Object.keys(opsional));
+  var fnModul = function (m) { return Object.prototype.hasOwnProperty.call(MODUL_MASTER_, m) ? MODUL_MASTER_[m] : opsional[m]; };
 
   var diminta = semua;
   if (data.modul !== undefined && data.modul !== null) {
-    if (!Array.isArray(data.modul) || data.modul.length === 0 || data.modul.length > semua.length) throw new SisiError_('TIPE_SALAH', 'modul');
+    if (!Array.isArray(data.modul) || data.modul.length === 0 || data.modul.length > boleh.length) throw new SisiError_('TIPE_SALAH', 'modul');
     diminta = [];
     data.modul.forEach(function (m) {
-      if (typeof m !== 'string' || semua.indexOf(m) < 0) throw new SisiError_('FORMAT_SALAH', 'modul');
+      if (typeof m !== 'string' || boleh.indexOf(m) < 0) throw new SisiError_('FORMAT_SALAH', 'modul');
       if (diminta.indexOf(m) < 0) diminta.push(m);
     });
   }
@@ -66,7 +71,7 @@ function getMaster_(sesi, data) {
     if (typeof data.versiModul !== 'object' || Array.isArray(data.versiModul)) throw new SisiError_('TIPE_SALAH', 'versiModul');
     Object.keys(data.versiModul).forEach(function (m) {
       var v = data.versiModul[m];
-      if (semua.indexOf(m) < 0) throw new SisiError_('FORMAT_SALAH', 'versiModul');
+      if (boleh.indexOf(m) < 0) throw new SisiError_('FORMAT_SALAH', 'versiModul');
       if (typeof v !== 'string' || v.length > 80) throw new SisiError_('TIPE_SALAH', 'versiModul');
       versiModul[m] = v;
     });
@@ -78,7 +83,7 @@ function getMaster_(sesi, data) {
   var hasil = { modul: {} };
   var gabungan = {};
   diminta.forEach(function (m) {
-    var isi = MODUL_MASTER_[m](sesi);
+    var isi = fnModul(m)(sesi);
     gabungan[m] = isi;
     var v = sha256Hex_(JSON.stringify(isi)).slice(0, 16);
     var berubah = versiModul[m] !== v;

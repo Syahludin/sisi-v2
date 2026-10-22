@@ -14,7 +14,8 @@ jobs:
       - run: npm test
       - name: Tidak ada ID Google di kode
         run: |
-          if grep -RInE "[0-9A-Za-z_-]{40,}" backend/src mobile/lib --include=*.js --include=*.dart --include=*.json | grep -viE "regexp|test" ; then
+          # v0.62.6: tanpa pengecualian kata "regexp|test" per baris (dulu baris kode yang memuat kata "test" ikut lolos).
+          if grep -RInE "[0-9A-Za-z_-]{40,}" backend/src mobile/lib --include=*.js --include=*.dart --include=*.json ; then
             echo "Ada string mirip ID/secret di kode. Pindahkan ke Script Properties atau env."; exit 1; fi
   mobile:
     runs-on: ubuntu-latest

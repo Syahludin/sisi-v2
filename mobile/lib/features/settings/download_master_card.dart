@@ -7,6 +7,7 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../features/master/master_repository.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/popup_berhasil.dart';
 
 enum _Tahap { menunggu, jalan, selesai, gagal }
 
@@ -80,7 +81,9 @@ class _DownloadMasterCardState extends State<DownloadMasterCard> {
     await _muat();
     if (!mounted) return;
     setState(() => _jalan = false);
-    await _dialogBerhasil();
+    // v0.92.1: dialog "Selesai" diganti pop up centang yang hilang sendiri (seragam dengan semua download)
+    await tampilPopupBerhasil(context,
+        judul: 'Master Data berhasil didownload', keterangan: 'Tersimpan di HP dan siap dipakai offline');
     if (mounted) setState(() => _tahap = const {});
   }
 
@@ -92,32 +95,6 @@ class _DownloadMasterCardState extends State<DownloadMasterCard> {
       _jalan = false;
     });
     _muat();
-  }
-
-  Future<void> _dialogBerhasil() {
-    return showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: const BoxDecoration(color: AppColors.cyan100, shape: BoxShape.circle),
-            child: const Icon(Icons.check_rounded, color: AppColors.cyan600, size: 32),
-          ),
-          const SizedBox(height: 14),
-          const Text('Master Data berhasil di-download',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          const Text('Semua data master sudah tersimpan dan siap digunakan offline.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.neutral500)),
-          const SizedBox(height: 17),
-          SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Selesai'))),
-        ]),
-      ),
-    );
   }
 
   @override

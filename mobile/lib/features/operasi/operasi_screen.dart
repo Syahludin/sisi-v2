@@ -5,10 +5,21 @@ import 'package:flutter/material.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'katalog_operasi.dart';
 import 'laporan_tim_screen.dart';
 import 'laporan_up3_screen.dart';
+import 'pemakaian_engine_screen.dart';
+import '../yandal/approval_p0_screen.dart';
+import '../yandal/petugas_yandal_screen.dart';
+import '../gardu/arsip_ba_lembar.dart';
+import '../gardu/berita_acara_screen.dart';
+import '../gardu/pengukuran_gardu_screen.dart';
+import '../insjar/input_temuan_inspeksi_screen.dart';
+import '../jadwal_padam/jadwal_padam_screen.dart';
+import '../wo/wo_admin_screen.dart';
+import '../wo/wo_ganda_screen.dart';
 
 /// Tab Operasi untuk ADMIN / SUPER / ADMIN_ES (v0.50, desain kvlar 4 Okt 2026).
 /// Grup tile dari KatalogOperasi; tiap modul hanya tampil kalau menu_kode-nya ada di menu sesi (db_Menu + db_Akses).
@@ -40,7 +51,8 @@ class _OperasiScreenState extends State<OperasiScreen> {
     super.dispose();
   }
 
-  bool _punya(ModulOperasi m) => widget.sesi.aksiMenu(m.kode) != null;
+  bool _punya(ModulOperasi m) =>
+      widget.sesi.aksiMenu(m.kode) != null && (m.kode != 'OPS_BA_GARDU' || bolehLihatBa(widget.sesi));
 
   Future<void> _muatRingkas() async {
     if (widget.sesi.aksiMenu('ROW_LAPORAN') == null) return;
@@ -79,6 +91,26 @@ class _OperasiScreenState extends State<OperasiScreen> {
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LaporanUp3Screen(deps: widget.deps, sesi: widget.sesi, bagian: 'UP3')));
       case 'OPS_LAP_UIW':
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LaporanUp3Screen(deps: widget.deps, sesi: widget.sesi, bagian: 'UIW')));
+      case 'OPS_PETUGAS_YANDAL': // v0.63.0
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PetugasYandalScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_PENGUKURAN_GARDU': // v0.69.0
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PengukuranGarduScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_BA_GARDU': // v0.69.0
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => BeritaAcaraScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_ENGINE': // v0.85.0
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PemakaianEngineScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_VERIFIKASI_P0': // v0.75.0
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_INPUT_TEMUAN': // v1.0.0: Input Temuan Inspeksi (admin)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_PENERUSAN_WO': // v1.0.11: Penerusan WO Temuan (admin)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WoAdminScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_PINDAH_TIM_TO': // v1.0.18: pindah / tarik WO terkirim (dipindah dari Penerusan WO)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WoAdminScreen(deps: widget.deps, sesi: widget.sesi, pindah: true)));
+      case 'OPS_JADWAL_PADAM': // v1.0.17: Jadwal Padam (port v1) + format WA rentang tanggal, khusus admin
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => JadwalPadamScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_WO_GANDA': // v1.0.16: Verifikasi WO Ganda (admin)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WoGandaScreen(deps: widget.deps, sesi: widget.sesi)));
     }
   }
 
@@ -118,7 +150,7 @@ class _OperasiScreenState extends State<OperasiScreen> {
   Widget build(BuildContext context) {
     final terlihat = KatalogOperasi.semua.where((m) => _punya(m) && _cocok(m)).toList();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: AppColors.neutral50,
       appBar: sisiAppBar('Operasi', subjudul: 'ULP ${widget.sesi.ulp} • ${widget.sesi.role}', actions: [
         TombolSegarkan(sibuk: _menyegarkan, onPressed: _segarkan),
       ]),
@@ -168,9 +200,7 @@ class _OperasiScreenState extends State<OperasiScreen> {
     final kecil = isi.where((m) => !m.lebar).toList();
     return [
       const SizedBox(height: 20),
-      Text(judul.toUpperCase(),
-          style: const TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w900, color: AppColors.cyan600)),
-      const SizedBox(height: 10),
+      JudulSeksiSisi(judul, keterangan: '${isi.length} menu'), // v1.0.18: judul seksi Jaringan SiSi
       for (final m in lebar) ...[
         _TileLebar(m: m, sub: m.kode == 'ROW_LAPORAN' ? (_ringkasTim ?? m.desc) : m.desc, onTap: () => _buka(m)),
         const SizedBox(height: 10),
@@ -203,12 +233,18 @@ class _TileLebar extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(0, 14, 14, 14),
             child: Row(children: [
+              // v1.0.18: garis warna modul di kiri + ikon bergradien lembut
+              Container(width: 4, height: 44, decoration: BoxDecoration(color: m.warna, borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)))),
+              const SizedBox(width: 12),
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(color: m.warna.withValues(alpha: .12), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [m.warna.withValues(alpha: .18), m.warna.withValues(alpha: .06)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Icon(m.ikon, color: m.warna, size: 26),
               ),
               const SizedBox(width: 14),
@@ -242,9 +278,13 @@ class _Tile extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
             child: Column(children: [
               Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: m.warna.withValues(alpha: .12), shape: BoxShape.circle),
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [m.warna.withValues(alpha: .20), m.warna.withValues(alpha: .07)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: m.warna.withValues(alpha: .18)),
+                ),
                 child: Icon(m.ikon, color: m.warna, size: 23),
               ),
               const SizedBox(height: 8),

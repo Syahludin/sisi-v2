@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -34,7 +35,45 @@ class SessionStore {
     }
   }
 
-  Future<void> simpan(Sesi s) => _s.write(key: _kunci, value: jsonEncode(s.keJson()));
+  /// v0.62.5: semua tulis / hapus sesi berurutan (satu antrean), supaya "cek token lalu tulis" tidak bisa
+  /// diselingi logout / login akun lain.
+  Future<void> _antre = Future<void>.value();
 
-  Future<void> hapus() => _s.delete(key: _kunci);
+  Future<T> _berurutan<T>(Future<T> Function() fn) {
+    final c = Completer<T>();
+    _antre = _antre.then((_) async {
+      try {
+        c.complete(await fn());
+      } catch (e, st) {
+        c.completeError(e, st);
+      }
+    });
+    return c.future;
+  }
+
+  Future<String?> _tokenSekarang() async {
+    final raw = await _s.read(key: _kunci);
+    if (raw == null) return null;
+    try {
+      return Sesi.dariJson(jsonDecode(raw) as Map<String, dynamic>).token;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> simpan(Sesi s) => _berurutan(() => _s.write(key: _kunci, value: jsonEncode(s.keJson())));
+
+  Future<void> hapus() => _berurutan(() => _s.delete(key: _kunci));
+
+  /// Tulis [baru] hanya kalau token yang tersimpan masih [token] (jawaban cekSesi yang terlambat). Hasil: ditulis?
+  Future<bool> simpanJikaToken(String token, Sesi baru) => _berurutan(() async {
+        if (await _tokenSekarang() != token) return false;
+        await _s.write(key: _kunci, value: jsonEncode(baru.keJson()));
+        return true;
+      });
+
+  /// Hapus sesi hanya kalau token yang tersimpan masih [token] (sesi habis yang terlambat tidak menghapus akun baru).
+  Future<void> hapusJikaToken(String token) => _berurutan(() async {
+        if (await _tokenSekarang() == token) await _s.delete(key: _kunci);
+      });
 }

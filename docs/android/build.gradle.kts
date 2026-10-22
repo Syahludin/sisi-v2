@@ -1,4 +1,4 @@
-// SiSi v0.58.3: mobile/android/app/build.gradle.kts LENGKAP (keystore rilis + flavor staging / production).
+// SiSi v0.83.0 (v0.58.3 + plugin FCM opsional): mobile/android/app/build.gradle.kts LENGKAP (keystore rilis + flavor staging / production).
 // Ditimpa utuh ke file app. Bagian bawaan flutter create (namespace, sdk, kotlin, flutter) tidak diubah.
 import java.io.FileInputStream
 import java.util.Properties
@@ -8,6 +8,11 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// v0.83.0: notifikasi FCM. Plugin google-services hanya dipasang kalau android/app/google-services.json ada,
+// jadi build tanpa Firebase tetap jalan (notifikasi mati). Plugin wajib terdaftar di android/settings.gradle.kts:
+//   id("com.google.gms.google-services") version "4.4.2" apply false
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 // Keystore rilis (v0.58): android/key.properties dibuat scripts\buat-keystore.ps1, tidak ikut git / zip.
 val keystoreProperties = Properties()
