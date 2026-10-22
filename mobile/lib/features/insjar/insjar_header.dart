@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/lonceng.dart';
 import '../../widgets/sisi_motif.dart';
 import '../hartek/hartek_gaya.dart';
 
@@ -14,11 +15,15 @@ class HeaderInsJar extends StatelessWidget {
     required this.ikon,
     this.sub = '',
     this.aksi = const <Widget>[],
+    this.lonceng = false,
   });
 
   final String kicker, judul, sub;
   final IconData ikon;
   final List<Widget> aksi;
+
+  /// v1.0.19: lonceng notifikasi di kanan atas (halaman utama modul).
+  final bool lonceng;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +67,7 @@ class HeaderInsJar extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, color: HartekGaya.putih85)),
             ]),
           ),
+          if (lonceng) LoncengNotifikasi(latar: Colors.white.withValues(alpha: .16)),
           if (aksi.isNotEmpty) ...[
             const SizedBox(width: 8),
             ...aksi,

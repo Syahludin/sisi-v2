@@ -41,6 +41,25 @@ void main() {
     expect(r.first.jenis.map((j) => (j.jenis, j.jumlah)).toList(), [('Pohon dekat jaringan', 2), ('Isolator retak', 1)]);
   });
 
+  test('v1.0.19 ringkasan per penyulang: penyulang abjad, section ikut urutan db_Jaringan (di luar master di belakang), jenis per section', () {
+    final l = [
+      {'penyulang': 'TB-02', 'section': 'Rias', 'jenisTemuan': 'Pohon'},
+      {'penyulang': 'TB-01', 'section': 'Kampung Baru', 'jenisTemuan': 'Pohon'},
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Isolator'},
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Pohon'},
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Pohon'},
+      {'penyulang': 'TB-01', 'section': 'Asing', 'jenisTemuan': 'Pohon'},
+    ];
+    final urutan = urutanSectionTemuan([
+      {'nama': 'TB-01', 'section': ['Kampung Baru', 'Gadung']},
+    ]);
+    final r = ringkasPenyulangTemuan(l, urutan);
+    expect(r.map((p) => (p.penyulang, p.jumlah)).toList(), [('TB-01', 5), ('TB-02', 1)]);
+    expect(r.first.section.map((s) => s.section).toList(), ['Kampung Baru', 'Gadung', 'Asing'], reason: 'urutan kolom urutan, bukan jumlah');
+    expect(r.first.section[1].jenis.map((j) => (j.jenis, j.jumlah)).toList(), [('Pohon', 2), ('Isolator', 1)]);
+    expect(saringTemuan(l, penyulang: 'TB-01', section: 'Gadung', jenis: 'Pohon').length, 2);
+  });
+
   test('v1.0.17 simpanan offline: temuan baru disisipkan tanpa ganda, urut tanggal terbaru', () {
     final isi = {'dari': '2026-10-01', 'sampai': '2026-10-21', 'temuan': semua};
     final baru = SimpananTemuanOffline.sisipkan(isi, {'temuanId': '3', 'jenisTemuan': 'Isolator pecah', 'tanggal': '2026-10-22', 'kodeTemuan': 'PEG-1'});

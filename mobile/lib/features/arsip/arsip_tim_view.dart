@@ -21,9 +21,8 @@ import 'arsip_tim.dart';
 /// pola sama dengan Laporan Harian ROW.
 /// v1.0.17: + pil "Kalender" (kalender tim) kalau [kalender] diisi.
 class LaporanTimDenganArsip extends StatefulWidget {
-  const LaporanTimDenganArsip({super.key, required this.hariIni, required this.arsip, this.kalender});
+  const LaporanTimDenganArsip({super.key, required this.hariIni, required this.arsip});
   final Widget hariIni, arsip;
-  final Widget? kalender;
 
   @override
   State<LaporanTimDenganArsip> createState() => _LaporanTimDenganArsipState();
@@ -67,7 +66,6 @@ class _LaporanTimDenganArsipState extends State<LaporanTimDenganArsip> {
               child: Row(children: [
                 _pill('Hari ini', Icons.today_rounded, 0),
                 _pill('Arsip', Icons.inventory_2_outlined, 1),
-                if (widget.kalender != null) _pill('Kalender', Icons.event_note_rounded, 2),
               ]),
             ),
           ),
@@ -76,7 +74,7 @@ class _LaporanTimDenganArsipState extends State<LaporanTimDenganArsip> {
           child: MediaQuery.removePadding(
             context: context,
             removeTop: true,
-            child: IndexedStack(index: _tab, children: [widget.hariIni, widget.arsip, if (widget.kalender != null) widget.kalender!]),
+            child: IndexedStack(index: _tab, children: [widget.hariIni, widget.arsip]),
           ),
         ),
       ]);
@@ -245,7 +243,7 @@ class _ArsipTimViewState extends State<ArsipTimView> {
       perTahun.putIfAbsent(t.substring(0, 4), () => {}).putIfAbsent(t.substring(0, 7), () => []).add(l);
     }
     return Scaffold(
-      backgroundColor: HartekGaya.latar,
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: RefreshIndicator(
         onRefresh: _download,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [

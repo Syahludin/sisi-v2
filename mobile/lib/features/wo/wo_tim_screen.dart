@@ -1183,7 +1183,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     final kabar = daftarWo(_doc?['kabar']);
     final judulTab = _yandal ? 'TO P0' : 'WO Tindak Lanjut';
     return Scaffold(
-      backgroundColor: HartekGaya.latar,
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -1194,6 +1194,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
             children: [
               HeaderInsJar(
                 kicker: judulTab,
+                lonceng: true, // v1.0.19
                 judul: _sesi.timNama.isEmpty ? 'WO tim' : _sesi.timNama,
                 sub: '${n.baru} baru · ${n.dikerjakan} dikerjakan · ${n.selesai} selesai',
                 ikon: Icons.assignment_turned_in_outlined,

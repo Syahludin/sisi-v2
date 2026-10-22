@@ -11,7 +11,6 @@ import 'history_gardu_view.dart';
 import 'p0_model.dart' show kemajuanShift, teksDurasi;
 import 'pekerjaan_shift_view.dart';
 import 'yandal_login.dart';
-import '../kalender/kalender_tim_screen.dart';
 
 /// v0.63.0: kartu shift akun YANDAL (tim, shift, petugas yang dipilih saat login, jam sesi berakhir).
 /// v0.66.6 (permintaan kvlar 9 Okt 2026): desain ulang selaras kartu Rank Yandal: judul + subjudul + chip jam,
@@ -157,7 +156,10 @@ class _KemajuanShiftState extends State<_KemajuanShift> {
 /// "Pekerjaan Shift" (v0.64.0: kartu shift interaktif + P0 shift berjalan, tombol +) | "Arsip P0" | "History Pengukuran Gardu".
 /// v1.0.16: tab penanda "TO P0" dihapus; TO P0 = tab WO tindak lanjut di bottom bar (label "TO P0" untuk Yandal).
 class ShiftYandalScreen extends StatefulWidget {
-  const ShiftYandalScreen({super.key, required this.deps, required this.sesi});
+  const ShiftYandalScreen({super.key, required this.deps, required this.sesi, this.denganArsip = true});
+
+  /// v1.0.19: false = Arsip P0 ada di tab Arsip bottom bar.
+  final bool denganArsip;
   final Deps deps;
   final Sesi sesi;
 
@@ -214,7 +216,7 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
   Widget build(BuildContext context) {
     final ctl = widget.deps.syncCtl;
     return ListenableBuilder(listenable: ctl, builder: (context, _) => Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       appBar: sisiAppBar('Shift Yandal', subjudul: '${widget.sesi.timNama} • ULP ${widget.sesi.ulp}', online: ctl.online, actions: [
         TombolSegarkan(sibuk: _menyegarkan || ctl.sedangSync, onPressed: () => unawaited(_segarkan())),
       ]),
@@ -229,9 +231,8 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(children: [
                 _pill('Pekerjaan Shift', 0),
-                _pill('Arsip P0', 1),
-                _pill('History Pengukuran Gardu', 2),
-                _pill('Kalender', 3), // v1.0.17: kalender tim
+                if (widget.denganArsip) _pill('Arsip P0', 1),
+                _pill('History Pengukuran Gardu', 2), // v1.0.19: kalender hanya di Beranda
               ]),
             ),
           ),
@@ -239,14 +240,13 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
         Expanded(
           child: IndexedStack(index: _tab, children: [
             PekerjaanShiftView(key: _kunciPekerjaan, deps: widget.deps, sesi: widget.sesi),
-            ArsipP0View(key: _kunciArsip, deps: widget.deps, sesi: widget.sesi),
+            widget.denganArsip ? ArsipP0View(key: _kunciArsip, deps: widget.deps, sesi: widget.sesi) : const SizedBox.shrink(),
             HistoryPengukuranGarduView(
               key: _kunciHistoryGardu,
               deps: widget.deps,
               sesi: widget.sesi,
               onMulaiUkur: () => unawaited(_kunciPekerjaan.currentState?.muat()),
             ),
-            KalenderTimView(deps: widget.deps, sesi: widget.sesi), // v1.0.17
           ]),
         ),
       ]),

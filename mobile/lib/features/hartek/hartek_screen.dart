@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/lonceng.dart';
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -1593,9 +1594,9 @@ class _HartekScreenState extends State<HartekScreen> {
                 : 'Hartek';
     final sub = [widget.sesi.timNama, if (_tanggal.isNotEmpty) tanggalHartek(_tanggal)].where((s) => s.isNotEmpty).join(' · ');
     return Scaffold(
-      backgroundColor: HartekGaya.latar,
+      backgroundColor: bertingkat ? HartekGaya.latar : Colors.transparent, // v1.0.19: tab utama = latar bg-sisi
       appBar: AppBar(
-        backgroundColor: HartekGaya.latar,
+        backgroundColor: bertingkat ? HartekGaya.latar : Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: bertingkat,
@@ -1606,6 +1607,7 @@ class _HartekScreenState extends State<HartekScreen> {
           if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
         ]),
         actions: [
+          if (!bertingkat) const LoncengNotifikasi(warna: HartekGaya.tinta), // v1.0.19
           IconButton(
             tooltip: 'Segarkan laporan',
             onPressed: _segar || _sibuk ? null : _segarkan,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../wo/wo_foto_server.dart';
+
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -460,6 +462,11 @@ class _InsJarScreenState extends State<InsJarScreen> {
     return h.isNotEmpty ? h : 'Inspeksi ${tanggalHartek(_tanggal)}';
   }
 
+
+  /// v1.0.19: foto temuan di Drive dibaca lewat server (getFotoTemuanInsJar), dipakai thumbnail kartu + lihat foto penuh.
+  Future<Map<String, dynamic>> _muatFotoTemuan(Map<String, dynamic> data, {Duration? timeout}) =>
+      widget.deps.api.call('getFotoTemuanInsJar', token: widget.sesi.token, data: data, timeout: timeout ?? const Duration(seconds: 60));
+
   Future<void> _ketukFoto(Map<String, dynamic> r, Map<String, dynamic> t, String slot) async {
     final id = _teks(t['temuanId']);
     final label = InsJarLokal.labelFoto[slot] ?? slot;
@@ -494,7 +501,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
       return;
     }
     if (HartekLokal.fotoDiServer(t)[slot] != null) {
-      _pesan('Foto sudah tersimpan di Drive (diambil dari perangkat lain).');
+      await FotoServerWo.lihat(context, _muatFotoTemuan, {'temuanId': id, 'slot': slot}, label);
       return;
     }
     if (!_boleh || _sibuk) return;
@@ -813,6 +820,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
         label: const {'TEMUAN': 'Temuan', 'TIANG': 'Tiang'},
         bolehTambah: _boleh,
         onTap: (s) => unawaited(_ketukFoto(r, t, s)),
+        gambarServer: (s) => GambarServerWo(key: ValueKey('insjar-$id-$s'), muat: _muatFotoTemuan, data: {'temuanId': id, 'slot': s}),
       ),
       bawah: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         TandaSinkronHartek(
@@ -1005,6 +1013,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
       judul: judul,
       sub: sub,
       ikon: ikon,
+      lonceng: _halaman == HalamanInsJar.utama, // v1.0.19
       aksi: [
         if (_halaman == HalamanInsJar.utama)
           tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _segar || _sibuk ? null : _segarkan)
@@ -1017,7 +1026,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: HartekGaya.latar,
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(

@@ -60,15 +60,13 @@ class KatalogOperasi {
         ikon: Icons.content_paste_search_rounded, warna: AppColors.cyan600, grup: 'Pekerjaan Teknik', siap: true),
     // v1.0.11: Penerusan WO Temuan (ADMIN / ADMIN_ES): teruskan / pindah / tarik WO temuan ke tim ROW, Hartek, Yandal
     ModulOperasi(
-        kode: 'OPS_PENERUSAN_WO', nama: 'Penerusan WO Temuan', desc: 'Teruskan temuan inspeksi ke tim ROW / Hartek / Yandal, pantau tindak lanjut',
+        kode: 'OPS_PENERUSAN_WO', nama: 'Penerusan Tim Temuan Inspeksi', desc: 'Teruskan temuan inspeksi ke tim ROW / Hartek / Yandal, pantau tindak lanjut',
         ikon: Icons.alt_route_rounded, warna: AppColors.success700, grup: 'Pekerjaan Teknik', siap: true), // v1.0.16: ikon rute ke tim
     // v1.0.16: verifikasi WO yang diunggah dua tim (WO dipindah saat tim lama bekerja offline)
     ModulOperasi(
         kode: 'OPS_WO_GANDA', nama: 'Verifikasi WO Ganda', desc: 'Pilih tim yang sah saat satu WO diunggah lebih dari satu tim',
         ikon: Icons.how_to_reg_rounded, warna: AppColors.red600, grup: 'Pekerjaan Teknik', siap: true),
-    ModulOperasi(
-        kode: 'OPS_PENUGASAN_TIM', nama: 'Penugasan Tim', desc: 'Pilih tim eksekusi untuk TO yang menunggu penugasan',
-        ikon: Icons.group_add_outlined, warna: AppColors.amber700, grup: 'Pekerjaan Teknik'),
+    // v1.0.19: Penugasan Tim dihapus (penugasan temuan ke tim lewat Penerusan Tim Temuan Inspeksi)
     ModulOperasi(
         // v1.0.18: pindah / tarik WO terkirim (belum dimulai tim), dipindah dari Penerusan WO
         kode: 'OPS_PINDAH_TIM_TO', nama: 'Pindah Tim TO', desc: 'Pindahkan / tarik WO terkirim yang belum dimulai tim',

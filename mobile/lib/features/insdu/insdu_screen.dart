@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../wo/wo_foto_server.dart';
+
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -588,6 +590,11 @@ class _InsDuScreenState extends State<InsDuScreen> {
         );
       });
 
+
+  /// v1.0.19: foto temuan di Drive dibaca lewat server (getFotoTemuanInsDu), dipakai thumbnail kartu + lihat foto penuh.
+  Future<Map<String, dynamic>> _muatFotoTemuan(Map<String, dynamic> data, {Duration? timeout}) =>
+      widget.deps.api.call('getFotoTemuanInsDu', token: widget.sesi.token, data: data, timeout: timeout ?? const Duration(seconds: 60));
+
   Future<void> _ketukFoto(Map<String, dynamic> r, Map<String, dynamic> t, String slot) async {
     final id = teksInsDu(t['temuanId']);
     final label = _labelFoto[slot] ?? slot;
@@ -1108,6 +1115,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
       judul: judul,
       sub: sub,
       ikon: ikon,
+      lonceng: _halaman == HalamanInsDu.utama, // v1.0.19
       aksi: [
         if (_halaman == HalamanInsDu.utama)
           tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _segar || _sibuk ? null : _segarkan)
@@ -1239,6 +1247,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
         label: _labelFoto,
         bolehTambah: _boleh,
         onTap: (s) => unawaited(_ketukFoto(r, t, s)),
+        gambarServer: (s) => GambarServerWo(key: ValueKey('insdu-$id-$s'), muat: _muatFotoTemuan, data: {'temuanId': id, 'slot': s}),
       ),
       bawah: Column(children: [
         TandaSinkronHartek(node: t, onCobaUlang: () => _cobaUlang(id), onBuang: () => _buang(id), padding: const EdgeInsets.only(top: 8)),
@@ -1404,7 +1413,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: HartekGaya.latar,
+        backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
         body: SafeArea(
           bottom: false,
           child: RefreshIndicator(

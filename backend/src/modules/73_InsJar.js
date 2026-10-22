@@ -683,7 +683,9 @@ function getTemuanInspeksi_(sesi, data) {
       var ta = tglInsJar_(a), tb = tglInsJar_(b);
       return ta < tb ? 1 : ta > tb ? -1 : String(a.kode_temuan).localeCompare(String(b.kode_temuan));
     });
-    return { dari: d.dari, sampai: d.sampai, diambil: sekarangIso_(), temuan: rentang.map(temuanKeHpInsJar_) };
+    // v1.0.19: urutan section per penyulang (kolom urutan db_Jaringan) untuk ringkasan per penyulang / section di HP
+    return { dari: d.dari, sampai: d.sampai, diambil: sekarangIso_(), temuan: rentang.map(temuanKeHpInsJar_),
+             urutanSection: bagianKalender_(function () { return petaJaringanUrut_().penyulang; }) };
   }
   var tanggal = d.tanggal || tanggalHariIniHartek_();
   var rows = tabelInsJar_(INSJAR_SHEET_.TEMUAN).rows.filter(function (t) {
@@ -830,6 +832,37 @@ function uploadFotoTemuanInspeksi_(sesi, data) {
     tanggalTemuanAdmin_(tglInsJar_(r));
     return tulisFotoTemuanInsJar_(sesi, t, r, d, bytes, folderId);
   }, 30000);
+}
+
+/* ===== v1.0.19: foto temuan (kartu temuan tidak lagi hanya ikon awan) ===== */
+
+/**
+ * v1.0.19 (permintaan kvlar 23 Okt 2026): foto temuan / tiang dibaca lewat server (Drive privat), satu endpoint per menu
+ * supaya tiap layar hanya membawa beban + hak aksesnya sendiri. [boleh(t)] = cek kepemilikan baris temuan.
+ * {temuanId, slot TEMUAN|TIANG, ukuran KECIL|PENUH} -> {temuanId, slot, mime, kecil, ukuranByte, data base64}.
+ */
+function fotoTemuanDrive_(data, boleh) {
+  var d = validasi_(data, {
+    temuanId: { tipe: 'uuid', wajib: true },
+    slot: { tipe: 'pilihan', wajib: true, pilihan: Object.keys(INSJAR_FOTO_) },
+    ukuran: { tipe: 'pilihan', pilihan: ['KECIL', 'PENUH'] }
+  });
+  var t = tabelInsJar_(INSJAR_SHEET_.TEMUAN).rows.filter(function (x) { return String(x.temuan_id) === String(d.temuanId); })[0];
+  if (!t) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'temuan');
+  if (!boleh(t)) throw new SisiError_('BUKAN_MILIK_TIM', 'temuan');
+  return jawabFotoDriveWo_(String(t[INSJAR_FOTO_[d.slot] + '_file_id'] || '').trim(), d.slot, d.ukuran, { temuanId: String(d.temuanId) });
+}
+
+/** Admin (menu OPS_INPUT_TEMUAN): semua temuan. */
+function getFotoTemuanInspeksi_(sesi, data) {
+  wajibAdminTemuan_(sesi);
+  return fotoTemuanDrive_(data, function () { return true; });
+}
+
+/** Petugas Inspeksi Jaringan: temuan tim sendiri. */
+function getFotoTemuanInsJar_(sesi, data) {
+  wajibPetugasInsJar_(sesi);
+  return fotoTemuanDrive_(data, function (t) { return String(t.tim_id) === String(sesi.timId); });
 }
 
 /* ===== v1.0.6: data laporan UP3 (D. Inspeksi) dan UIW (CARE FOR ASSET) ===== */

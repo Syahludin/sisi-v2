@@ -40,7 +40,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     return ListenableBuilder(
       listenable: ctl,
       builder: (context, _) => Scaffold(
-        backgroundColor: AppColors.neutral50,
+        backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi dari kerangka (seperti Pengaturan)
         // Satu-satunya tombol sinkron ada di kartu sync (plus tarik ke bawah). Sync juga otomatis tiap 5 menit.
         appBar: sisiAppBar('Beranda', online: ctl.online),
         body: RefreshIndicator(

@@ -36,7 +36,7 @@ function Pasang-ManifestLatar([string]$mobile) {
   if (-not (Test-Path $man)) { Write-Warning "AndroidManifest.xml belum ada, sinkron latar dilewati."; return }
   $x = Get-Content $man -Raw
   $awal = $x
-  $izin = @("FOREGROUND_SERVICE", "FOREGROUND_SERVICE_DATA_SYNC", "POST_NOTIFICATIONS", "WAKE_LOCK", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS")
+  $izin = @("FOREGROUND_SERVICE", "FOREGROUND_SERVICE_DATA_SYNC", "POST_NOTIFICATIONS", "WAKE_LOCK", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "REQUEST_INSTALL_PACKAGES")
   foreach ($i in $izin) {
     if ($x -notmatch ('android\.permission\.' + $i + '"')) {
       $x = $x -replace '(\s*)<application', ('$1<uses-permission android:name="android.permission.' + $i + '" />$1<application')

@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- v1.0.19: pasang update APK langsung dari app -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
         android:requestLegacyExternalStorage="true"
         android:label="@string/app_name"

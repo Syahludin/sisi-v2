@@ -47,6 +47,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
       if (bandingVersi(v, versiApp) != 0) unawaited(_versi.cek(paksa: true));
     };
     PemeriksaVersi.aktif = _versi;
+    PemeriksaVersi.tokenSesi = () => _sesi?.token; // v1.0.19: update APK langsung dari app
     widget.deps.notif.onPesanDepan = _tampilkanNotif; // v0.83.0
     _muat();
   }

@@ -114,6 +114,7 @@ function endpoints_() {
     simpanTemuanInsJar: { fn: simpanTemuanInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 40 },
     ubahTemuanInsJar: { fn: ubahTemuanInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 40 },   // v1.0.5
     uploadFotoInsJar: { fn: uploadFotoInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 60 },   // v1.0.0
+    getFotoTemuanInsJar: { fn: getFotoTemuanInsJar_, menu: 'OPS_INSJAR_INPUT', batasMenit: 80 },   // v1.0.19
     // v1.0.8: Inspeksi Gardu petugas (PETUGAS INSPEKSI_GARDU). Lihat modules/74_InsDu.js
     getMasterInsDu: { fn: getMasterInsDu_, menu: 'OPS_INSDU_INPUT', batasMenit: 30 },
     getInsDuHarian: { fn: getInsDuHarian_, menu: 'OPS_INSDU_INPUT', batasMenit: 30 },
@@ -126,11 +127,13 @@ function endpoints_() {
     simpanTemuanInsDu: { fn: simpanTemuanInsDu_, menu: 'OPS_INSDU_INPUT', tulis: true, batasMenit: 40 },
     ubahTemuanInsDu: { fn: ubahTemuanInsDu_, menu: 'OPS_INSDU_INPUT', tulis: true, batasMenit: 40 },
     uploadFotoInsDu: { fn: uploadFotoInsDu_, menu: 'OPS_INSDU_INPUT', tulis: true, batasMenit: 60 },
+    getFotoTemuanInsDu: { fn: getFotoTemuanInsDu_, menu: 'OPS_INSDU_INPUT', batasMenit: 80 },   // v1.0.19
     // v1.0.0: Input Temuan Inspeksi (admin, menu OPS_INPUT_TEMUAN): form temuan sama + pilih penyulang
     getMasterTemuanInspeksi: { fn: getMasterTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 30 },
     getTemuanInspeksi: { fn: getTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 30 },
     simpanTemuanInspeksi: { fn: simpanTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 40 },
     uploadFotoTemuanInspeksi: { fn: uploadFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 60 },   // v1.0.0
+    getFotoTemuanInspeksi: { fn: getFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 80 },   // v1.0.19: foto di kartu temuan
     // v1.0.10: WO tindak lanjut temuan. Admin (OPS_PENERUSAN_WO) teruskan / pindah / tarik; tim ROW / HARTEK / YANDAL
     // (OPS_WO_TIM) mulai, catat pekerjaan + foto, selesai (= masuk realisasi tim). Lihat modules/75_TindakLanjut.js
     getWoAdmin: { fn: getWoAdmin_, menu: 'OPS_PENERUSAN_WO', batasMenit: 30 },
@@ -172,6 +175,11 @@ function endpoints_() {
     // v1.0.17: Kalender tim (pekerjaan tim + WO + jadwal padam per hari). Tanpa menu: dibatasi di fungsi ke PETUGAS bertim,
     // data tim sesi sendiri. Lihat modules/79_Kalender_Tim.js
     getKalenderTim: { fn: getKalenderTim_, batasMenit: 20 },
+    // v1.0.19: lonceng notifikasi header (tanpa menu: isi dibatasi menu sesi di fungsi). Lihat modules/83_Lonceng.js
+    getNotifikasi: { fn: getNotifikasi_, batasMenit: 30 },
+    tandaiNotifikasi: { fn: tandaiNotifikasi_, batasMenit: 30 },
+    // v1.0.19: update APK dari folder Drive (APK_FOLDER_ID), semua akun bersesi. Lihat 09_Versi.js
+    getUpdateApp: { fn: getUpdateApp_, batasMenit: 10 },
     // v1.0.17: riwayat gardu (pengukuran arus / tegangan, temuan + perbaikan, BA / manajemen trafo), admin Pengukuran Gardu.
     // Lihat modules/80_Riwayat_Gardu.js
     getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 }

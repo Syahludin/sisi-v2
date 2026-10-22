@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/lonceng.dart';
 import '../theme/app_colors.dart';
 import 'sisi_loader.dart';
 import 'sisi_motif.dart';
@@ -28,6 +29,7 @@ PreferredSizeWidget sisiAppBar(String judul, {String? subjudul, List<Widget>? ac
     ),
     actions: [
       if (online != null) Padding(padding: const EdgeInsets.only(right: 4), child: OnlinePill(online: online)),
+      const LoncengNotifikasi(), // v1.0.19
       ...?actions,
       const SizedBox(width: 6),
     ],
@@ -115,13 +117,14 @@ InputDecoration sisiInput(String label, {String? hint, Widget? suffix, String? h
     suffixIcon: suffix,
     isDense: true,
     filled: true,
-    fillColor: const Color(0xFFF8FAFC),
-    labelStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.neutral500),
+    fillColor: AppColors.surface, // v1.0.19: putih di atas kartu, fokus teal SiSi
+    labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.neutral500),
+    floatingLabelStyle: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.brand700),
     hintStyle: const TextStyle(fontSize: 12, color: AppColors.neutral400),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     border: b(AppColors.neutral200),
     enabledBorder: b(AppColors.neutral200),
-    focusedBorder: b(AppColors.cyan600, 1.6),
+    focusedBorder: b(AppColors.brand600, 1.8),
     errorBorder: b(AppColors.red600),
     focusedErrorBorder: b(AppColors.red600, 1.6),
   );

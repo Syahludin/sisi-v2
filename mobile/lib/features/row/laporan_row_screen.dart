@@ -11,6 +11,7 @@ import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/kartu_laporan_tim.dart';
 import '../../widgets/popup_berhasil.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../../widgets/wa_panel.dart';
 import 'arsip_hari_screen.dart';
@@ -18,12 +19,14 @@ import 'form_header_screen.dart';
 import 'header_detail_screen.dart';
 import 'ringkasan_row_screen.dart';
 import 'row_model.dart';
-import '../kalender/kalender_tim_screen.dart';
 import '../../widgets/sisi_loader.dart';
 
 /// Laporan Harian ROW (desain laporan_row_screen lama): tab "Hari ini" (data lokal) | "Arsip" (server, rentang tanggal).
 class LaporanRowScreen extends StatefulWidget {
-  const LaporanRowScreen({super.key, required this.deps, required this.sesi});
+  const LaporanRowScreen({super.key, required this.deps, required this.sesi, this.denganArsip = true});
+
+  /// v1.0.19: false = arsip ada di tab Arsip bottom bar (pil Hari ini | Arsip tidak tampil).
+  final bool denganArsip;
   final Deps deps;
   final Sesi sesi;
 
@@ -249,7 +252,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
   Widget build(BuildContext context) {
     final ctl = widget.deps.syncCtl;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       appBar: sisiAppBar('Laporan Harian ROW', subjudul: '${widget.sesi.timNama} • ULP ${widget.sesi.ulp}', online: ctl.online, actions: [
         IconButton(
           tooltip: 'Refresh',
@@ -260,19 +263,19 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
         ),
       ]),
       body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: AppColors.neutral150, borderRadius: BorderRadius.circular(999)),
-            child: Row(children: [_pill('Hari ini', 0), _pill('Arsip', 1), _pill('Kalender', 2)]), // v1.0.17: + kalender tim
+        if (widget.denganArsip)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: AppColors.neutral150, borderRadius: BorderRadius.circular(999)),
+              child: Row(children: [_pill('Hari ini', 0), _pill('Arsip', 1)]), // v1.0.19: kalender hanya di Beranda
+            ),
           ),
-        ),
         Expanded(
           child: IndexedStack(index: _tab, children: [
             _hariIni(),
-            ArsipView(key: _kunciArsip, deps: widget.deps, sesi: widget.sesi),
-            KalenderTimView(deps: widget.deps, sesi: widget.sesi), // v1.0.17
+            if (widget.denganArsip) ArsipView(key: _kunciArsip, deps: widget.deps, sesi: widget.sesi),
           ]),
         ),
       ]),
@@ -319,8 +322,13 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
                     ),
                   ]),
                 ),
+              // v1.0.19: desain Jaringan SiSi: judul seksi bertanggal, kartu kosong dengan tombol mulai langsung
+              JudulSeksiSisi('Laporan hari ini', keterangan: DateFormat('EEEE, d MMMM y', 'id_ID').format(DateTime.now())),
               if (d.header.isEmpty)
-                const SisiKosong(ikon: Icons.forest_outlined, judul: 'Belum ada laporan ROW hari ini.', pesan: 'Tekan + untuk mulai laporan.')
+                _MulaiLaporan(
+                  bisa: widget.sesi.bisaUbah('ROW_EKSEKUSI'),
+                  onMulai: () => _tambah(d),
+                )
               else
                 for (final h in d.header) ...[
                   _kartu(h, d.ringkas[h.id]!),
@@ -332,6 +340,45 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
       },
     );
   }
+}
+
+/// v1.0.19: belum ada laporan hari ini = kartu ajakan bergaya Jaringan SiSi dengan tombol Mulai laporan (sama dengan +).
+class _MulaiLaporan extends StatelessWidget {
+  const _MulaiLaporan({required this.bisa, required this.onMulai});
+  final bool bisa;
+  final VoidCallback onMulai;
+
+  @override
+  Widget build(BuildContext context) => LatarSisi(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.accent400.withValues(alpha: .7), width: 1.4),
+            ),
+            child: const Icon(Icons.forest_rounded, color: AppColors.accent400, size: 28),
+          ),
+          const SizedBox(height: 14),
+          const Text('Belum ada laporan ROW hari ini',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 4),
+          const Text('Isi data perjalanan tim (KM + koordinat), lalu catat eksekusi rabas / tebang per penyulang.',
+              style: TextStyle(fontSize: 13, height: 1.4, color: Color(0xD9FFFFFF))),
+          if (bisa) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onMulai,
+              style: FilledButton.styleFrom(backgroundColor: AppColors.accent400, foregroundColor: AppColors.brand950, minimumSize: const Size.fromHeight(50)),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Mulai laporan hari ini', style: TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ],
+        ]),
+      );
 }
 
 class _Ringkas {

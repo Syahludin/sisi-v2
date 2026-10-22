@@ -125,7 +125,7 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
   Widget build(BuildContext context) {
     final s = widget.sesi;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.neutral50, // v1.0.19: latar seragam Jaringan SiSi
       // v1.0.16: judul "Laporan Header ROW" diganti supaya tidak tertukar dengan rincian penyulang / eksekusi di bawahnya
       appBar: sisiAppBar(_ubah ? 'Ubah Data Perjalanan Tim' : 'Data Perjalanan Tim',
           subjudul: _ubah ? widget.header!.kode : 'Titik lapangan & KM kendaraan hari ini'),

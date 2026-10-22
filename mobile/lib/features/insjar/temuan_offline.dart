@@ -103,6 +103,54 @@ List<({String section, int jumlah, List<({String jenis, int jumlah})> jenis})> r
   return hasil;
 }
 
+/// v1.0.19: urutan section per penyulang dari server ([{nama, section: [...]}], kolom urutan db_Jaringan).
+Map<String, List<String>> urutanSectionTemuan(Object? v) => {
+      for (final p in (v is List ? v : const <dynamic>[]))
+        if (p is Map) _t(p['nama']): [for (final s in (p['section'] as List<dynamic>? ?? const <dynamic>[])) _t(s)],
+    };
+
+/// Nama section temuan (gardu tanpa section = nomor gardu, kosong = '-').
+String namaSectionTemuan(Map<String, dynamic> t) {
+  final s = _t(t['section']).isNotEmpty ? _t(t['section']) : _t(t['noGardu']);
+  return s.isEmpty ? '-' : s;
+}
+
+String namaPenyulangTemuan(Map<String, dynamic> t) => _t(t['penyulang']).isEmpty ? '-' : _t(t['penyulang']);
+
+typedef RingkasSection = ({String section, int jumlah, List<({String jenis, int jumlah})> jenis});
+typedef RingkasPenyulang = ({String penyulang, int jumlah, List<RingkasSection> section});
+
+/// v1.0.19 (permintaan kvlar 23 Okt 2026): ringkasan per penyulang (abjad) > section (kolom urutan db_Jaringan; section di
+/// luar master di belakang, abjad) > jumlah per jenis temuan.
+List<RingkasPenyulang> ringkasPenyulangTemuan(List<Map<String, dynamic>> l, Map<String, List<String>> urutan) {
+  final grup = <String, Map<String, List<Map<String, dynamic>>>>{};
+  for (final t in l) {
+    grup.putIfAbsent(namaPenyulangTemuan(t), () => {}).putIfAbsent(namaSectionTemuan(t), () => []).add(t);
+  }
+  final hasil = <RingkasPenyulang>[];
+  for (final p in grup.keys.toList()..sort()) {
+    final master = urutan[p] ?? const <String>[];
+    int pos(String s) {
+      final i = master.indexOf(s);
+      return i < 0 ? 1 << 30 : i;
+    }
+
+    final sec = grup[p]!.keys.toList()..sort((a, b) => pos(a) != pos(b) ? pos(a) - pos(b) : a.compareTo(b));
+    final isi = [for (final s in sec) (section: s, jumlah: grup[p]![s]!.length, jenis: ringkasJenisTemuan(grup[p]![s]!))];
+    hasil.add((penyulang: p, jumlah: isi.fold<int>(0, (a, x) => a + x.jumlah), section: isi));
+  }
+  return hasil;
+}
+
+/// Temuan satu penyulang / section / jenis (null = semua).
+List<Map<String, dynamic>> saringTemuan(List<Map<String, dynamic>> l, {String? penyulang, String? section, String? jenis}) => [
+      for (final t in l)
+        if ((penyulang == null || namaPenyulangTemuan(t) == penyulang) &&
+            (section == null || namaSectionTemuan(t) == section) &&
+            (jenis == null || nilaiFilterTemuan(t, KategoriFilterTemuan.jenis) == jenis))
+          t,
+    ];
+
 /// Simpanan daftar temuan offline per akun (master_cache).
 class SimpananTemuanOffline {
   SimpananTemuanOffline(this._gudang);

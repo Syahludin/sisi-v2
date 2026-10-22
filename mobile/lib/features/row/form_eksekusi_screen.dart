@@ -250,7 +250,7 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
   Widget build(BuildContext context) {
     final hj = _hasilJenis;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.neutral50, // v1.0.19: latar seragam Jaringan SiSi
       appBar: sisiAppBar(_modeEdit ? 'Edit Eksekusi' : 'Eksekusi ROW',
           subjudul: _modeEdit ? widget.edit!.kode : 'Penyulang ${widget.realisasi.penyulang}'),
       body: Form(

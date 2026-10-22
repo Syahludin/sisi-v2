@@ -150,7 +150,7 @@ class _OperasiScreenState extends State<OperasiScreen> {
   Widget build(BuildContext context) {
     final terlihat = KatalogOperasi.semua.where((m) => _punya(m) && _cocok(m)).toList();
     return Scaffold(
-      backgroundColor: AppColors.neutral50,
+      backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       appBar: sisiAppBar('Operasi', subjudul: 'ULP ${widget.sesi.ulp} • ${widget.sesi.role}', actions: [
         TombolSegarkan(sibuk: _menyegarkan, onPressed: _segarkan),
       ]),

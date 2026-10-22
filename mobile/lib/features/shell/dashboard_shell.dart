@@ -1,26 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/kode_error.dart';
+import '../../core/lonceng.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../arsip/arsip_tim.dart';
 import '../arsip/arsip_tim_view.dart';
+import '../arsip/tab_arsip.dart';
 import '../hartek/hartek_screen.dart';
-import '../kalender/kalender_tim_screen.dart';
 import '../home/beranda_screen.dart';
 import '../insdu/insdu_screen.dart';
+import '../insjar/input_temuan_inspeksi_screen.dart';
 import '../insjar/insjar_screen.dart';
 import '../operasi/operasi_screen.dart';
 import '../row/laporan_row_screen.dart';
 import '../settings/pengaturan_screen.dart';
 import '../wo/wo_tim_screen.dart';
+import '../yandal/approval_p0_screen.dart';
 import '../yandal/shift_yandal_screen.dart';
 
 /// Kerangka dashboard (desain lama): latar bg-sisi.png 50%, bottom bar putih dengan gelembung navy.
 /// PETUGAS: Laporan · Beranda · Pengaturan. ADMIN / SUPER / ADMIN_ES (v0.50): Operasi · Beranda · Pengaturan.
 /// v1.0.11: tim ROW / HARTEK / YANDAL ber-menu OPS_WO_TIM: Laporan · Beranda · WO · Pengaturan; tim Inspeksi Gardu = tab Inspeksi Gardu.
+/// v1.0.19 (permintaan kvlar 23 Okt 2026): Beranda selalu di tengah. Tim ber-WO: Laporan · WO · Beranda · Arsip · Pengaturan
+/// (arsip keluar dari menu Laporan); lainnya tetap 3 menu. Kalender hanya di Beranda.
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key, required this.deps, required this.sesi, required this.onSesiBerubah});
   final Deps deps;
@@ -32,12 +39,43 @@ class DashboardShell extends StatefulWidget {
 }
 
 class _DashboardShellState extends State<DashboardShell> {
-  int _tab = 1; // Beranda
+  late final bool _arsip = TabArsipTim.untuk(widget.sesi); // v1.0.19: tab Arsip sendiri (tim ber-WO)
+  late final int _beranda = _arsip ? 2 : 1; // indeks Beranda = tengah bottom bar
+  late int _tab = _beranda;
 
   @override
   void initState() {
     super.initState();
     _segarkanSesi();
+    // v1.0.19: lonceng notifikasi header (P0 / temuan untuk admin, WO untuk tim)
+    Lonceng.i
+      ..mulai(widget.deps.api, widget.sesi)
+      ..buka = _bukaNotifikasi;
+  }
+
+  @override
+  void didUpdateWidget(DashboardShell lama) {
+    super.didUpdateWidget(lama);
+    if (lama.sesi.token != widget.sesi.token) Lonceng.i.mulai(widget.deps.api, widget.sesi);
+  }
+
+  @override
+  void dispose() {
+    Lonceng.i.berhenti();
+    super.dispose();
+  }
+
+  /// Item lonceng diketuk: WO = tab WO, P0 = Approval P0, temuan = Temuan Inspeksi.
+  void _bukaNotifikasi(Map<String, dynamic> x) {
+    final s = widget.sesi;
+    switch ('${x['jenis']}') {
+      case 'WO':
+        if (s.petugasWo) _keTab(1);
+      case 'P0':
+        unawaited(Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: s))));
+      case 'TEMUAN':
+        unawaited(Navigator.push(context, MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: s))));
+    }
   }
 
   /// Alur A: saat app dibuka & online -> cekSesi + getMaster + sync (tanpa menahan layar).
@@ -65,33 +103,33 @@ class _DashboardShellState extends State<DashboardShell> {
       if (widget.sesi.modeAdmin)
         OperasiScreen(deps: widget.deps, sesi: widget.sesi)
       else if (widget.sesi.petugasYandal)
-        ShiftYandalScreen(deps: widget.deps, sesi: widget.sesi) // v0.63.0; v1.0.16: TO P0 = tab WO di bottom bar
+        ShiftYandalScreen(deps: widget.deps, sesi: widget.sesi, denganArsip: !_arsip) // v0.63.0; v1.0.16: TO P0 = tab WO di bottom bar
       // v1.0.17: Hartek / Inspeksi Jaringan / Inspeksi Gardu = pil "Hari ini | Arsip" (pola Laporan Harian ROW)
       else if (widget.sesi.petugasHartek) // v0.88.0: menu OPS_HARTEK_INPUT
-        LaporanTimDenganArsip(
-            hariIni: HartekScreen(deps: widget.deps, sesi: widget.sesi),
-            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.hartek),
-            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+        _arsip
+            ? HartekScreen(deps: widget.deps, sesi: widget.sesi)
+            : LaporanTimDenganArsip(
+                hariIni: HartekScreen(deps: widget.deps, sesi: widget.sesi),
+                arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.hartek))
       else if (widget.sesi.petugasInsJar) // v1.0.0: menu OPS_INSJAR_INPUT
         LaporanTimDenganArsip(
             hariIni: InsJarScreen(deps: widget.deps, sesi: widget.sesi),
-            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insjar),
-            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insjar))
       else if (widget.sesi.petugasInsDu) // v1.0.11: menu OPS_INSDU_INPUT
         LaporanTimDenganArsip(
             hariIni: InsDuScreen(deps: widget.deps, sesi: widget.sesi),
-            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insdu),
-            kalender: KalenderTimView(deps: widget.deps, sesi: widget.sesi))
+            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insdu))
       else
-        LaporanRowScreen(deps: widget.deps, sesi: widget.sesi),
-      BerandaScreen(deps: widget.deps, sesi: widget.sesi, keLaporan: () => _keTab(0)),
+        LaporanRowScreen(deps: widget.deps, sesi: widget.sesi, denganArsip: !_arsip),
       if (widget.sesi.petugasWo) WoTimScreen(deps: widget.deps, sesi: widget.sesi), // v1.0.11: tab WO
+      BerandaScreen(deps: widget.deps, sesi: widget.sesi, keLaporan: () => _keTab(0)),
+      if (_arsip) TabArsipTim(deps: widget.deps, sesi: widget.sesi), // v1.0.19
       PengaturanScreen(deps: widget.deps, sesi: widget.sesi, onLogout: () => widget.onSesiBerubah(null)),
     ];
     return PopScope(
-      canPop: _tab == 1,
+      canPop: _tab == _beranda,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _keTab(1);
+        if (!didPop) _keTab(_beranda);
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -118,6 +156,7 @@ class _DashboardShellState extends State<DashboardShell> {
                               ? const _ItemNav('Gardu', Icons.electrical_services_rounded)
                               : const _ItemNav('Laporan', Icons.assignment_outlined),
           wo: widget.sesi.petugasWo,
+          arsip: _arsip,
           labelWo: widget.sesi.petugasYandal ? 'TO P0' : 'WO', // v1.0.16: WO Yandal = TO P0
         ),
       ),
@@ -133,17 +172,19 @@ class _ItemNav {
 
 /// Bottom bar lama: tinggi 80, putih, garis navy 3px dengan lekukan, gelembung navy berbingkai cyan.
 class _SisiBottomBar extends StatelessWidget {
-  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.labelWo = 'WO'});
+  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.arsip = false, this.labelWo = 'WO'});
   final int indeks;
   final ValueChanged<int> onPilih;
   final _ItemNav pertama; // Laporan (PETUGAS) atau Operasi (admin, v0.50)
   final bool wo; // v1.0.11: tab WO tindak lanjut (tim ROW / HARTEK / YANDAL)
+  final bool arsip; // v1.0.19: tab Arsip (tim ber-WO), Beranda di tengah
   final String labelWo;
 
   List<_ItemNav> get _item => [
         pertama,
-        const _ItemNav('Beranda', Icons.home_rounded),
         if (wo) _ItemNav(labelWo, Icons.assignment_turned_in_outlined),
+        const _ItemNav('Beranda', Icons.home_rounded), // v1.0.19: selalu di tengah
+        if (arsip) const _ItemNav('Arsip', Icons.inventory_2_outlined),
         const _ItemNav('Pengaturan', Icons.settings_outlined),
       ];
 
@@ -156,7 +197,7 @@ class _SisiBottomBar extends StatelessWidget {
         height: 80,
         child: LayoutBuilder(builder: (context, c) {
           final lebarItem = c.maxWidth / _item.length;
-          final besar = indeks == 1;
+          final besar = indeks == _item.indexWhere((x) => x.label == 'Beranda');
           final ukuranBubble = besar ? 64.0 : 52.0;
           // Gelembung & lekukan sepusat (pusat y = _LatarBar.pusatY), dengan celah supaya
           // bingkai cyan + bayangan tidak menempel ke garis navy.

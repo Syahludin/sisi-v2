@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_colors.dart';
 import 'api_client.dart';
+import 'pembaru_apk.dart';
 import 'env.dart';
 import 'versi.dart';
 
@@ -21,6 +22,11 @@ class PemeriksaVersi {
 
   /// Pemeriksa milik app (dipakai tombol Cek Pembaruan di Pengaturan).
   static PemeriksaVersi? aktif;
+
+  /// v1.0.19: token sesi aktif (dipasang app) untuk mengunduh update langsung (getUpdateApp). null = belum login.
+  static String? Function()? tokenSesi;
+
+  ApiClient get api => _api;
 
   /// v0.81.1: info versi server terakhir (kartu Versi Aplikasi di Pengaturan ikut diperbarui).
   static final ValueNotifier<InfoVersi?> terakhir = ValueNotifier<InfoVersi?>(null);
@@ -109,7 +115,15 @@ class DialogUpdateVersi extends StatelessWidget {
   final bool wajib;
   final Future<void> Function() onCekLagi;
 
+  /// v1.0.19: sudah login = unduh + pasang APK langsung dari app (folder Drive). Belum login = link lama (browser).
+  bool get _langsung => PemeriksaVersi.tokenSesi?.call() != null && PemeriksaVersi.aktif != null;
+
   Future<void> _download(BuildContext context) async {
+    final token = PemeriksaVersi.tokenSesi?.call(), api = PemeriksaVersi.aktif?.api;
+    if (token != null && api != null) {
+      await PembaruApk.jalankan(context, api, token);
+      return;
+    }
     final uri = Uri.tryParse(info.linkUnduh);
     final ok = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
@@ -148,7 +162,7 @@ class DialogUpdateVersi extends StatelessWidget {
             const Text('Yang baru:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
             for (final x in poin) Text('•  $x', style: const TextStyle(fontSize: 12.5)),
           ],
-          if (info.linkUnduh.isEmpty) ...[
+          if (info.linkUnduh.isEmpty && !_langsung) ...[
             const SizedBox(height: 10),
             const Text('Minta file APK terbaru ke admin.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent700)),
           ],
@@ -156,8 +170,11 @@ class DialogUpdateVersi extends StatelessWidget {
         actions: [
           if (!wajib) TextButton(onPressed: () => Navigator.pop(context), child: const Text('Nanti')),
           if (wajib) TextButton(onPressed: () => unawaited(onCekLagi()), child: const Text('Cek Lagi')),
-          if (info.linkUnduh.isNotEmpty)
-            FilledButton.icon(onPressed: () => unawaited(_download(context)), icon: const Icon(Icons.download_rounded), label: const Text('Download Update')),
+          if (info.linkUnduh.isNotEmpty || _langsung)
+            FilledButton.icon(
+                onPressed: () => unawaited(_download(context)),
+                icon: const Icon(Icons.system_update_rounded),
+                label: Text(_langsung ? 'Update Sekarang' : 'Download Update')),
         ],
       ),
     );

@@ -880,3 +880,9 @@ function cekKonfigInsDu_(c) {
   } catch (eM) { gagal('db_Menu: ' + (eM.kode || eM.message)); }
   return masalah;
 }
+
+/** v1.0.19: foto temuan Inspeksi Gardu tim sendiri (kartu temuan, termasuk temuan tertinggal). */
+function getFotoTemuanInsDu_(sesi, data) {
+  wajibPetugasInsDu_(sesi);
+  return fotoTemuanDrive_(data, function (t) { return String(t.tim_id) === String(sesi.timId); });
+}

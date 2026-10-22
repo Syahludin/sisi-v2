@@ -969,8 +969,8 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   // v0.63.0: mulaiShiftYandal = login tahap 2 (tiket sekali pakai dari login, bukan token)
   assert.deepStrictEqual(publik.sort(), ['login', 'mulaiShiftYandal', 'ping'], 'hanya ping & login (2 tahap) tanpa sesi');
   const tanpaMenu = Object.keys(ep).filter((k) => !ep[k].publik && !ep[k].menu).sort();
-  assert.deepStrictEqual(tanpaMenu, ['cekSesi', 'daftarNotif', 'gantiPassword', 'getArsipYandal', 'getKalenderTim', 'getMaster', 'getRankYandal', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal',
-    'uploadFotoGarduYandal', 'uploadFotoP0Yandal', 'uploadFotoSwitchingYandal'],
+  assert.deepStrictEqual(tanpaMenu, ['cekSesi', 'daftarNotif', 'gantiPassword', 'getArsipYandal', 'getKalenderTim', 'getMaster', 'getNotifikasi', 'getRankYandal', 'getUpdateApp', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal',
+    'tandaiNotifikasi', 'uploadFotoGarduYandal', 'uploadFotoP0Yandal', 'uploadFotoSwitchingYandal'],
     'endpoint tanpa menu hanya yang milik sesi sendiri');
   // v0.67.0: gantiPassword hanya akun sesi sendiri (sesi.userId), password lama wajib, tim YANDAL ditolak paling awal
   assert.match(g.gantiPassword_.toString(), /^function gantiPassword_\(sesi, data, platform\) \{\s*if \(petugasYandal_\(sesi\)\)[\s\S]*sesi\.userId[\s\S]*PASSWORD_LAMA_SALAH/);
@@ -3838,6 +3838,11 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     getMasterJadwalPadam: [], getJadwalPadam: [], getWaJadwalPadam: [], simpanJadwalPadam: [], ubahJadwalPadam: [], ubahStatusJadwalPadam: [], hapusJadwalPadam: [],
     // v1.0.17: kalender tim = petugas bertim (data tim sendiri, hanya baca). v1.0.18: semua akun (Beranda), non-tim = jadwal padam saja
     getKalenderTim: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    // v1.0.19: lonceng + update APK = semua akun bersesi; foto temuan per menu (menu uji tidak ada = ditolak)
+    getNotifikasi: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    tandaiNotifikasi: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    getUpdateApp: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    getFotoTemuanInspeksi: [], getFotoTemuanInsJar: [], getFotoTemuanInsDu: [],
     getRiwayatGardu: [],
     // v0.75.0: OPS_VERIFIKASI_P0 tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test approval)
     getApprovalP0: [], getFotoApprovalP0: [], simpanApprovalP0: [], ubahJenisP0: [], simpanAturanYandal: [],
@@ -5478,6 +5483,8 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (/TemuanInspeksi/.test(nama)) awal[k] = 'wajibAdminTemuan_(sesi)';   // v1.0.0
     if (/JadwalPadam/.test(nama)) awal[k] = 'wajibAdminJadwalPadam_(sesi)';   // v1.0.17
     if (nama === 'getKalenderTim_') awal[k] = 'wajibSesiKalender_(sesi)';   // v1.0.17, v1.0.18 semua akun
+    if (['getNotifikasi_', 'tandaiNotifikasi_'].includes(nama)) awal[k] = 'wajibSesiLonceng_(sesi)';   // v1.0.19
+    if (nama === 'getUpdateApp_') awal[k] = 'wajibSesiUpdate_(sesi)';   // v1.0.19
     if (nama === 'getRiwayatGardu_') awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17
     if (['getApprovalP0', 'getFotoApprovalP0', 'simpanApprovalP0', 'ubahJenisP0', 'simpanAturanYandal'].includes(k)) awal[k] = 'wajibAdminP0_(sesi)';
   }
@@ -8982,4 +8989,78 @@ test('v1.0.18 Pindah Tim TO: hanya WO TERKIRIM, daftar = terkirim saja; Penerusa
   assert.deepStrictEqual([p.pindah, x.kt(id, 'tim_tindak_lanjut_id')], [true, x.timH]);
   const m = x.h.mulaiWo_(x.sesiH, { temuanId: id, revision: p.revision }, 'MOBILE');
   assert.strictEqual(kodeError(() => x.h.pindahWo_(x.admin, { temuanId: id, timId: x.sesi.timId, revision: m.revision })), 'WO_SUDAH_DIMULAI');
+});
+
+// ---------- v1.0.19 ----------
+
+function konteksLonceng() {
+  const x = konteksWo();
+  const buat = sheetPalsu(x.log);
+  x.sheets.m.db_Menu = buat('db_Menu', [['menu_kode', 'nama', 'platform', 'khusus_super', 'urutan', 'aktif'],
+    ['OPS_INPUT_TEMUAN', 'Temuan', 'MOBILE', false, 1, true], ['OPS_WO_TIM', 'WO', 'MOBILE', false, 2, true], ['OPS_PENERUSAN_WO', 'P', 'MOBILE', false, 3, true]]);
+  x.sheets.m.db_Akses = buat('db_Akses', [['role', 'jenis_tim', 'menu_kode', 'aksi'], ['ADMIN', '*', '*', 'UBAH'], ['PETUGAS', 'ROW', 'OPS_WO_TIM', 'UBAH'], ['PETUGAS', 'HARTEK', 'OPS_WO_TIM', 'UBAH']]);
+  x.h.CacheService.getScriptCache().remove('akses:v1');
+  return x;
+}
+
+test('v1.0.19 lonceng: admin = temuan inspeksi baru (bukan input admin), tim = WO terkirim ke timnya; dilihat per item per akun; kirim ulang = item baru', () => {
+  const x = konteksLonceng();
+  const t1 = x.temuan();
+  x.temuan({ sumber: 'ADMIN' });
+  let a = x.j(x.h.getNotifikasi_(x.admin));
+  assert.deepStrictEqual([a.belum, a.item.map((i) => [i.jenis, i.dilihat])], [1, [['TEMUAN', false]]], 'temuan input admin sendiri tidak dihitung');
+  assert.strictEqual(a.item[0].tujuan.temuanId, t1);
+  assert.deepStrictEqual(x.j(x.h.getNotifikasi_(x.sesi)).item, [], 'tim belum punya WO');
+  const r1 = x.h.teruskanWo_(x.admin, { temuanId: t1, timId: x.sesi.timId, revision: 1 }).revision;
+  let t = x.j(x.h.getNotifikasi_(x.sesi));
+  assert.deepStrictEqual([t.belum, t.item[0].jenis], [1, 'WO']);
+  assert.strictEqual(x.j(x.h.getNotifikasi_(x.sesiH)).belum, 0, 'tim lain tidak melihat');
+  const tanda = x.h.tandaiNotifikasi_(x.sesi, { kunci: t.item[0].kunci + '|kunci-asing' });
+  assert.deepStrictEqual([tanda.ditandai, tanda.belum], [1, 0], 'kunci di luar daftar akun diabaikan');
+  assert.strictEqual(x.h.tandaiNotifikasi_(x.sesi, { kunci: t.item[0].kunci }).ditandai, 0, 'idempoten');
+  t = x.j(x.h.getNotifikasi_(x.sesi));
+  assert.deepStrictEqual([t.belum, t.item[0].dilihat], [0, true]);
+  assert.strictEqual(x.j(x.h.getNotifikasi_(x.admin)).belum, 1, 'dilihat per akun, admin belum');
+  // dipindah ke Hartek lalu ke ROW lagi = kiriman baru, muncul lagi
+  const r2 = x.h.pindahWo_(x.admin, { temuanId: t1, timId: x.timH, revision: r1 }).revision;
+  assert.strictEqual(x.j(x.h.getNotifikasi_(x.sesiH)).belum, 1);
+  x.h.pindahWo_(x.admin, { temuanId: t1, timId: x.sesi.timId, revision: r2 });
+  assert.strictEqual(x.j(x.h.getNotifikasi_(x.sesi)).belum, 1, 'kiriman ulang = item baru');
+  assert.deepStrictEqual(x.h.tandaiNotifikasi_(x.admin, { semua: true }).belum, 0);
+  assert.ok(x.sheets.a.log_Notif_Dilihat, 'tab dibuat otomatis');
+});
+
+test('v1.0.19 update APK: versi tertinggi di folder, hanya bila lebih baru dari app, file dibuka link, link unduh langsung', () => {
+  const x = konteksWo();
+  const sp = x.h.PropertiesService.getScriptProperties();
+  assert.deepStrictEqual(x.j(x.h.getUpdateApp_(x.sesi, { versiApp: '1.0.18' })), { tersedia: false }, 'folder belum diatur');
+  sp.setProperty('APK_FOLDER_ID', 'apk');
+  const f = x.dr.DriveApp.getFolderById('apk');
+  for (const n of ['SiSi-STG-1.0.18.apk', 'SiSi-STG-1.0.19+193.apk', 'catatan-1.0.99.txt', 'SiSi-STG-1.0.9.apk']) f.createFile({ bytes: [1], nama: n });
+  x.dr.semuaFile.file3 && (x.dr.semuaFile.file3.setSharing = function (a) { this.akses = a; });
+  for (const o of Object.values(x.dr.semuaFile)) { o.getSize = () => 123; o.setSharing = (a) => { o.akses = a; }; }
+  x.h.Drive = { Files: { get: () => ({ size: '75000000', sha256Checksum: 'ABC' }) } };
+  x.h.CacheService.getScriptCache().remove('apk:terbaru:v1');
+  const u = x.j(x.h.getUpdateApp_(x.sesi, { versiApp: '1.0.18' }));
+  assert.deepStrictEqual([u.tersedia, u.apk.versi, u.apk.nama, u.apk.ukuranByte, u.apk.sha256], [true, '1.0.19', 'SiSi-STG-1.0.19+193.apk', 75000000, 'abc']);
+  assert.match(u.apk.url, /^https:\/\/drive\.usercontent\.google\.com\/download\?id=.+&export=download&confirm=t$/);
+  assert.strictEqual(x.dr.semuaFile[u.apk.fileId].akses, 'ANYONE_WITH_LINK');
+  assert.deepStrictEqual(x.j(x.h.getUpdateApp_(x.sesi, { versiApp: '1.0.19' })), { tersedia: false, versi: '1.0.19' });
+  assert.strictEqual(kodeError(() => x.h.getUpdateApp_(null, {})), 'AKSES_DITOLAK');
+  assert.strictEqual(x.h.versiNamaApk_('SiSi.apk'), null);
+});
+
+test('v1.0.19 foto temuan: admin semua temuan, petugas InsJar hanya temuan timnya, tanpa foto = FOTO_TIDAK_ADA', () => {
+  const x = konteksWo();
+  const fd = x.dr.DriveApp.getFolderById('wofoto');
+  const file = fd.createFile({ bytes: [0xff, 0xd8, 1], mime: 'image/jpeg', nama: 'IJR_TEMUAN.jpg' });
+  file.getThumbnail = () => ({ getBytes: () => [9, 9] });
+  const id = x.temuan({ foto_temuan_file_id: file.getId() });
+  const a = x.h.getFotoTemuanInspeksi_(x.admin, { temuanId: id, slot: 'TEMUAN' });
+  assert.deepStrictEqual([a.temuanId, a.slot, a.kecil, a.data], [id, 'TEMUAN', true, Buffer.from([9, 9]).toString('base64')]);
+  assert.strictEqual(kodeError(() => x.h.getFotoTemuanInspeksi_(x.admin, { temuanId: id, slot: 'TIANG' })), 'FOTO_TIDAK_ADA');
+  const ins = { userId: U(), role: 'PETUGAS', jenisTim: 'INSPEKSI_JARINGAN', timId: x.timIns };
+  assert.strictEqual(x.h.getFotoTemuanInsJar_(ins, { temuanId: id, slot: 'TEMUAN' }).slot, 'TEMUAN');
+  assert.strictEqual(kodeError(() => x.h.getFotoTemuanInsJar_({ ...ins, timId: U() }, { temuanId: id, slot: 'TEMUAN' })), 'BUKAN_MILIK_TIM');
+  assert.strictEqual(kodeError(() => x.h.getFotoTemuanInspeksi_(x.sesi, { temuanId: id, slot: 'TEMUAN' })), 'AKSES_DITOLAK');
 });

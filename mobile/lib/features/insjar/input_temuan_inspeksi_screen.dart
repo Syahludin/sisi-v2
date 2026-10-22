@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../wo/wo_foto_server.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
@@ -154,7 +156,13 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     });
     try {
       final r = await _api('getTemuanInspeksi', {'dari': _iso(awal), 'sampai': _iso(akhir)});
-      final isi = {'dari': _teks(r['dari']), 'sampai': _teks(r['sampai']), 'diambil': _teks(r['diambil']), 'temuan': r['temuan'] ?? const []};
+      final isi = {
+        'dari': _teks(r['dari']),
+        'sampai': _teks(r['sampai']),
+        'diambil': _teks(r['diambil']),
+        'temuan': r['temuan'] ?? const [],
+        'urutanSection': r['urutanSection'] ?? const [], // v1.0.19: urutan section db_Jaringan per penyulang
+      };
       await _simpanan.tulis(_sesi.userId, isi);
       if (mounted) {
         setState(() {
@@ -320,6 +328,11 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     };
   }
 
+
+  /// v1.0.19: foto temuan di Drive dibaca lewat server (getFotoTemuanInspeksi), dipakai thumbnail kartu + lihat foto penuh.
+  Future<Map<String, dynamic>> _muatFotoTemuan(Map<String, dynamic> data, {Duration? timeout}) =>
+      widget.deps.api.call('getFotoTemuanInspeksi', token: widget.sesi.token, data: data, timeout: timeout ?? const Duration(seconds: 60));
+
   Future<void> _ketukFoto(Map<String, dynamic> t, String slot) async {
     final id = _teks(t['temuanId']);
     final label = InsJarLokal.labelFoto[slot] ?? slot;
@@ -357,7 +370,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       return;
     }
     if (_teks((t['foto'] is Map ? t['foto'] as Map : const {})[slot]).isNotEmpty) {
-      _pesan('Foto sudah tersimpan di Drive.');
+      await FotoServerWo.lihat(context, _muatFotoTemuan, {'temuanId': id, 'slot': slot}, label);
       return;
     }
     if (!_boleh || _sibuk || _teks(t['sumber']) != 'ADMIN') return;
@@ -505,7 +518,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       onRefresh: () => _unduh(),
       child: CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               // info data offline + rentang
@@ -544,12 +557,11 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
               const SizedBox(height: 12),
               if (semua.isNotEmpty)
                 KartuRingkasTemuan(
-                  temuan: tampil,
+                  // v1.0.19: daftar temuan tidak lagi di halaman ini; ketuk ringkasan = halaman daftar temuan terpisah
+                  data: DataRingkasTemuan(temuan: tampil, urutan: urutanSectionTemuan(o?['urutanSection']), kartu: (c, t) => _kartuTemuan(t)),
                   dariSemua: semua.length,
                   mode: _modeRingkas,
                   onMode: (m) => setState(() => _modeRingkas = m),
-                  dipilih: _filter.dari(KategoriFilterTemuan.jenis),
-                  onPilih: (j) => setState(() => _filter = _filter.alih(KategoriFilterTemuan.jenis, j)),
                 ),
               const SizedBox(height: 12),
               if (o == null && !_offlineDibaca)
@@ -568,44 +580,39 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
             ]),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) {
-                final t = tampil[i];
-                final wo = _statusWo(t);
-                return KartuTemuan(
-                  t: t,
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _teks(t['sumber']) == 'ADMIN' ? AppColors.brand100 : AppColors.neutral100,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(timInspeksiTemuan(t), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
-                  ),
-                  fotoBawah: FotoRincian(
-                    node: _nodeFoto(t),
-                    slot: InsJarLokal.slotFoto,
-                    label: const {'TEMUAN': 'Temuan', 'TIANG': 'Tiang'},
-                    bolehTambah: _boleh && _teks(t['sumber']) == 'ADMIN',
-                    onTap: (s) => unawaited(_ketukFoto(t, s)),
-                  ),
-                  bawah: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (_teks(t['tanggal']).isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text('Tanggal inspeksi: ${tanggalHartek(_teks(t['tanggal']))}', style: HartekGaya.sekunder),
-                      ),
-                    if (wo != null) wo,
-                  ]),
-                );
-              },
-              childCount: tampil.length,
-            ),
-          ),
+      ]),
+    );
+  }
+
+  /// v1.0.19: kartu satu temuan (foto server, status WO), dipakai halaman daftar temuan terpisah.
+  Widget _kartuTemuan(Map<String, dynamic> t) {
+    final wo = _statusWo(t);
+    return KartuTemuan(
+      t: t,
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: _teks(t['sumber']) == 'ADMIN' ? AppColors.brand100 : AppColors.neutral100,
+          borderRadius: BorderRadius.circular(999),
         ),
+        child: Text(timInspeksiTemuan(t), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
+      ),
+      fotoBawah: FotoRincian(
+        node: _nodeFoto(t),
+        slot: InsJarLokal.slotFoto,
+        label: const {'TEMUAN': 'Temuan', 'TIANG': 'Tiang'},
+        bolehTambah: _boleh && _teks(t['sumber']) == 'ADMIN',
+        onTap: (s) => unawaited(_ketukFoto(t, s)),
+        gambarServer: (s) => GambarServerWo(
+            key: ValueKey('temuan-${_teks(t['temuanId'])}-$s'), muat: _muatFotoTemuan, data: {'temuanId': _teks(t['temuanId']), 'slot': s}),
+      ),
+      bawah: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (_teks(t['tanggal']).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Tanggal inspeksi: ${tanggalHartek(_teks(t['tanggal']))}', style: HartekGaya.sekunder),
+          ),
+        if (wo != null) wo,
       ]),
     );
   }
@@ -636,7 +643,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
                 tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
                 if (_bolehWo) ...[
                   const SizedBox(width: 6),
-                  tombolHeaderInsJar(Icons.alt_route_rounded, 'Penerusan WO', _muat || _sibuk ? null : _bukaWo),
+                  tombolHeaderInsJar(Icons.alt_route_rounded, 'Penerusan Tim Temuan Inspeksi', _muat || _sibuk ? null : _bukaWo),
                 ],
               ],
             ),

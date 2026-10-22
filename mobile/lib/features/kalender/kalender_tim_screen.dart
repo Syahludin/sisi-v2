@@ -12,24 +12,6 @@ import '../../theme/app_colors.dart';
 import '../../widgets/kalender_bulan.dart';
 import '../hartek/hartek_gaya.dart';
 import '../hartek/hartek_store.dart' show GudangHartekSql;
-import '../insjar/insjar_header.dart';
-
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): Kalender di semua modul tim (ROW, Hartek, Yandal, Inspeksi Jaringan,
-/// Inspeksi Gardu). Satu bulan: titik per hari (pekerjaan tim, WO tindak lanjut, jadwal padam), ketuk hari = rincian
-/// jadwal dan pekerjaan hari itu. Data per bulan disimpan di HP (master_cache) sehingga bulan yang pernah dibuka tetap
-/// tampil tanpa sinyal.
-/// v1.0.18: isi kalender dipisah ke [PanelKalenderTim] supaya juga tampil di Beranda (semua akun).
-class KalenderTimView extends StatefulWidget {
-  const KalenderTimView({super.key, required this.deps, required this.sesi, this.denganKembali = false});
-  final Deps deps;
-  final Sesi sesi;
-
-  /// Dibuka sebagai halaman sendiri (tombol Kembali di header).
-  final bool denganKembali;
-
-  @override
-  State<KalenderTimView> createState() => _KalenderTimViewState();
-}
 
 /// Jenis kegiatan kalender -> (warna, label, ikon).
 const Map<String, (Color, String, IconData)> jenisKalenderTim = {
@@ -57,39 +39,8 @@ Map<String, List<TandaHari>> tandaKalenderTim(List<Map<String, dynamic>> kegiata
   };
 }
 
-class _KalenderTimViewState extends State<KalenderTimView> {
-  final _panel = GlobalKey<PanelKalenderTimState>();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: HartekGaya.latar,
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () => _panel.currentState?.unduh() ?? Future.value(),
-          child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 10, 16, 120), children: [
-            HeaderInsJar(
-              kicker: 'Kalender Tim',
-              judul: 'Jadwal & pekerjaan',
-              sub: widget.sesi.timNama.isEmpty ? 'Satu bulan' : '${widget.sesi.timNama} · satu bulan',
-              ikon: Icons.event_note_rounded,
-              aksi: [
-                if (widget.denganKembali) tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
-                if (widget.denganKembali) const SizedBox(width: 6),
-                tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', () => _panel.currentState?.unduh()),
-              ],
-            ),
-            PanelKalenderTim(key: _panel, deps: widget.deps, sesi: widget.sesi),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-/// v1.0.18: isi kalender satu bulan (ringkasan jenis, kalender, legenda, kegiatan hari terpilih). Dipakai halaman
-/// Kalender Tim dan Beranda. Hari ini terpilih di awal; [ringkas] = tanpa kotak jumlah (Beranda).
+/// v1.0.18: isi kalender satu bulan (ringkasan jenis, kalender, legenda, kegiatan hari terpilih).
+/// v1.0.19: hanya di Beranda (kalender di menu tiap tim dihapus). Hari ini terpilih di awal; [ringkas] = tanpa kotak jumlah (Beranda).
 class PanelKalenderTim extends StatefulWidget {
   const PanelKalenderTim({super.key, required this.deps, required this.sesi, this.ringkas = false});
   final Deps deps;

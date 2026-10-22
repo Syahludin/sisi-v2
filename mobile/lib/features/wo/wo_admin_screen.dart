@@ -671,7 +671,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
             children: [
               HeaderInsJar(
-                kicker: _pindah ? 'Pindah Tim TO' : 'Penerusan WO Temuan',
+                kicker: _pindah ? 'Pindah Tim TO' : 'Penerusan Tim Temuan Inspeksi',
                 judul: _pindah ? '${tampil.length} WO terkirim' : '${tampil.length} temuan',
                 sub: _pindah
                     ? 'Pindahkan / tarik WO yang belum dimulai tim'
