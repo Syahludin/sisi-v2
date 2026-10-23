@@ -63,7 +63,7 @@ class _PemakaianEngineScreenState extends State<PemakaianEngineScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Pemakaian Engine', subjudul: 'Kuota Apps Script + Cloud Run', actions: [
-        TombolSegarkan(sibuk: _sibuk, onPressed: () => unawaited(_muat(segarkan: true))),
+        TombolSegarkan(sibuk: _sibuk, onPressed: () => _muat(segarkan: true)),
       ]),
       body: d == null
           ? Center(

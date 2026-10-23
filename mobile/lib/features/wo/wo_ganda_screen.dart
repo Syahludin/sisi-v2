@@ -289,7 +289,7 @@ class _WoGandaScreenState extends State<WoGandaScreen> {
                 sub: 'WO yang diunggah lebih dari satu tim',
                 ikon: Icons.how_to_reg_rounded,
                 aksi: [
-                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkan, sibuk: _muat),
+                  tombolSegarkanHeader(_segarkan, sibuk: _muat),
                   const SizedBox(width: 6),
                   tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
                 ],

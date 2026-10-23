@@ -337,7 +337,7 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Approval P0', subjudul: 'Verifikasi pekerjaan P0 Yandal', actions: [
-        TombolSegarkan(sibuk: _muat, onPressed: () => unawaited(_ambil())),
+        TombolSegarkan(sibuk: _muat, onPressed: _ambil),
       ]),
       body: RefreshSisi(
         onRefresh: _ambil,

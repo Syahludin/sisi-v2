@@ -679,7 +679,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
                     : '${r['baru'] ?? 0} baru · ${r['terkirim'] ?? 0} terkirim · ${r['dikerjakan'] ?? 0} dikerjakan${ganda > 0 ? ' · $ganda ganda' : ''}',
                 ikon: _pindah ? Icons.swap_horiz_rounded : Icons.alt_route_rounded,
                 aksi: [
-                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkanPaksa, sibuk: _muat),
+                  tombolSegarkanHeader(_segarkanPaksa, sibuk: _muat),
                   const SizedBox(width: 6),
                   tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
                 ],

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'env.dart';
 import 'kode_error.dart';
+import 'kunci_update.dart';
 import 'versi.dart';
 
 class ApiException implements Exception {
@@ -34,6 +35,9 @@ class ApiClient {
   String? versiServer;
   void Function(String versi)? onVersiServer;
 
+  /// v1.0.22: revisi master dari jawaban server (ADMIN_lengkapiMaster); berubah = HP mengunduh ulang Master Data + Gardu.
+  void Function(String revisi)? onMasterServer;
+
   static const _hostRedirect = {'script.googleusercontent.com', 'script.google.com'};
 
   Future<Map<String, dynamic>> call(
@@ -42,6 +46,8 @@ class ApiClient {
     Map<String, dynamic> data = const {},
     Duration timeout = const Duration(seconds: 60), // Apps Script ~3-9 s per panggilan (keputusan 3 Okt 2026)
   }) async {
+    // v1.0.22: aplikasi wajib update dan kartu update ditutup = data tidak dikirim (tetap aman di HP), baca tetap boleh
+    if (KunciUpdate.aktif.value && !KunciUpdate.bolehAksi(action)) throw ApiException('UPDATE_APLIKASI_DULU');
     final req = http.Request('POST', Uri.parse(Env.apiUrl))
       ..followRedirects = false
       ..headers['Content-Type'] = 'application/json'
@@ -78,6 +84,8 @@ class ApiClient {
       versiServer = versi;
       onVersiServer?.call(versi);
     }
+    final master = json['master'];
+    if (master is String && master.isNotEmpty && json['env'] == Env.name) onMasterServer?.call(master);
     if (json['ok'] != true) {
       final kode = (json['kode'] as String?) ?? 'GAGAL';
       if (token != null && KodeError.sesiHabis.contains(kode)) onSesiHabis?.call(kode, token);

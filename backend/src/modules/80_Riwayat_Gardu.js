@@ -11,6 +11,8 @@
  *   terbaru    : {LWBP, WBP} = pengukuran dengan tanggal (lalu jam) terbaru dari 3 sumber per periode
  *   gardu      : baris Master Gardu terkini (data trafo / nameplate + koordinat), null kalau tidak ada
  * Sumber yang spreadsheet-nya belum diatur dilewati (bagian itu kosong).
+ * v1.0.22 (permintaan kvlar 23 Okt 2026): `terbaru` hanya dari Master Gardu (perbandingan 3 sumber terlalu lama di HP).
+ *   Riwayat tetap semua sumber (+ ukurId). updateUkurMasterGardu: satu pengukuran riwayat ditulis ke Master Gardu.
  */
 
 var RIWAYAT_GARDU_MAKS_ = 60;
@@ -45,7 +47,7 @@ function ukurYandalRg_(garduId, noGardu) {
     return (String(r.gardu_id) === garduId || teksRg_(r['No Gardu']).toUpperCase() === noGardu) && teksRg_(r.status) !== 'BATAL';
   }).map(function (r) {
     return {
-      sumber: 'Pengecekan Gardu Yandal', kode: teksRg_(r['Kode Pengukuran Gardu']), tanggal: tglSel_(r.Tanggal),
+      sumber: 'Pengecekan Gardu Yandal', ukurId: teksRg_(r.ukur_id), kode: teksRg_(r['Kode Pengukuran Gardu']), tanggal: tglSel_(r.Tanggal),
       periode: periodeUkurRg_(r['Waktu Beban'], jamSelJp_(r['Jam Ukur'])),
       jam: jamSelJp_(r['Jam Ukur']), petugas: teksRg_(r.Petugas || r.Tim),
       bebanR: angkaRg_(r['Beban R (A)']), bebanS: angkaRg_(r['Beban S (A)']), bebanT: angkaRg_(r['Beban T (A)']), bebanN: angkaRg_(r['Beban N (A)']),
@@ -67,7 +69,7 @@ function ukurInsDuRg_(garduId, noGardu) {
       var a = p.toLowerCase() + '_';
       if (angkaRg_(r[a + 'beban_r']) === null && angkaRg_(r[a + 'tegangan_rn']) === null) return;
       hasil.push({
-        sumber: 'Inspeksi Gardu', kode: teksRg_(r.kode_pengukuran), tanggal: tglSel_(r.tanggal), periode: p, jam: teksRg_(r[a + 'waktu']).slice(11, 16),
+        sumber: 'Inspeksi Gardu', ukurId: teksRg_(r.pengukuran_id), kode: teksRg_(r.kode_pengukuran), tanggal: tglSel_(r.tanggal), periode: p, jam: teksRg_(r[a + 'waktu']).slice(11, 16),
         petugas: '',
         bebanR: angkaRg_(r[a + 'beban_r']), bebanS: angkaRg_(r[a + 'beban_s']), bebanT: angkaRg_(r[a + 'beban_t']), bebanN: angkaRg_(r[a + 'beban_n']),
         teganganRS: angkaRg_(r[a + 'tegangan_rs']), teganganRT: angkaRg_(r[a + 'tegangan_rt']), teganganST: angkaRg_(r[a + 'tegangan_st']),
@@ -116,7 +118,7 @@ function ukurMasterRg_(m) {
   if (!m || !m.tglUkur) return [];
   var u = m.ukur || {};
   return [{
-    sumber: 'Master Gardu', kode: m.kodeUkur || '', tanggal: m.tglUkur.slice(0, 10), periode: periodeUkurRg_(m.waktuBeban, ''), jam: '',
+    sumber: 'Master Gardu', ukurId: '', kode: m.kodeUkur || '', tanggal: m.tglUkur.slice(0, 10), periode: periodeUkurRg_(m.waktuBeban, ''), jam: '',
     petugas: m.sumberUkur || '',
     bebanR: u.bebanR, bebanS: u.bebanS, bebanT: u.bebanT, bebanN: u.bebanN,
     teganganRS: u.teganganRS, teganganRT: u.teganganRT, teganganST: u.teganganST,
@@ -125,7 +127,7 @@ function ukurMasterRg_(m) {
   }];
 }
 
-/** v1.0.21: pengukuran terbaru per periode (tanggal lalu jam; sama = yang berjam / bukan salinan master). */
+/** v1.0.21: pengukuran terbaru per periode (tanggal lalu jam). v1.0.22: dipanggil dengan pengukuran Master Gardu saja. */
 function terbaruRg_(ukur) {
   var h = { LWBP: null, WBP: null };
   ukur.forEach(function (u) {
@@ -178,9 +180,57 @@ function getRiwayatGardu_(sesi, data) {
   return {
     garduId: id, noGardu: no,
     gardu: master,
-    terbaru: terbaruRg_(ukur),
+    terbaru: terbaruRg_(ukurMasterRg_(master)),
     pengukuran: ukur.slice(0, RIWAYAT_GARDU_MAKS_),
     temuan: bagianRg_(function () { return temuanRg_(id, no); }).sort(urutTurun),
     ba: bagianRg_(function () { return baRg_(id, no); }).sort(function (a, b) { return a.tanggalBa < b.tanggalBa ? 1 : a.tanggalBa > b.tanggalBa ? -1 : 0; })
   };
+}
+
+/* ===== v1.0.22: Update Pengukuran Gardu (riwayat -> Master Gardu) ===== */
+
+var SUMBER_UKUR_RG_ = ['Pengecekan Gardu Yandal', 'Inspeksi Gardu'];
+
+/** Kolom db_Gardu dari satu pengukuran riwayat (bentuk ukurYandalRg_ / ukurInsDuRg_). Angka kosong = sel kosong. */
+function kolomMasterUkurRg_(u) {
+  var isi = function (v) { return v === null || v === undefined ? '' : v; };
+  var hasil = {
+    'Tanggal Ukur Terakhir': u.tanggal, 'Kode Ukur Terakhir': u.kode, 'Waktu Beban': u.periode,
+    'Pembebanan (kVA)': isi(u.kva), 'Persentase Beban (%)': isi(u.persen), 'Kategori Beban': u.kategori || '',
+    'Sumber Data': u.sumber, ukur_id_terakhir: u.ukurId
+  };
+  YAN_NILAI_GARDU_.forEach(function (n) { hasil[n.kolom] = isi(u[n.kunci]); });
+  return hasil;
+}
+
+/**
+ * updateUkurMasterGardu {garduId, noGardu?, sumber, ukurId, periode}: pengukuran riwayat (Yandal / Inspeksi Gardu)
+ * yang dipilih admin menjadi pengukuran terakhir Master Gardu, juga kalau tanggalnya lebih lama (keputusan admin).
+ * Jawaban: {gardu (bentuk HP), terbaru}. Versi master gardu ikut berubah (hash isi), HP mengunduh ulang.
+ */
+function updateUkurMasterGardu_(sesi, data) {
+  wajibAdminRiwayatGardu_(sesi);
+  var d = validasi_(data, {
+    garduId: { tipe: 'teks', wajib: true, maks: 60 }, noGardu: { tipe: 'teks', maks: 20 },
+    sumber: { tipe: 'pilihan', wajib: true, pilihan: SUMBER_UKUR_RG_ }, ukurId: { tipe: 'teks', wajib: true, maks: 60 },
+    periode: { tipe: 'pilihan', wajib: true, pilihan: ['LWBP', 'WBP'] }
+  });
+  var id = String(d.garduId), no = teksRg_(d.noGardu).toUpperCase();
+  var sumber = d.sumber === 'Inspeksi Gardu' ? ukurInsDuRg_(id, no) : ukurYandalRg_(id, no);
+  var u = sumber.filter(function (x) { return x.ukurId === String(d.ukurId) && x.periode === d.periode; })[0];
+  if (!u || !u.tanggal) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'pengukuran');
+  return denganLock_(function () {
+    var tG = tabelGarduUkur_();
+    var g = tG.rows.filter(function (x) { return String(x.gardu_id) === id; })[0];
+    if (!g) throw new SisiError_('GARDU_TIDAK_DITEMUKAN', no || id);
+    if (teksRg_(g['Status Gardu']).toUpperCase() !== 'AKTIF') throw new SisiError_('GARDU_TIDAK_AKTIF', teksRg_(g['No Gardu']));
+    var tLog = headerTabel_('AUTH_SHEET_ID', 'log_Audit');
+    var ubah = Object.assign(kolomMasterUkurRg_(u), {
+      'Diubah Oleh': sesi.nama || sesi.username || '', 'Timestamp Update': sekarangIso_(), diubah_oleh: sesi.userId || ''
+    });
+    tulisBlok_(tG, [{ r: g, u: ubah }], [], { bolehId: ['ukur_id_terakhir'] });
+    auditLog_(sesi, 'UPDATE_UKUR_GARDU', teksRg_(g['No Gardu']), u.sumber + ' ' + u.kode + ' ' + u.periode + ' ' + u.tanggal, 'MOBILE', tLog);
+    var baru = barisGarduHp_(Object.assign({}, g, ubah, { revision: (Number(g.revision) || 0) + 1 }));
+    return { gardu: baru, terbaru: terbaruRg_(ukurMasterRg_(baru)) };
+  });
 }

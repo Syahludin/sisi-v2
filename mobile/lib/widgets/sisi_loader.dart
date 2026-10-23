@@ -12,8 +12,9 @@ import '../theme/app_colors.dart';
 ///   kanan bawah (ekor atas) -> kiri atas -> kiri bawah (tengah) -> kanan bawah -> kembali ke kiri bawah (ekor bawah).
 /// Siklus: garis tumbuh dari titik awal sampai ujung (titik sudut muncul saat dilewati kepala garis), menetap sebentar,
 /// lalu terhapus dari pangkal ke ujung, berulang. HP dengan "kurangi animasi" = S utuh tanpa gerak.
+/// v1.0.22: [diam] = logo S utuh tanpa gerak (ikon tombol refresh saat tidak ada aktivitas).
 class SisiLoader extends StatefulWidget {
-  const SisiLoader({super.key, this.ukuran = 40, this.warna, this.warnaKepala, this.durasi = const Duration(milliseconds: 1600)});
+  const SisiLoader({super.key, this.ukuran = 40, this.warna, this.warnaKepala, this.durasi = const Duration(milliseconds: 1600), this.diam = false});
 
   /// Sisi kotak (px). Tebal garis mengikuti ukuran.
   final double ukuran;
@@ -24,6 +25,7 @@ class SisiLoader extends StatefulWidget {
   /// Warna kepala garis (default kuning petir logo; ikut [warna] kalau [warna] diisi).
   final Color? warnaKepala;
   final Duration durasi;
+  final bool diam;
 
   /// Titik sudut S patah dalam kotak 0..1 (urutan gambar).
   static const List<Offset> titik = [
@@ -52,7 +54,17 @@ class _SisiLoaderState extends State<SisiLoader> with SingleTickerProviderStateM
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final diam = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _atur();
+  }
+
+  @override
+  void didUpdateWidget(SisiLoader old) {
+    super.didUpdateWidget(old);
+    if (old.diam != widget.diam) _atur();
+  }
+
+  void _atur() {
+    final diam = widget.diam || (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
     if (diam) {
       _c.stop();
       _c.value = .6; // S utuh

@@ -206,6 +206,7 @@ function ADMIN_cekKonfigurasi() {
   masalah += cekKonfigNotif_();   // v0.83.0
   masalah += cekKonfigPemakaian_();   // v0.84.0
   if (c.GARDU_SHEET_ID) masalah += cekKonfigArsipBa_();   // v0.86.0
+  masalah += cekKonfigProperti_(c);   // v1.0.22: jatah 50 Script Properties + properti migrasi selesai
 
   console.log('');
   console.log(masalah ? '=== SELESAI: ' + masalah + ' masalah. Cari [GAGAL] dan [PERHATIAN] di atas ===' : '=== SEMUA OK ===');
@@ -243,6 +244,85 @@ function cekFiturGardu_(c, info, ok, perhatian, gagal) {
     if (sel.sel > 8e6) perhatian('GARDU_SHEET_ID: ' + sel.sel + ' sel (' + sel.sheet + ' tab), mendekati batas 10 juta');
     else ok('GARDU_SHEET_ID: ' + sel.sel + ' sel (' + sel.sheet + ' tab), batas 10 juta');
   }
+}
+
+/* ===== v1.0.22: Script Properties maks 50 (batas Apps Script) ===== */
+
+var PROPERTI_MAKS_ = 50;
+
+/**
+ * Keluarga properti migrasi: awalan kunci + tab tujuan migrasi (baris dibuat_oleh = MIGRASI). Awalan 'MIG_' tidak
+ * menangkap MIGP0_ / MIGHARTEK_ / MIGINS_ / MIGJP_ (huruf sesudah MIG bukan garis bawah).
+ */
+function keluargaMigrasi_() {
+  return [
+    { awalan: 'MIG_', nama: 'ROW', idKey: 'ROW_SHEET_ID', tabel: function () { return tabel_('ROW_SHEET_ID', ROW_SHEET_.header); } },
+    { awalan: 'MIGP0_', nama: 'P0 Yandal', idKey: 'YANDAL_SHEET_ID', tabel: function () { return tabel_('YANDAL_SHEET_ID', MIGP0_SHEET_V2_.p0); } },
+    { awalan: 'MIGHARTEK_', nama: 'Hartek', idKey: 'HARTEK_SHEET_ID', tabel: function () { return tabelHartek_(MIGHARTEK_SHEET_V2_.header); } },
+    { awalan: 'MIGINS_', nama: 'Inspeksi', idKey: 'TEMUAN_SHEET_ID', tabel: function () { return MIGINS_TARGET_[4].tabel(); } },
+    { awalan: 'MIGJP_', nama: 'Jadwal Padam', idKey: 'JADWAL_PADAM_SHEET_ID', tabel: tabelJp_ }
+  ];
+}
+
+/** Jumlah baris hasil migrasi (dibuat_oleh = MIGRASI) + tanggal tulis terakhir (yyyy-MM-dd). Hanya 2 kolom yang dibaca. */
+function ringkasMigrasiTab_(tb) {
+  var iOleh = tb.header.indexOf('dibuat_oleh'), akhir = tb.sheet.getLastRow(), hasil = { jumlah: 0, terakhir: '' };
+  if (iOleh === -1 || akhir < 2) return hasil;
+  var iWaktu = ['dibuat_pada', 'Timestamp', 'diubah_pada'].map(function (k) { return tb.header.indexOf(k); }).filter(function (i) { return i !== -1; })[0];
+  var oleh = tb.sheet.getRange(2, iOleh + 1, akhir - 1, 1).getValues();
+  var waktu = iWaktu === undefined ? [] : tb.sheet.getRange(2, iWaktu + 1, akhir - 1, 1).getValues();
+  oleh.forEach(function (b, i) {
+    if (String(b[0]) !== 'MIGRASI') return;
+    hasil.jumlah++;
+    var t = waktu[i] ? tglSel_(waktu[i][0]) : '';
+    if (t > hasil.terakhir) hasil.terakhir = t;
+  });
+  return hasil;
+}
+
+/**
+ * Saran untuk satu keluarga properti migrasi (murni). Data migrasi sudah ada di sheet dan ditulis SEBELUM hari
+ * cekKonfigurasi dijalankan = HAPUS (migrasi selesai, properti tinggal memakan jatah 50). Ditulis hari ini = HARI_INI
+ * (cek hasil dulu). Belum ada data = BELUM (properti masih dipakai). Kunci foto ditunda sampai migrasi foto selesai.
+ */
+function saranPropertiMigrasi_(kunci, ringkas, hariIni) {
+  var foto = kunci.filter(function (k) { return /FOTO/.test(k); });
+  var lain = kunci.filter(function (k) { return !/FOTO/.test(k); });
+  var status = !ringkas.jumlah ? 'BELUM' : (ringkas.terakhir && ringkas.terakhir >= hariIni ? 'HARI_INI' : 'HAPUS');
+  return { status: status, hapus: status === 'HAPUS' ? lain : [], tunda: status === 'HAPUS' ? foto : [] };
+}
+
+/** Dipanggil ADMIN_cekKonfigurasi: jumlah Script Properties + properti migrasi yang sudah boleh dihapus. */
+function cekKonfigProperti_(c) {
+  var semua = Object.keys(PropertiesService.getScriptProperties().getProperties()), masalah = 0, hariIni = tglJakarta_(new Date());
+  console.log('');
+  console.log('[Script Properties] ' + semua.length + ' dari ' + PROPERTI_MAKS_);
+  if (semua.length >= PROPERTI_MAKS_ - 5) {
+    console.warn('  [PERHATIAN] tinggal ' + Math.max(0, PROPERTI_MAKS_ - semua.length) + ' slot. Hapus properti migrasi yang sudah selesai (di bawah).');
+    masalah++;
+  }
+  keluargaMigrasi_().forEach(function (k) {
+    var kunci = semua.filter(function (x) { return x.indexOf(k.awalan) === 0; }).sort();
+    if (!kunci.length) return;
+    var ringkas;
+    try { ringkas = c[k.idKey] ? ringkasMigrasiTab_(k.tabel()) : { jumlah: 0, terakhir: '' }; } catch (e) {
+      console.warn('  [PERHATIAN] migrasi ' + k.nama + ': tab tujuan tidak terbaca (' + (e.kode || e.message) + '), properti ' + kunci.join(', '));
+      masalah++;
+      return;
+    }
+    var s = saranPropertiMigrasi_(kunci, ringkas, hariIni);
+    if (s.status === 'BELUM') {
+      console.log('  [INFO] migrasi ' + k.nama + ': belum ada data di sheet, properti masih dipakai (' + kunci.join(', ') + ')');
+    } else if (s.status === 'HARI_INI') {
+      console.log('  [INFO] migrasi ' + k.nama + ': ' + ringkas.jumlah + ' baris ditulis hari ini. Cek hasilnya, lalu hapus properti ' + kunci.join(', '));
+    } else {
+      console.warn('  [PERHATIAN] migrasi ' + k.nama + ' sudah ada di sheet (' + ringkas.jumlah + ' baris, terakhir ' + (ringkas.terakhir || '-') +
+        '). Hapus Script Property: ' + (s.hapus.join(', ') || '-') +
+        (s.tunda.length ? ' | sesudah migrasi foto selesai: ' + s.tunda.join(', ') : ''));
+      masalah++;
+    }
+  });
+  return masalah;
 }
 
 /**
@@ -429,6 +509,11 @@ function ADMIN_lengkapiMaster() {
     });
   });
   CacheService.getScriptCache().removeAll(['akses:v1', 'master-row:v3']);
+  // v1.0.22 (permintaan kvlar 23 Okt 2026): HP yang login mengunduh ulang Master Data + Master Gardu otomatis
+  // (revisi ikut di setiap jawaban server, lihat proses_). Satu Script Property, ditimpa setiap jalan.
+  var revisi = sekarangIso_();
+  PropertiesService.getScriptProperties().setProperty('MASTER_REVISI', revisi);
+  console.log('MASTER_REVISI ' + revisi + ': HP mengunduh ulang Master Data + Master Gardu saat berikutnya terhubung ke server');
 }
 
 /**

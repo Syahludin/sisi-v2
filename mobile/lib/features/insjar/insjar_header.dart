@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/lonceng.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_motif.dart';
+import '../../widgets/sisi_widgets.dart';
 import '../hartek/hartek_gaya.dart';
 
 /// v1.0.5 (permintaan kvlar 20 Okt 2026): header halaman Inspeksi Jaringan dan Input Temuan Inspeksi, satu gaya untuk
@@ -81,6 +84,19 @@ class HeaderInsJar extends StatelessWidget {
 
 /// Tombol bulat di header (putih transparan).
 /// v1.0.21: [sibuk] = logo SiSi bergerak (refresh SiSi) menggantikan ikon selama proses berjalan.
+/// v1.0.22: tombol refresh header (logo SiSi, bergerak hanya saat diketuk; [sibuk] = loading halaman, tombol diam).
+Widget tombolSegarkanHeader(FutureOr<void> Function()? aksi, {bool sibuk = false, String tip = 'Segarkan'}) => TombolSegarkan(
+      sibuk: sibuk,
+      onPressed: aksi,
+      tooltip: tip,
+      ukuran: 22,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: .16),
+        disabledBackgroundColor: Colors.white.withValues(alpha: .10),
+        side: BorderSide(color: Colors.white.withValues(alpha: .18)),
+      ),
+    );
+
 Widget tombolHeaderInsJar(IconData ikon, String tip, VoidCallback? aksi, {bool sibuk = false}) => IconButton(
       tooltip: tip,
       onPressed: sibuk ? null : aksi,

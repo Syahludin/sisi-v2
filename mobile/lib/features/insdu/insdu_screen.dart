@@ -1084,7 +1084,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
       lonceng: _halaman == HalamanInsDu.utama, // v1.0.19
       aksi: [
         if (_halaman == HalamanInsDu.utama)
-          tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _sibuk ? null : _segarkan, sibuk: _segar)
+          tombolSegarkanHeader(_segarkan, tip: 'Segarkan laporan', sibuk: _sibuk || _segar)
         else
           tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => _ke(HalamanInsDu.utama)),
       ],

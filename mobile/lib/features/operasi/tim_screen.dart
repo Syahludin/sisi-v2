@@ -78,7 +78,7 @@ class _TimScreenState extends State<TimScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Sub-tim ROW • ULP ${widget.sesi.ulp}', actions: [
-        TombolSegarkan(sibuk: _tab == 0 && _memuat, onPressed: () => unawaited(_segarkan())),
+        TombolSegarkan(sibuk: _tab == 0 && _memuat, onPressed: _segarkan),
       ]),
       body: Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(16, 14, 16, 0), child: _hero(r)),

@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import 'api_client.dart';
 import 'pembaru_apk.dart';
 import 'env.dart';
+import 'kunci_update.dart';
 import 'versi.dart';
 
 /// v0.81.0 (permintaan kvlar 10 Okt 2026): notifikasi update app saat dibuka / kembali dari latar belakang / backend
@@ -15,6 +16,8 @@ import 'versi.dart';
 ///  - Update tersedia (minimum <= app < server): dialog, boleh Nanti (muncul lagi saat app dibuka berikutnya).
 ///  - Server lebih lama dari app: info sekali (fitur baru mungkin belum jalan sampai backend di-deploy).
 /// Offline / ping gagal = diam (app offline-first tetap bisa dipakai).
+/// v1.0.22 (permintaan kvlar 23 Okt 2026): kartu WAJIB update bisa ditutup (Tutup). Selama wajib update, input + sinkron
+/// mati ([KunciUpdate]); halaman tetap bisa dibuka. Pita merah di atas halaman membuka kartu ini lagi.
 class PemeriksaVersi {
   PemeriksaVersi(this._api, this._konteks);
   final ApiClient _api;
@@ -47,7 +50,7 @@ class PemeriksaVersi {
       final d = await _api.call('ping', timeout: const Duration(seconds: 20));
       info = InfoVersi.dariJson(d['versi']);
       _terakhir = now;
-      if (info != null) terakhir.value = info;
+      if (info != null) _catat(info);
     } catch (_) {
       info = null;
     } finally {
@@ -76,6 +79,12 @@ class PemeriksaVersi {
     return info;
   }
 
+  /// Info versi terakhir + kunci input / sinkron (wajib update = terkunci, sudah update / server sama = terbuka).
+  void _catat(InfoVersi i) {
+    terakhir.value = i;
+    KunciUpdate.aktif.value = i.statusUntuk(versiApp) == StatusVersi.wajibUpdate;
+  }
+
   void _pesan(BuildContext c, String t) {
     ScaffoldMessenger.maybeOf(c)
       ?..hideCurrentSnackBar()
@@ -88,10 +97,13 @@ class PemeriksaVersi {
       await showDialog<void>(
         context: c,
         barrierDismissible: !wajib,
-        builder: (d) => DialogUpdateVersi(info: info, wajib: wajib, onCekLagi: () async {
-          final ulang = await _ambil();
-          if (ulang != null && ulang.statusUntuk(versiApp) != StatusVersi.wajibUpdate && d.mounted) Navigator.pop(d);
-        }),
+        builder: (d) => DialogUpdateVersi(
+            info: info,
+            wajib: wajib,
+            onCekLagi: () async {
+              final ulang = await _ambil();
+              if (ulang != null && ulang.statusUntuk(versiApp) != StatusVersi.wajibUpdate && d.mounted) Navigator.pop(d);
+            }),
       );
     } finally {
       _dialogTerbuka = false;
@@ -101,7 +113,7 @@ class PemeriksaVersi {
   Future<InfoVersi?> _ambil() async {
     try {
       final i = InfoVersi.dariJson((await _api.call('ping', timeout: const Duration(seconds: 20)))['versi']);
-      if (i != null) terakhir.value = i;
+      if (i != null) _catat(i);
       return i;
     } catch (_) {
       return null;
@@ -137,6 +149,7 @@ class DialogUpdateVersi extends StatelessWidget {
     return PopScope(
       canPop: !wajib,
       child: AlertDialog(
+        actionsOverflowButtonSpacing: 4,
         icon: Icon(wajib ? Icons.system_update_rounded : Icons.new_releases_rounded, size: 40, color: wajib ? AppColors.red700 : AppColors.brand700),
         title: Text(wajib ? 'Wajib Update Aplikasi' : 'Update Tersedia', textAlign: TextAlign.center),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -151,10 +164,11 @@ class DialogUpdateVersi extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
+            // v1.0.22: teks baru (permintaan kvlar)
             wajib
-                ? 'Server sudah diperbarui. Aplikasi versi lama bisa mengirim data yang tidak cocok, jadi update dulu sebelum lanjut. '
+                ? '${KunciUpdate.pesan}. Sebelum update, input dan sinkron data dimatikan; halaman tetap bisa dibuka. '
                     'Data yang belum terkirim tetap aman di HP.'
-                : 'Ada versi baru. Update supaya fitur aplikasi sama dengan server.',
+                : '${KunciUpdate.pesan}.',
             style: const TextStyle(fontSize: 13),
           ),
           if (poin.isNotEmpty) ...[
@@ -168,7 +182,8 @@ class DialogUpdateVersi extends StatelessWidget {
           ],
         ]),
         actions: [
-          if (!wajib) TextButton(onPressed: () => Navigator.pop(context), child: const Text('Nanti')),
+          // v1.0.22: wajib update juga bisa ditutup (input + sinkron tetap mati sampai terupdate)
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(wajib ? 'Tutup' : 'Nanti')),
           if (wajib) TextButton(onPressed: () => unawaited(onCekLagi()), child: const Text('Cek Lagi')),
           if (info.linkUnduh.isNotEmpty || _langsung)
             FilledButton.icon(
@@ -238,7 +253,8 @@ class KartuVersiAplikasi extends StatelessWidget {
                       Text('Versi aplikasi ${Env.isStaging ? '(Staging)' : ''}'.trim(),
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900)),
                       const SizedBox(height: 2),
-                      Text(teks ?? 'Ketuk untuk cek pembaruan', style: TextStyle(fontSize: 11.5, color: warna, fontWeight: teks == null ? FontWeight.w400 : FontWeight.w700)),
+                      Text(teks ?? 'Ketuk untuk cek pembaruan',
+                          style: TextStyle(fontSize: 11.5, color: warna, fontWeight: teks == null ? FontWeight.w400 : FontWeight.w700)),
                     ]),
                   ),
                   const Text('v$versiApp', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.neutral700)),

@@ -11,6 +11,7 @@ import 'sisi_loader.dart';
 /// lepas melewati batas = [onRefresh] berjalan dan logo tetap tampil sampai selesai.
 /// Sama dengan RefreshIndicator: anak harus bisa di-scroll (AlwaysScrollableScrollPhysics untuk isi pendek) dan
 /// hanya scroll langsung (depth 0) yang dihitung.
+/// v1.0.22 (permintaan kvlar): logo diperbesar supaya proses refresh terlihat jelas.
 class RefreshSisi extends StatefulWidget {
   const RefreshSisi({super.key, required this.onRefresh, required this.child});
   final Future<void> Function() onRefresh;
@@ -21,8 +22,8 @@ class RefreshSisi extends StatefulWidget {
 }
 
 class _RefreshSisiState extends State<RefreshSisi> with SingleTickerProviderStateMixin {
-  static const _batas = 72.0; // jarak tarik (px, sesudah redaman) untuk memicu refresh
-  static const _ukuran = 44.0;
+  static const _batas = 84.0; // jarak tarik (px, sesudah redaman) untuk memicu refresh
+  static const _ukuran = 62.0;
 
   /// Jarak tarik saat ini (0.._batas * 1.5); dianimasikan kembali ke 0 / ke _batas.
   late final AnimationController _tarik = AnimationController(vsync: this, upperBound: _batas * 1.5, duration: const Duration(milliseconds: 220));
@@ -120,10 +121,10 @@ class _RefreshSisiState extends State<RefreshSisi> with SingleTickerProviderStat
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              border: Border.all(color: p >= 1 ? AppColors.brand500 : AppColors.neutral200, width: 1.4),
+                              border: Border.all(color: p >= 1 ? AppColors.brand500 : AppColors.neutral200, width: 1.8),
                               boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .18), blurRadius: 12, offset: const Offset(0, 4))],
                             ),
-                            child: const SisiLoader(ukuran: 26),
+                            child: const SisiLoader(ukuran: 40),
                           ),
                         ),
                       ),

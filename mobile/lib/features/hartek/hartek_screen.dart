@@ -11,6 +11,7 @@ import '../../widgets/popup_berhasil.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/kartu_laporan_tim.dart';
 import '../../widgets/sisi_motif.dart';
+import '../../widgets/sisi_widgets.dart' show TombolSegarkan;
 import '../../widgets/wa_panel.dart';
 import '../gardu/gardu_model.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
@@ -1605,11 +1606,7 @@ class _HartekScreenState extends State<HartekScreen> {
         ]),
         actions: [
           if (!bertingkat) const LoncengNotifikasi(warna: HartekGaya.tinta), // v1.0.19
-          IconButton(
-            tooltip: 'Segarkan laporan',
-            onPressed: _segar || _sibuk ? null : _segarkan,
-            icon: _segar ? const SisiLoader(ukuran: 20) : const Icon(Icons.refresh_rounded, color: HartekGaya.tinta),
-          ),
+          TombolSegarkan(sibuk: _segar || _sibuk, onPressed: _segarkan, tooltip: 'Segarkan laporan', warna: HartekGaya.tinta), // v1.0.22
           const SizedBox(width: 6),
         ],
       ),

@@ -9,10 +9,10 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/sisi_motif.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'arsip_p0_view.dart' show angkaPoint;
 import 'yandal_login.dart' show inisialPetugas;
-import '../../widgets/sisi_loader.dart';
 
 /// v0.63.5 (keputusan kvlar 8 Okt 2026): Rank Yandal bulan berjalan di Beranda (akun YANDAL + admin).
 /// v0.75.1 (permintaan kvlar 10 Okt 2026): tampilan baru: podium 3 besar, bilah nilai, komponen Jam / Shift / P0.
@@ -23,20 +23,26 @@ String periodeYandal(DateTime t) => Wib.tanggal(t).substring(0, 7);
 
 /// petugas_id crew shift ini (akun YANDAL).
 Set<String> crewSesi(Sesi s) => {
-      for (final p in (s.yandal?['petugas'] as List<dynamic>? ?? const <dynamic>[]).whereType<Map<dynamic, dynamic>>())
-        '${p['petugasId'] ?? ''}',
+      for (final p in (s.yandal?['petugas'] as List<dynamic>? ?? const <dynamic>[]).whereType<Map<dynamic, dynamic>>()) '${p['petugasId'] ?? ''}',
     }..remove('');
 
 /// Baris yang tampil di kartu: [atas] teratas, lalu crew shift ini yang tidak masuk [atas] (urutan rank).
-({List<Map<String, dynamic>> atas, List<Map<String, dynamic>> crew}) barisRankTampil(List<Map<String, dynamic>> petugas, Set<String> crew,
-    {int jumlah = 5}) {
+({List<Map<String, dynamic>> atas, List<Map<String, dynamic>> crew}) barisRankTampil(List<Map<String, dynamic>> petugas, Set<String> crew, {int jumlah = 5}) {
   final atas = petugas.take(jumlah).toList();
   final sudah = {for (final p in atas) '${p['petugasId']}'};
-  return (atas: atas, crew: [for (final p in petugas) if (crew.contains('${p['petugasId']}') && !sudah.contains('${p['petugasId']}')) p]);
+  return (
+    atas: atas,
+    crew: [
+      for (final p in petugas)
+        if (crew.contains('${p['petugasId']}') && !sudah.contains('${p['petugasId']}')) p
+    ]
+  );
 }
 
-List<Map<String, dynamic>> _daftar(Map<String, dynamic>? d) =>
-    [for (final x in (d?['petugas'] as List<dynamic>?) ?? const <dynamic>[]) if (x is Map<dynamic, dynamic>) Map<String, dynamic>.from(x)];
+List<Map<String, dynamic>> _daftar(Map<String, dynamic>? d) => [
+      for (final x in (d?['petugas'] as List<dynamic>?) ?? const <dynamic>[])
+        if (x is Map<dynamic, dynamic>) Map<String, dynamic>.from(x)
+    ];
 
 class KartuRankYandal extends StatefulWidget {
   const KartuRankYandal({super.key, required this.deps, required this.sesi});
@@ -78,9 +84,8 @@ class _KartuRankYandalState extends State<KartuRankYandal> {
     } on ApiException catch (e) {
       if (!mounted) return;
       final offline = e.kode.startsWith('HTTP_');
-      setState(() => _pesan = !offline
-          ? KodeError.pesan(e.kode)
-          : (_data == null ? 'Rank butuh sinyal untuk dimuat.' : 'Offline: menampilkan rank terakhir di HP.'));
+      setState(() =>
+          _pesan = !offline ? KodeError.pesan(e.kode) : (_data == null ? 'Rank butuh sinyal untuk dimuat.' : 'Offline: menampilkan rank terakhir di HP.'));
     } catch (_) {
       if (mounted) setState(() => _pesan = _data == null ? 'Rank butuh sinyal untuk dimuat.' : 'Offline: menampilkan rank terakhir di HP.');
     } finally {
@@ -100,67 +105,64 @@ class _KartuRankYandalState extends State<KartuRankYandal> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.brand950, AppColors.brand700]),
+        // v1.0.22 (permintaan kvlar 23 Okt 2026): latar Jaringan SiSi (gradien + motif tiang & kawat) seperti header / kartu utama
+        gradient: SisiMotif.gradien,
         boxShadow: [BoxShadow(color: AppColors.brand900.withValues(alpha: .25), blurRadius: 16, offset: const Offset(0, 6))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 6, 4),
-          child: _KepalaRank(
-            bulan: bulan,
-            aksi: IconButton(
-              tooltip: 'Muat ulang rank',
-              onPressed: _muat ? null : () => unawaited(_segarkan()),
-              icon: _muat
-                  ? const SisiLoader(ukuran: 18, warna: Colors.white)
-                  : const Icon(Icons.refresh_rounded, color: Colors.white),
+      child: CustomPaint(
+        painter: const PolaJaringanPainter(alpha: .09, kerapatan: 5),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 6, 4),
+            child: _KepalaRank(
+              bulan: bulan,
+              aksi: TombolSegarkan(sibuk: _muat, onPressed: _segarkan, tooltip: 'Muat ulang rank', ukuran: 18), // v1.0.22
             ),
           ),
-        ),
-        if (_pesan != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-            child: Text(_pesan!, style: const TextStyle(fontSize: 11.5, color: AppColors.accent400)),
-          ),
-        if (semua.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-            child: Text(_data == null ? (_muat ? 'Memuat rank...' : '-') : 'Belum ada petugas di rank bulan ini.',
-                style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
-          )
-        else ...[
-          PodiumRank(petugas: semua.take(3).toList(), crew: crew),
-          Container(
-            margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            padding: const EdgeInsets.fromLTRB(8, 8, 4, 4),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (final p in sisa) BarisRank(p: p, sorot: crew.contains('${p['petugasId']}')),
-              if (tampil.crew.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(6, 6, 0, 4),
-                  child: Text('PETUGAS SHIFT INI',
-                      style: TextStyle(fontSize: 10.5, letterSpacing: .8, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
-                ),
-                for (final p in tampil.crew) BarisRank(p: p, sorot: true),
-              ],
-              Row(children: [
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(diperbarui == null ? '' : 'Diperbarui ${DateFormat('d MMM HH:mm', 'id_ID').format(diperbarui.toLocal())}',
-                      style: const TextStyle(fontSize: 11, color: AppColors.neutral500)),
-                ),
-                TextButton.icon(
-                  onPressed: () => unawaited(Navigator.push(
-                      context, MaterialPageRoute<void>(builder: (_) => RankYandalScreen(data: _data!, crew: crew)))),
-                  icon: const Icon(Icons.leaderboard_rounded, size: 18),
-                  label: Text('Lihat semua (${semua.length})'),
-                ),
+          if (_pesan != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(_pesan!, style: const TextStyle(fontSize: 11.5, color: AppColors.accent400)),
+            ),
+          if (semua.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+              child: Text(_data == null ? (_muat ? 'Memuat rank...' : '-') : 'Belum ada petugas di rank bulan ini.',
+                  style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+            )
+          else ...[
+            PodiumRank(petugas: semua.take(3).toList(), crew: crew),
+            Container(
+              margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              padding: const EdgeInsets.fromLTRB(8, 8, 4, 4),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                for (final p in sisa) BarisRank(p: p, sorot: crew.contains('${p['petugasId']}')),
+                if (tampil.crew.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(6, 6, 0, 4),
+                    child: Text('PETUGAS SHIFT INI',
+                        style: TextStyle(fontSize: 10.5, letterSpacing: .8, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
+                  ),
+                  for (final p in tampil.crew) BarisRank(p: p, sorot: true),
+                ],
+                Row(children: [
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(diperbarui == null ? '' : 'Diperbarui ${DateFormat('d MMM HH:mm', 'id_ID').format(diperbarui.toLocal())}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.neutral500)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => unawaited(Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RankYandalScreen(data: _data!, crew: crew)))),
+                    icon: const Icon(Icons.leaderboard_rounded, size: 18),
+                    label: Text('Lihat semua (${semua.length})'),
+                  ),
+                ]),
               ]),
-            ]),
-          ),
-        ],
-      ]),
+            ),
+          ],
+        ]),
+      ),
     );
   }
 }
@@ -218,8 +220,7 @@ class PodiumRank extends StatelessWidget {
             child: CircleAvatar(
               radius: besar ? 30 : 24,
               backgroundColor: AppColors.brand900,
-              child: Text(inisialPetugas('${p['nama'] ?? ''}'),
-                  style: TextStyle(fontSize: besar ? 18 : 15, fontWeight: FontWeight.w900, color: Colors.white)),
+              child: Text(inisialPetugas('${p['nama'] ?? ''}'), style: TextStyle(fontSize: besar ? 18 : 15, fontWeight: FontWeight.w900, color: Colors.white)),
             ),
           ),
           const SizedBox(height: 6),
@@ -239,14 +240,12 @@ class PodiumRank extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 5),
             decoration: BoxDecoration(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              gradient: LinearGradient(
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [warna, warna.withValues(alpha: .45)]),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [warna, warna.withValues(alpha: .45)]),
               border: saya ? Border.all(color: Colors.white, width: 2) : null,
             ),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Text('$rank', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.brand950)),
-              Text(angkaPoint((p['total'] as num?) ?? 0),
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.brand900)),
+              Text(angkaPoint((p['total'] as num?) ?? 0), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.brand900)),
             ]),
           ),
         ]),
@@ -297,8 +296,7 @@ class BarisRank extends StatelessWidget {
             child: CircleAvatar(
               radius: 16,
               backgroundColor: AppColors.brand800,
-              child: Text(inisialPetugas('${p['nama'] ?? ''}'),
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Colors.white)),
+              child: Text(inisialPetugas('${p['nama'] ?? ''}'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Colors.white)),
             ),
           ),
           const SizedBox(width: 10),
@@ -307,8 +305,7 @@ class BarisRank extends StatelessWidget {
               Row(children: [
                 Flexible(
                   child: Text('${p['nama'] ?? '-'}',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                      overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
                 ),
                 if (sorot) ...[
                   const SizedBox(width: 6),
@@ -347,8 +344,7 @@ class BarisRank extends StatelessWidget {
             Expanded(child: _Komponen(label: 'Shift', persen: v('shift'), bawah: '${p['shift'] ?? 0} shift')),
             const SizedBox(width: 6),
             Expanded(
-              child: _Komponen(
-                  label: 'P0', persen: v('p0'), bawah: '${angkaPoint((p['point'] as num?) ?? 0)} pt · ${p['jumlahP0'] ?? 0} P0'),
+              child: _Komponen(label: 'P0', persen: v('p0'), bawah: '${angkaPoint((p['point'] as num?) ?? 0)} pt · ${p['jumlahP0'] ?? 0} P0'),
             ),
           ]),
         ],
@@ -413,13 +409,16 @@ class RankYandalScreen extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.brand950, AppColors.brand700]),
+              gradient: SisiMotif.gradien,
             ),
-            child: Column(children: [
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _KepalaRank(bulan: '${semua.length} petugas · $bulan')),
-              const SizedBox(height: 8),
-              PodiumRank(petugas: semua.take(3).toList(), crew: crew),
-            ]),
+            child: CustomPaint(
+              painter: const PolaJaringanPainter(alpha: .09, kerapatan: 5),
+              child: Column(children: [
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _KepalaRank(bulan: '${semua.length} petugas · $bulan')),
+                const SizedBox(height: 8),
+                PodiumRank(petugas: semua.take(3).toList(), crew: crew),
+              ]),
+            ),
           ),
           const SizedBox(height: 12),
           for (final p in semua) BarisRank(p: p, sorot: crew.contains('${p['petugasId']}'), rinci: true),

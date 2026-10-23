@@ -998,7 +998,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   const epJp = Object.keys(ep).filter((k) => /JadwalPadam/.test(ep[k].fn.name)).sort();
   assert.deepStrictEqual(epJp.filter((k) => ep[k].tulis), ['hapusJadwalPadam', 'simpanJadwalPadam', 'ubahJadwalPadam', 'ubahStatusJadwalPadam']);
   for (const k of epJp) assert.strictEqual(ep[k].menu, 'OPS_JADWAL_PADAM', k);
-  assert.deepStrictEqual(tulis, ['buatPdfBaGardu', 'kirimEamBaGardu', 'lepasNomorGardu', 'pesanNomorGardu', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPetugasYandal', 'syncRow', 'ubahBaGardu', 'ubahJenisP0', 'updateMasterGarduBa', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
+  assert.deepStrictEqual(tulis, ['buatPdfBaGardu', 'kirimEamBaGardu', 'lepasNomorGardu', 'pesanNomorGardu', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPetugasYandal', 'syncRow', 'ubahBaGardu', 'ubahJenisP0', 'updateMasterGarduBa', 'updateUkurMasterGardu', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
   // data ROW: fungsi wajib membatasi ke tim sesi (PETUGAS) sendiri
   const cekMilik = { getKodeRow: /wajibPetugasRow_\(sesi\)[\s\S]*sesi\.timId/, syncRow: /wajibPetugasRow_\(sesi\)/,
     uploadFotoRow: /wajibPetugasRow_\(sesi\)[\s\S]*BUKAN_MILIK_TIM/,
@@ -1067,6 +1067,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INPUT_TEMUAN', k);
   // v1.0.17: riwayat gardu = data bersama ULP, khusus admin paling awal
   cekMilik.getRiwayatGardu = /^function getRiwayatGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;
+  cekMilik.updateUkurMasterGardu = /^function updateUkurMasterGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;   // v1.0.22
   // v1.0.17: Jadwal Padam = admin paling awal
   for (const k of epJp) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibAdminJadwalPadam_\\(sesi\\)');
   for (const k of Object.keys(ep).filter((k) => ep[k].menu)) {
@@ -3844,6 +3845,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     getUpdateApp: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
     getFotoTemuanInspeksi: [], getFotoTemuanInsJar: [], getFotoTemuanInsDu: [],
     getRiwayatGardu: [],
+    updateUkurMasterGardu: [],
     // v0.75.0: OPS_VERIFIKASI_P0 tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test approval)
     getApprovalP0: [], getFotoApprovalP0: [], simpanApprovalP0: [], ubahJenisP0: [], simpanAturanYandal: [],
     getArsipYandal: ['yandal/MOBILE'], getRankYandal: ['yandal/MOBILE', 'yandal/WEB', 'admin/MOBILE', 'admin/WEB'],
@@ -5485,7 +5487,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (nama === 'getKalenderTim_') awal[k] = 'wajibSesiKalender_(sesi)';   // v1.0.17, v1.0.18 semua akun
     if (['getNotifikasi_', 'tandaiNotifikasi_'].includes(nama)) awal[k] = 'wajibSesiLonceng_(sesi)';   // v1.0.19
     if (nama === 'getUpdateApp_') awal[k] = 'wajibSesiUpdate_(sesi)';   // v1.0.19
-    if (nama === 'getRiwayatGardu_') awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17
+    if (nama === 'getRiwayatGardu_' || nama === 'updateUkurMasterGardu_') awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17, v1.0.22
     if (['getApprovalP0', 'getFotoApprovalP0', 'simpanApprovalP0', 'ubahJenisP0', 'simpanAturanYandal'].includes(k)) awal[k] = 'wajibAdminP0_(sesi)';
   }
   const bebasAwal = ['ping', 'login', 'mulaiShiftYandal', 'cekSesi', 'logout', 'getMaster'];   // publik / milik sesi sendiri (modul dicek per modul)
@@ -9079,6 +9081,37 @@ test('v1.0.21 riwayat gardu: pengukuran terbaru LWBP / WBP dari 3 sumber (Yandal
   assert.deepStrictEqual([m[0].sumber, m[0].periode, m[0].bebanR, m[0].teganganRN, m[0].kva], ['Master Gardu', 'WBP', 80, 228, 50]);
   assert.strictEqual(x.h.ukurMasterRg_({ tglUkur: '' }).length, 0);
   assert.deepStrictEqual({ ...x.h.terbaruRg_([]) }, { LWBP: null, WBP: null });
+});
+
+test('v1.0.22 revisi master (ADMIN_lengkapiMaster) ikut di setiap jawaban, kosong = tidak dikirim', () => {
+  const gm = buatKonteks({ ...PROPS, MASTER_REVISI: '2026-10-23T05:00:00.000Z' });
+  assert.strictEqual(gm.proses_({ action: 'ping' }, 'MOBILE').master, '2026-10-23T05:00:00.000Z');
+  assert.strictEqual(g.proses_({ action: 'ping' }, 'MOBILE').master, undefined);
+  assert.match(g.ADMIN_lengkapiMaster.toString(), /MASTER_REVISI/);
+});
+
+test('v1.0.22 cekKonfigurasi: properti migrasi boleh dihapus kalau datanya sudah ada di sheet sebelum hari ini', () => {
+  const s = g.saranPropertiMigrasi_;
+  const k = ['MIG_DARI', 'MIG_FOTO_AKAR_ID', 'MIG_SAMPAI', 'MIG_SUMBER_ID'];
+  assert.strictEqual(s(k, { jumlah: 0, terakhir: '' }, '2026-10-23').status, 'BELUM');
+  assert.strictEqual(s(k, { jumlah: 12, terakhir: '2026-10-23' }, '2026-10-23').status, 'HARI_INI');
+  const h = s(k, { jumlah: 12, terakhir: '2026-10-01' }, '2026-10-23');
+  assert.deepStrictEqual([h.status, [...h.hapus], [...h.tunda]], ['HAPUS', ['MIG_DARI', 'MIG_SAMPAI', 'MIG_SUMBER_ID'], ['MIG_FOTO_AKAR_ID']]);
+  assert.deepStrictEqual([...g.keluargaMigrasi_().map((x) => x.awalan)], ['MIG_', 'MIGP0_', 'MIGHARTEK_', 'MIGINS_', 'MIGJP_']);
+  assert.ok('MIGP0_DARI'.indexOf('MIG_') !== 0, 'awalan MIG_ tidak menangkap MIGP0_');
+  assert.match(g.ADMIN_cekKonfigurasi.toString(), /cekKonfigProperti_/);
+});
+
+test('v1.0.22 pengukuran gardu: terbaru hanya dari Master Gardu, Update Pengukuran Gardu menulis kolom master', () => {
+  const x = konteksWo();
+  assert.match(x.h.getRiwayatGardu_.toString(), /terbaruRg_\(ukurMasterRg_\(master\)\)/);
+  const u = x.h.kolomMasterUkurRg_({ sumber: 'Inspeksi Gardu', ukurId: 'u1', kode: 'IGD-1', tanggal: '2026-10-20', periode: 'WBP',
+    bebanR: 80, bebanN: null, teganganRN: 228, kva: 40, persen: 40, kategori: 'Underload' });
+  assert.deepStrictEqual([u['Tanggal Ukur Terakhir'], u['Kode Ukur Terakhir'], u['Waktu Beban'], u['Beban R (A)'], u['Beban N (A)'], u['Tegangan R-N (V)'],
+    u['Pembebanan (kVA)'], u['Sumber Data'], u.ukur_id_terakhir], ['2026-10-20', 'IGD-1', 'WBP', 80, '', 228, 40, 'Inspeksi Gardu', 'u1']);
+  const ep = x.h.endpoints_().updateUkurMasterGardu;
+  assert.deepStrictEqual([ep.menu, ep.tulis], ['OPS_PENGUKURAN_GARDU', true]);
+  assert.strictEqual(kodeError(() => x.h.updateUkurMasterGardu_({ role: 'PETUGAS' }, {})), 'AKSES_DITOLAK');
 });
 
 test('v1.0.20 riwayat gardu: periode ukur selalu LWBP / WBP (isian baku dipakai, kosong = dari jam ukur WBP 17:00-21:59)', () => {

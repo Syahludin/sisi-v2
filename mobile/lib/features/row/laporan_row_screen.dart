@@ -20,7 +20,6 @@ import 'form_header_screen.dart';
 import 'header_detail_screen.dart';
 import 'ringkasan_row_screen.dart';
 import 'row_model.dart';
-import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// Laporan Harian ROW (desain laporan_row_screen lama): tab "Hari ini" (data lokal) | "Arsip" (server, rentang tanggal).
@@ -256,13 +255,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       appBar: sisiAppBar('Laporan Harian ROW', subjudul: '${widget.sesi.timNama} • ULP ${widget.sesi.ulp}', online: ctl.online, actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _menyegarkan || ctl.sedangSync ? null : _segarkan,
-          icon: _menyegarkan || ctl.sedangSync
-              ? const SisiLoader(ukuran: 20, warna: Colors.white)
-              : const Icon(Icons.refresh_rounded),
-        ),
+        TombolSegarkan(sibuk: _menyegarkan || ctl.sedangSync, onPressed: _segarkan), // v1.0.22
       ]),
       body: Column(children: [
         if (widget.denganArsip)

@@ -6,9 +6,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/cek_versi.dart';
 import 'core/deps.dart';
 import 'core/env.dart';
+import 'core/kunci_update.dart';
 import 'core/sesi.dart';
 import 'core/versi.dart';
 import 'features/auth/login_screen.dart';
+import 'features/gardu/gardu_repository.dart';
 import 'features/shell/dashboard_shell.dart';
 import 'features/yandal/sync_akhir_shift_screen.dart';
 import 'theme/app_colors.dart';
@@ -48,6 +50,8 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
     };
     PemeriksaVersi.aktif = _versi;
     PemeriksaVersi.tokenSesi = () => _sesi?.token; // v1.0.19: update APK langsung dari app
+    KunciUpdate.bukaUpdate = () => unawaited(_versi.cek(manual: true)); // v1.0.22: pita / kartu kunci update
+    widget.deps.api.onMasterServer = (r) => unawaited(_masterBaru(r)); // v1.0.22
     widget.deps.notif.onPesanDepan = _tampilkanNotif; // v0.83.0
     _muat();
   }
@@ -88,6 +92,34 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
       ]),
       action: SnackBarAction(label: 'Tutup', textColor: Colors.white, onPressed: () {}),
     ));
+  }
+
+  /// v1.0.22 (permintaan kvlar 23 Okt 2026): admin menjalankan ADMIN_lengkapiMaster = revisi master di jawaban server
+  /// berubah, HP yang login mengunduh ulang Master Data + Master Gardu (+ master Inspeksi Gardu) sekali per revisi.
+  /// Gagal (offline) = dicoba lagi pada jawaban server berikutnya.
+  String? _revisiMaster;
+  bool _unduhMaster = false;
+
+  Future<void> _masterBaru(String revisi) async {
+    final s = _sesi;
+    if (s == null || _unduhMaster || revisi == _revisiMaster) return;
+    _unduhMaster = true;
+    try {
+      final d = widget.deps;
+      if (await d.master.revisiTerunduh() != revisi) {
+        await d.master.segarkan(s);
+        if (GarduRepository.bolehUnduh(s)) await d.gardu.segarkan(s);
+        if (s.petugasInsDu) await d.insdu.segarkanMaster(s, paksa: true);
+        if (_sesi?.token != s.token) return;
+        await d.master.simpanRevisi(revisi);
+        _pesan.currentState?.showSnackBar(const SnackBar(content: Text('Master Data & Master Gardu diperbarui otomatis dari admin.')));
+      }
+      _revisiMaster = revisi;
+    } catch (_) {
+      // offline / sesi habis: dicoba lagi pada jawaban server berikutnya
+    } finally {
+      _unduhMaster = false;
+    }
   }
 
   Future<void> _cekShift() async {
@@ -272,6 +304,8 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // v1.0.22: wajib update = pita merah di atas semua halaman (input + sinkron mati)
+      builder: (c, child) => PitaKunciUpdate(tampil: _sesi != null, child: child!),
       home: !_siap
           ? const _Splash()
           : _sesi == null

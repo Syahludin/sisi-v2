@@ -279,7 +279,7 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
         backgroundColor: const Color(0xFFF6F8FC),
         appBar: sisiAppBar(_isUp3 ? 'Laporan UP3' : 'Laporan UIW', subjudul: tglLabel, actions: [
           IconButton(tooltip: 'Pilih tanggal', onPressed: _memuat ? null : () => unawaited(_pilihTanggal()), icon: const Icon(Icons.calendar_month_rounded)),
-          TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_segarkan())),
+          TombolSegarkan(sibuk: _memuat, onPressed: _segarkan),
         ]),
         body: RefreshSisi(onRefresh: _segarkan, child: isi),
       ),

@@ -46,7 +46,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi dari kerangka (seperti Pengaturan)
         // v1.0.21 (permintaan kvlar 23 Okt 2026): kartu sinkron dihapus. Sinkron + muat ulang kalender = tombol refresh SiSi
         // di app bar atau tarik ke bawah. Sync juga otomatis tiap 5 menit.
-        appBar: sisiAppBar('Beranda', online: ctl.online, actions: [TombolSegarkan(sibuk: ctl.sedangSync, onPressed: () => unawaited(_segarkan()))]),
+        appBar: sisiAppBar('Beranda', online: ctl.online, actions: [TombolSegarkan(sibuk: ctl.sedangSync, onPressed: _segarkan)]),
         body: RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(

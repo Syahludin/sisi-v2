@@ -13,6 +13,7 @@ import '../features/wo/wo_store.dart';
 import '../features/yandal/p0_sync.dart';
 import 'api_client.dart';
 import 'kode_error.dart';
+import 'kunci_update.dart';
 import 'sesi.dart';
 
 /// Sync otomatis selama app terbuka (keputusan 3 Okt 2026): saat app dibuka, tiap 5 menit,
@@ -221,6 +222,14 @@ class SyncController extends ChangeNotifier {
   Future<void> sinkron() async {
     final s = _sesi;
     if (s == null) return;
+    // v1.0.22: aplikasi wajib update = sinkron mati (antrean tetap di HP, dikirim sesudah update)
+    if (KunciUpdate.aktif.value) {
+      if (pesan != KunciUpdate.pesan) {
+        pesan = KunciUpdate.pesan;
+        notifyListeners();
+      }
+      return;
+    }
     unawaited(_sinkronWo(s)); // v1.0.16
     if (_jalan) {
       if (s.petugasHartek || s.petugasInsJar || s.petugasInsGardu) _lagi = true;

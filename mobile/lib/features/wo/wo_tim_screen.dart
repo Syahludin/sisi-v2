@@ -1213,7 +1213,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
                 judul: _sesi.timNama.isEmpty ? 'WO tim' : _sesi.timNama,
                 sub: '${n.baru} baru · ${n.dikerjakan} dikerjakan · ${n.selesai} selesai',
                 ikon: Icons.assignment_turned_in_outlined,
-                aksi: [tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkan, sibuk: _muat)],
+                aksi: [tombolSegarkanHeader(_segarkan, sibuk: _muat)],
               ),
               for (final k in kabar) _kabar(k),
               if (_galat != null)

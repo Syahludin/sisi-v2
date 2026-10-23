@@ -41,6 +41,7 @@ class Gardu {
     required this.revision,
     this.ukur = const {},
     this.sumberUkur = '',
+    this.kodeUkur = '',
   });
 
   final String id;
@@ -83,6 +84,7 @@ class Gardu {
   /// v1.0.17: arus per fasa + tegangan pengukuran terakhir (kunci [kolomUkurGardu]); kosong = belum ada.
   final Map<String, double?> ukur;
   final String sumberUkur;
+  final String kodeUkur; // v1.0.22: Kode Ukur Terakhir (kartu Pengukuran Terbaru)
 
   /// v1.0.17: urutan + label kolom arus / tegangan rincian Pengukuran Gardu.
   static const kolomUkurGardu = [
@@ -142,6 +144,7 @@ class Gardu {
         revision: revision,
         ukur: ukur,
         sumberUkur: sumberUkur,
+        kodeUkur: kodeUkur,
       );
 
   /// Teks yang dicari kotak pencarian (No Gardu, alamat, penyulang, section, merk).
@@ -190,6 +193,7 @@ class Gardu {
         revision: _i(j['revision']) ?? 0,
         ukur: j['ukur'] is Map ? {for (final e in (j['ukur'] as Map).entries) '${e.key}': _d(e.value)} : const {},
         sumberUkur: _t(j['sumberUkur']),
+        kodeUkur: _t(j['kodeUkur']),
       );
 }
 

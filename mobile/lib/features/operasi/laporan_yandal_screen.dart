@@ -133,7 +133,7 @@ class _LaporanYandalTimScreenState extends State<LaporanYandalTimScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Yandal • ULP ${widget.sesi.ulp}', actions: [
-        TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat(beriTahu: true))),
+        TombolSegarkan(sibuk: _memuat, onPressed: () => _muat(beriTahu: true)),
       ]),
       body: RefreshSisi(
         onRefresh: _muat,

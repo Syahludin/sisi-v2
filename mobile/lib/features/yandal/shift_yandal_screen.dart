@@ -233,7 +233,7 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
     return ListenableBuilder(listenable: ctl, builder: (context, _) => Scaffold(
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       appBar: sisiAppBar('Shift Yandal', subjudul: '${widget.sesi.timNama} • ULP ${widget.sesi.ulp}', online: ctl.online, actions: [
-        TombolSegarkan(sibuk: _menyegarkan || ctl.sedangSync, onPressed: () => unawaited(_segarkan())),
+        TombolSegarkan(sibuk: _menyegarkan || ctl.sedangSync, onPressed: _segarkan),
       ]),
       body: Column(children: [
         Padding(

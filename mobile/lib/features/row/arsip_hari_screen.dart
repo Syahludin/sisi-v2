@@ -150,11 +150,7 @@ class _ArsipHariScreenState extends State<ArsipHariScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: sisiAppBar('Pekerjaan', subjudul: tgl, actions: [
-        IconButton(
-          onPressed: _memuat ? null : () => _muat(paksa: true),
-          icon: _memuat ? const SisiLoader(ukuran: 20, warna: Colors.white) : const Icon(Icons.refresh_rounded),
-          tooltip: 'Muat ulang dari server',
-        ),
+        TombolSegarkan(sibuk: _memuat, onPressed: () => _muat(paksa: true), tooltip: 'Muat ulang dari server'), // v1.0.22
       ]),
       body: RefreshSisi(onRefresh: () => _muat(paksa: true), child: isi),
     );

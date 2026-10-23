@@ -18,7 +18,7 @@
  *   APK_FOLDER_ID       v1.0.19: folder Drive berisi APK (nama memuat versi, mis. SiSi-STG-1.0.19.apk). HP yang login
  *                       memanggil getUpdateApp lalu mengunduh + memasang APK langsung dari app (tanpa unduh terpisah).
  */
-var VERSI_BACKEND_ = '1.0.21';
+var VERSI_BACKEND_ = '1.0.22';
 
 function pecahVersi_(v) {
   var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(v === null || v === undefined ? '' : v).trim());

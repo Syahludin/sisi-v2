@@ -355,7 +355,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar(x.kodeTampil, subjudul: x.namaTampil, actions: [
-        TombolSegarkan(sibuk: _menyegarkan || _proses, onPressed: () => unawaited(_segarkan())),
+        TombolSegarkan(sibuk: _menyegarkan || _proses, onPressed: _segarkan),
         if (x.foto.isEmpty && !x.terkirim)
           IconButton(tooltip: 'Hapus P0', onPressed: () => unawaited(_hapus()), icon: const Icon(Icons.delete_outline_rounded)),
       ]),

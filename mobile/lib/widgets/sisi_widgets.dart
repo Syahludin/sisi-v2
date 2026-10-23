@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/lonceng.dart';
@@ -222,19 +224,50 @@ class SisiKosong extends StatelessWidget {
 }
 
 /// Tombol refresh kanan atas app bar ROW (v0.49): spinner putih selama berjalan.
-class TombolSegarkan extends StatelessWidget {
-  const TombolSegarkan({super.key, required this.sibuk, required this.onPressed});
+/// v1.0.22 (permintaan kvlar 23 Okt 2026): tombol refresh berlogo SiSi. Diam = logo S utuh (bukan panah melingkar);
+/// diketuk = logo bergerak sampai [onPressed] selesai. Hanya SATU loading yang bergerak: [sibuk] (loading halaman saat
+/// masuk / tarik-untuk-refresh / sinkron otomatis) = tombol nonaktif dan logonya diam, loading halaman yang tampil.
+/// [onPressed] sebaiknya mengembalikan Future supaya logo bergerak selama refresh berjalan.
+class TombolSegarkan extends StatefulWidget {
+  const TombolSegarkan(
+      {super.key, required this.sibuk, required this.onPressed, this.warna = Colors.white, this.ukuran = 20, this.style, this.tooltip = 'Refresh'});
   final bool sibuk;
-  final VoidCallback onPressed;
+  final FutureOr<void> Function()? onPressed;
+  final Color warna;
+  final double ukuran;
+  final ButtonStyle? style;
+  final String tooltip;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-        tooltip: 'Refresh',
-        onPressed: sibuk ? null : onPressed,
-        icon: sibuk
-            ? const SisiLoader(ukuran: 20, warna: Colors.white)
-            : const Icon(Icons.refresh_rounded),
-      );
+  State<TombolSegarkan> createState() => _TombolSegarkanState();
+}
+
+class _TombolSegarkanState extends State<TombolSegarkan> {
+  bool _jalan = false;
+
+  Future<void> _tekan() async {
+    setState(() => _jalan = true);
+    try {
+      await widget.onPressed?.call();
+    } finally {
+      if (mounted) setState(() => _jalan = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nonaktif = _jalan || widget.sibuk || widget.onPressed == null;
+    return IconButton(
+      tooltip: widget.tooltip,
+      style: widget.style,
+      onPressed: nonaktif ? null : _tekan,
+      icon: SisiLoader(
+        ukuran: widget.ukuran,
+        warna: !_jalan && nonaktif ? widget.warna.withValues(alpha: .45) : widget.warna,
+        diam: !_jalan,
+      ),
+    );
+  }
 }
 
 /// Isi yang tidak bisa di-scroll (mis. SisiKosong) dibuat bisa ditarik untuk refresh.

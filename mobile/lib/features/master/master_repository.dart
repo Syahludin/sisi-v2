@@ -35,6 +35,20 @@ class MasterRepository {
   Future<List<Map<String, Object?>>> _baris() =>
       _db.db.query('master_cache', where: 'kunci IN (${List.filled(semuaModul.length, '?').join(',')})', whereArgs: semuaModul);
 
+  /// v1.0.22: revisi master server (ADMIN_lengkapiMaster) yang sudah diunduh HP ini. null = belum pernah.
+  static const _kunciRevisi = '_revisiMaster';
+
+  Future<String?> revisiTerunduh() async {
+    final r = await _db.db.query('master_cache', where: 'kunci = ?', whereArgs: [_kunciRevisi], limit: 1);
+    return r.isEmpty ? null : r.first['versi'] as String?;
+  }
+
+  Future<void> simpanRevisi(String revisi) => _db.db.insert(
+        'master_cache',
+        {'kunci': _kunciRevisi, 'versi': revisi, 'json': '{}', 'diambil_pada': DateTime.now().toUtc().toIso8601String()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
   /// Isi master lokal: { jaringan: [...], jenisPekerjaan: [...], tim: [...], pengguna: [...] }. null = belum pernah download.
   Future<Map<String, dynamic>?> lokal() async {
     final r = await _baris();

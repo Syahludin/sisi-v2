@@ -181,7 +181,9 @@ function endpoints_() {
     getUpdateApp: { fn: getUpdateApp_, batasMenit: 10 },
     // v1.0.17: riwayat gardu (pengukuran arus / tegangan, temuan + perbaikan, BA / manajemen trafo), admin Pengukuran Gardu.
     // Lihat modules/80_Riwayat_Gardu.js
-    getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 }
+    getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 },
+    // v1.0.22: Update Pengukuran Gardu = satu pengukuran riwayat ditulis ke Master Gardu (pengukuran terbaru)
+    updateUkurMasterGardu: { fn: updateUkurMasterGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 }
   };
 }
 
@@ -231,7 +233,10 @@ function proses_(req, platform) {
   var isi = ep.fn(sesi, data, platform);
   // v0.64.2: jam server (dicap SETELAH proses) = patokan jam terpercaya HP (jam monoton). Ada di semua jawaban.
   // v0.81.0: versi backend di setiap jawaban (HP tahu backend baru di-deploy, lalu cek update)
-  return { ok: true, env: cfg_().ENV, data: isi, waktu: sekarangIso_(), versi: VERSI_BACKEND_ };
+  // v1.0.22: revisi master (ADMIN_lengkapiMaster) di setiap jawaban: berubah = HP mengunduh ulang Master Data + Gardu
+  var c = cfg_(), jawab = { ok: true, env: c.ENV, data: isi, waktu: sekarangIso_(), versi: VERSI_BACKEND_ };
+  if (c.MASTER_REVISI) jawab.master = c.MASTER_REVISI;
+  return jawab;
 }
 
 function gagal_(err) {

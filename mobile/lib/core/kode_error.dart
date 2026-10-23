@@ -121,7 +121,7 @@ class KodeError {
       case 'BA_SUDAH_DISIMPAN':
         return 'BA ini sudah tersimpan, foto tidak bisa diganti lagi.';
       case 'UPDATE_APLIKASI_DULU': // v0.81.1
-        return 'Versi aplikasi ini sudah tidak dipakai. Update aplikasi ke versi terbaru dulu (Pengaturan > Versi Aplikasi).';
+        return 'Terdapat Pembaharuan Aplikasi, Silahkan lakukan Update Aplikasi. Data yang belum terkirim tetap aman di HP.'; // v1.0.22
       case 'AKSI_TIDAK_DIKENAL': // v0.75.0: app lebih baru dari backend
         return 'Server belum diperbarui untuk fitur ini. Minta admin deploy backend versi terbaru.';
       case 'PDF_BELUM_ADA':

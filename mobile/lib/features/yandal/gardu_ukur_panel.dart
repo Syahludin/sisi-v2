@@ -483,11 +483,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
               ]),
             ),
             if (n == 0)
-              IconButton(
-                tooltip: 'Perbarui Master Gardu',
-                onPressed: _unduh ? null : () => unawaited(_unduhMaster()),
-                icon: const Icon(Icons.refresh_rounded),
-              )
+              TombolSegarkan(sibuk: _unduh, onPressed: _unduhMaster, tooltip: 'Perbarui Master Gardu', warna: AppColors.navy700) // v1.0.22
             else
               const Icon(Icons.chevron_right_rounded, color: AppColors.brand700),
           ]),

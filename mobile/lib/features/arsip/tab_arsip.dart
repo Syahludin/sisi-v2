@@ -48,7 +48,7 @@ class _TabArsipTimState extends State<TabArsipTim> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: sisiAppBar(s.petugasYandal ? 'Arsip P0' : 'Arsip Laporan', subjudul: '${s.timNama} • ULP ${s.ulp}', actions: [
-        TombolSegarkan(sibuk: _sibuk, onPressed: () => unawaited(_segarkan())),
+        TombolSegarkan(sibuk: _sibuk, onPressed: _segarkan),
       ]),
       body: s.petugasYandal ? ArsipP0View(key: _p0, deps: widget.deps, sesi: s) : ArsipView(key: _row, deps: widget.deps, sesi: s),
     );

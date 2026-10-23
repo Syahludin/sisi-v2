@@ -57,6 +57,7 @@ function cfg_() {
     LOGIN_MAKS_GAGAL: 5,
     LOGIN_KUNCI_MENIT: 15,
     PBKDF2_ITERASI: iterasi,
-    SESI_EPOCH: String(p.SESI_EPOCH || '0')   // dinaikkan ADMIN_bersihkanCache: semua cache sesi lama diabaikan
+    SESI_EPOCH: String(p.SESI_EPOCH || '0'),   // dinaikkan ADMIN_bersihkanCache: semua cache sesi lama diabaikan
+    MASTER_REVISI: String(p.MASTER_REVISI || '')   // v1.0.22: diisi ADMIN_lengkapiMaster, HP mengunduh ulang master saat berubah
   };
 }

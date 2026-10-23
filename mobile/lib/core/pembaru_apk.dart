@@ -19,6 +19,8 @@ import 'versi.dart';
 /// v1.0.21: satu dialog langsung tampil saat tombol diketuk (cek server -> unduh -> periksa -> buka pemasang), tanpa
 /// jeda kosong. APK yang sudah terunduh + terverifikasi disimpan; kalau pemasang tertutup / salah ketuk, ketuk lagi
 /// langsung memasang tanpa unduh ulang. File versi lain dihapus.
+///
+/// v1.0.22: file update belum ada / belum bisa diunduh dari folder Drive = kartu "Gagal Update, Silahkan Hubungi Admin".
 class PembaruApk {
   PembaruApk._();
 
@@ -41,7 +43,7 @@ class PembaruApk {
     try {
       final r = await api.call('getUpdateApp', token: token, data: {'versiApp': versiApp}, timeout: const Duration(seconds: 40));
       if (batal.ya) return false;
-      if (r['tersedia'] != true || r['apk'] is! Map) throw _Galat('File update belum ada di folder update. Hubungi admin.');
+      if (r['tersedia'] != true || r['apk'] is! Map) throw _Galat.hubungiAdmin();
       final apk = Map<String, dynamic>.from(r['apk'] as Map);
       final judul = 'SiSi v${apk['versi']}';
       final path = await _siapkan(apk, judul, st, batal);
@@ -66,7 +68,7 @@ class PembaruApk {
       return false;
     } catch (e) {
       if (batal.ya) return false;
-      st.value = _Status(e is _Galat ? e.pesan : 'Tidak bisa mengunduh update. Cek sinyal lalu coba lagi.', galat: true);
+      st.value = _Status(e is _Galat ? e.pesan : 'Tidak bisa mengunduh update. Cek sinyal lalu coba lagi.', judul: e is _Galat ? e.judul : null, galat: true);
       return false;
     }
   }
@@ -117,7 +119,7 @@ class PembaruApk {
         await for (final b in resp.stream.timeout(const Duration(seconds: 60))) {
           if (batal.ya) throw _Dibatalkan();
           // APK = berkas zip (diawali "PK"); halaman HTML Drive (mis. butuh izin) ditolak
-          if (awal && b.length >= 2 && !(b[0] == 0x50 && b[1] == 0x4B)) throw _Galat('File di Drive belum bisa diunduh (bukan APK). Hubungi admin.');
+          if (awal && b.length >= 2 && !(b[0] == 0x50 && b[1] == 0x4B)) throw _Galat.hubungiAdmin();
           awal = false;
           out.add(b);
           n += b.length;
@@ -164,8 +166,7 @@ class _DialogPembaru extends StatelessWidget {
         builder: (c, s, _) {
           final pasang = s.siapPasang;
           return AlertDialog(
-            icon: Icon(s.galat ? Icons.error_outline_rounded : Icons.system_update_rounded,
-                size: 36, color: s.galat ? AppColors.red700 : AppColors.brand700),
+            icon: Icon(s.galat ? Icons.error_outline_rounded : Icons.system_update_rounded, size: 36, color: s.galat ? AppColors.red700 : AppColors.brand700),
             title: Text(s.judul == null ? 'Update Aplikasi' : (s.unduh ? 'Mengunduh ${s.judul}' : s.judul!), textAlign: TextAlign.center),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
               if (!s.galat) ...[
@@ -178,8 +179,7 @@ class _DialogPembaru extends StatelessWidget {
             actions: [
               if (pasang != null) ...[
                 TextButton(onPressed: () => pasang.complete(false), child: const Text('Tutup')),
-                FilledButton.icon(
-                    onPressed: () => pasang.complete(true), icon: const Icon(Icons.install_mobile_rounded), label: const Text('Pasang')),
+                FilledButton.icon(onPressed: () => pasang.complete(true), icon: const Icon(Icons.install_mobile_rounded), label: const Text('Pasang')),
               ] else if (s.galat)
                 FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))
               else
@@ -202,6 +202,10 @@ class _Batal {
 class _Dibatalkan implements Exception {}
 
 class _Galat implements Exception {
-  _Galat(this.pesan);
+  _Galat(this.pesan) : judul = null;
+  _Galat.hubungiAdmin()
+      : pesan = 'Silahkan Hubungi Admin',
+        judul = 'Gagal Update';
   final String pesan;
+  final String? judul;
 }

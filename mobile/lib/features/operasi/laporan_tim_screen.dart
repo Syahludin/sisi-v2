@@ -300,7 +300,7 @@ class _LaporanTimScreenState extends State<LaporanTimScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Laporan per Tim', subjudul: tgl, actions: [
-        TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat(beriTahu: true))),
+        TombolSegarkan(sibuk: _memuat, onPressed: () => _muat(beriTahu: true)),
       ]),
       body: RefreshSisi(onRefresh: () => _muat(beriTahu: true), child: isi),
     );
@@ -499,7 +499,7 @@ class _LayarLaporanHartekAdminState extends State<_LayarLaporanHartekAdmin> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Hartek • ULP ${widget.sesi.ulp}', actions: [
-        TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat())),
+        TombolSegarkan(sibuk: _memuat, onPressed: _muat),
       ]),
       body: RefreshSisi(
         onRefresh: _muat,
