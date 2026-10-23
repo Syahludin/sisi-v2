@@ -13,6 +13,7 @@ import '../../widgets/wa_panel.dart';
 import '../row/arsip_hari_screen.dart';
 import '../row/laporan_row_screen.dart';
 import 'ringkas_tim.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Halaman satu sub-tim (v0.50): hero + tab Hari ini | Arsip. Hanya lihat (admin tidak membuat / mengubah data
 /// ROW atas nama sub-tim, Log Keputusan). Detail hari ini lewat getArsipHariRow (admin boleh tanggal hari ini).
@@ -170,7 +171,7 @@ class _TimScreenState extends State<TimScreen> {
             textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
       ]);
     }
-    return RefreshIndicator(onRefresh: () => _muat(beriTahu: true), child: isi);
+    return RefreshSisi(onRefresh: () => _muat(beriTahu: true), child: isi);
   }
 
   Future<void> _detail(Map<String, dynamic> l) => Navigator.push(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/lonceng.dart';
+import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_motif.dart';
 import '../hartek/hartek_gaya.dart';
 
@@ -79,14 +80,15 @@ class HeaderInsJar extends StatelessWidget {
 }
 
 /// Tombol bulat di header (putih transparan).
-Widget tombolHeaderInsJar(IconData ikon, String tip, VoidCallback? aksi) => IconButton(
+/// v1.0.21: [sibuk] = logo SiSi bergerak (refresh SiSi) menggantikan ikon selama proses berjalan.
+Widget tombolHeaderInsJar(IconData ikon, String tip, VoidCallback? aksi, {bool sibuk = false}) => IconButton(
       tooltip: tip,
-      onPressed: aksi,
+      onPressed: sibuk ? null : aksi,
       style: IconButton.styleFrom(
         backgroundColor: Colors.white.withValues(alpha: .16),
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white38,
         side: BorderSide(color: Colors.white.withValues(alpha: .18)),
       ),
-      icon: Icon(ikon),
+      icon: sibuk ? const SisiLoader(ukuran: 22, warna: Colors.white) : Icon(ikon),
     );

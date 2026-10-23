@@ -1,6 +1,6 @@
 /// Versi app yang tampil di Pengaturan (sejak v0.62.4). WAJIB sama dengan `version:` di pubspec.yaml (tanpa +build)
 /// DAN dengan VERSI_BACKEND_ di backend/src/09_Versi.js (v0.81.0); test backend gagal kalau lupa diubah.
-const String versiApp = '1.0.20';
+const String versiApp = '1.0.21';
 
 /// "0.81.0" -> [0, 81, 0]. Tidak valid = null.
 List<int>? pecahVersi(String v) {

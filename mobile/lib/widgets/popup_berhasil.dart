@@ -40,6 +40,10 @@ Future<void> tampilPopupBerhasil(
   return selesai.future;
 }
 
+/// v1.0.21 (permintaan kvlar 23 Okt 2026): pengganti pesan bawah "Tersimpan di HP. Dikirim otomatis ke server." sesudah
+/// form disimpan: pop up centang muncul-hilang "Data Berhasil disimpan". Status kirim tetap terlihat di kartu laporan.
+Future<void> tampilDataTersimpan(BuildContext context) => tampilPopupBerhasil(context, judul: 'Data Berhasil disimpan');
+
 class _PopupAktif {
   static OverlayEntry? entry;
   static Completer<void>? selesai;

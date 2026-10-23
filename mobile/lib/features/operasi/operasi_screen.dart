@@ -20,6 +20,7 @@ import '../insjar/input_temuan_inspeksi_screen.dart';
 import '../jadwal_padam/jadwal_padam_screen.dart';
 import '../wo/wo_admin_screen.dart';
 import '../wo/wo_ganda_screen.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Tab Operasi untuk ADMIN / SUPER / ADMIN_ES (v0.50, desain kvlar 4 Okt 2026).
 /// Grup tile dari KatalogOperasi; tiap modul hanya tampil kalau menu_kode-nya ada di menu sesi (db_Menu + db_Akses).
@@ -154,7 +155,7 @@ class _OperasiScreenState extends State<OperasiScreen> {
       appBar: sisiAppBar('Operasi', subjudul: 'ULP ${widget.sesi.ulp} • ${widget.sesi.role}', actions: [
         TombolSegarkan(sibuk: _menyegarkan, onPressed: _segarkan),
       ]),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _segarkan,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [
           TextField(

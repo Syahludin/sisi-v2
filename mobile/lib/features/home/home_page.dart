@@ -5,6 +5,7 @@ import '../../core/deps.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../row/row_home_page.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Beranda. PRD Alur A (cekSesi + getMaster saat online), Alur D (sesi habis), Alur G (logout).
 class HomePage extends StatefulWidget {
@@ -98,7 +99,7 @@ class _HomePageState extends State<HomePage> {
         title: Text(_sesi.nama),
         actions: [IconButton(onPressed: _logout, icon: const Icon(Icons.logout), tooltip: 'Logout')],
       ),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _segarkan,
         child: ListView(
           padding: const EdgeInsets.all(16),

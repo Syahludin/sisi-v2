@@ -11,6 +11,7 @@ import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
 import '../hartek/foto_lapangan.dart';
 import '../hartek/foto_rincian.dart';
@@ -26,6 +27,7 @@ import 'wo_foto_server.dart';
 import 'wo_store.dart';
 import 'wo_tab.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.11 (permintaan kvlar 21 Okt 2026): WO tindak lanjut temuan untuk tim ROW / HARTEK / YANDAL (menu OPS_WO_TIM).
 /// Tab "WO" di bottom bar (Yandal: "TO P0"). Alur: WO Terkirim dari admin > Mulai kerjakan > catat pekerjaan + foto
@@ -136,7 +138,6 @@ class _WoTimScreenState extends State<WoTimScreen> {
 
   void _pesan(String p) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(p), duration: const Duration(seconds: 2)));
 
-  void _tersimpan([String apa = 'Tersimpan']) => _pesan('$apa di HP. Dikirim otomatis.');
 
   Future<Map<String, dynamic>> _muatFoto(Map<String, dynamic> data, {Duration? timeout}) =>
       widget.deps.api.call('getFotoWoTim', token: _sesi.token, data: data, timeout: timeout ?? const Duration(seconds: 60));
@@ -487,7 +488,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
       },
     );
     if (hasil == null || !mounted) return;
-    _tersimpan('Pekerjaan tersimpan');
+    unawaited(tampilDataTersimpan(context));
     _kirimLatar();
   }
 
@@ -994,7 +995,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     ];
     return Column(children: [
       Expanded(
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1200,7 +1201,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1212,7 +1213,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
                 judul: _sesi.timNama.isEmpty ? 'WO tim' : _sesi.timNama,
                 sub: '${n.baru} baru · ${n.dikerjakan} dikerjakan · ${n.selesai} selesai',
                 ikon: Icons.assignment_turned_in_outlined,
-                aksi: [tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _muat ? null : _segarkan)],
+                aksi: [tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkan, sibuk: _muat)],
               ),
               for (final k in kabar) _kabar(k),
               if (_galat != null)

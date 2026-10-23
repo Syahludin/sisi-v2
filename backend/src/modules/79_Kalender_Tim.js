@@ -109,11 +109,17 @@ function woKalender_(sesi, bulan) {
   return hasil;
 }
 
-/** Jadwal padam ULP bulan ini (tanpa yang dibatalkan). */
+/**
+ * Jadwal padam ULP bulan ini (tanpa yang dibatalkan).
+ * v1.0.21: [padam] = rincian terstruktur untuk kartu pemadaman Beranda (jam, penyulang, section, daerah, dampak);
+ * judul / rincian teks tetap untuk app lama.
+ */
 function padamKalender_(bulan) {
   return jadwalPadamBulan_(bulan).map(function (j) {
     return { tanggal: j.tanggal, jenis: 'PADAM', jam: j.jamPadam, judul: (j.statusPekerjaan === 'Tanpa Padam' ? 'Pekerjaan tanpa padam: ' : 'Padam ') + j.penyulang + ' · ' + j.section,
-             rincian: j.jamPadam + ' – ' + j.jamNyala + ' WIB · ' + j.jenis + (j.daerah ? ' · ' + j.daerah : ''), status: j.status };
+             rincian: j.jamPadam + ' – ' + j.jamNyala + ' WIB · ' + j.jenis + (j.daerah ? ' · ' + j.daerah : ''), status: j.status,
+             padam: { penyulang: j.penyulang, section: j.section, jamPadam: j.jamPadam, jamNyala: j.jamNyala, durasi: j.durasi, pekerjaan: j.jenis,
+                      daerah: j.daerah, lokasi: j.lokasi, pelanggan: j.jumlahPelanggan, gardu: j.jumlahGardu, statusPekerjaan: j.statusPekerjaan } };
   });
 }
 
@@ -123,7 +129,7 @@ function getKalenderTim_(sesi, data) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(d.bulan)) throw new SisiError_('FORMAT_SALAH', 'bulan');
   var tim = kalenderTimSendiri_(sesi);
   // v1.0.20 (rekonstruksi): Beranda membuka kalender tiap kali tampil; isi per tim / umum + bulan di-cache 60 detik
-  var kegiatan = cacheJson_('kalender:v1:' + (tim ? 'tim:' + sesi.timId : 'umum') + ':' + d.bulan, 60, function () {
+  var kegiatan = cacheJson_('kalender:v2:' + (tim ? 'tim:' + sesi.timId : 'umum') + ':' + d.bulan, 60, function () {
     return kegiatanKalender_(sesi, d.bulan, tim);
   });
   return { bulan: d.bulan, jenisTim: sesi.jenisTim || '', timSendiri: tim, kegiatan: kegiatan };

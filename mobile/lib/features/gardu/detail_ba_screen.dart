@@ -24,6 +24,7 @@ import 'ba_repository.dart';
 import 'daftar_ba_screen.dart';
 import 'gardu_widgets.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.78.0 (permintaan kvlar 10 Okt 2026): Detail BA. Semua fitur satu BA per langkah alur:
 /// 1 Dokumen BA (PDF: lihat, download, kirim, buat ulang, edit) > 2 BA TTD (upload / upload ulang, lihat, download)
@@ -501,7 +502,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
               child: Text(pesanSibuk, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navy700)),
             ),
           Expanded(
-            child: RefreshIndicator(
+            child: RefreshSisi(
               onRefresh: () async {
                 if (!antre) await _muat();
               },

@@ -16,6 +16,7 @@ import '../../widgets/sisi_widgets.dart';
 import '../../widgets/wa_panel.dart';
 import 'laporan_up3_repository.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Operasi > Laporan UP3 atau Laporan UIW (v0.57: menu dipecah, satu layar per laporan; keputusan kvlar 5 Okt 2026).
 /// Status tim + input harian laporan itu saja (UP3: C4A per penyulang; UIW: Cuaca + C4A per section) + teks WA dari server.
@@ -280,7 +281,7 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
           IconButton(tooltip: 'Pilih tanggal', onPressed: _memuat ? null : () => unawaited(_pilihTanggal()), icon: const Icon(Icons.calendar_month_rounded)),
           TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_segarkan())),
         ]),
-        body: RefreshIndicator(onRefresh: _segarkan, child: isi),
+        body: RefreshSisi(onRefresh: _segarkan, child: isi),
       ),
     );
   }

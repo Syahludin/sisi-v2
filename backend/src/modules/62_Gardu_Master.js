@@ -14,7 +14,9 @@ var MODUL_MASTER_OPSIONAL_ = {
     // v0.74.0: petugas YANDAL (Pengecekan Gardu P0) boleh membaca Master Gardu tanpa menu, hanya baca
     // v0.95.0: petugas HARTEK (menu OPS_HARTEK_INPUT) memilih nomor gardu + titiknya dari Master Gardu di HP, hanya baca
     var hartek = sesi && sesi.role === 'PETUGAS' && sesi.jenisTim === 'HARTEK' && !!aksesUntuk_(sesi.role, sesi.jenisTim, 'OPS_HARTEK_INPUT', aturanAkses_());
-    if (!petugasYandal_(sesi) && !hartek) wajibAksesSalahSatu_(sesi, [MENU_GARDU_.ukur, MENU_GARDU_.ba]);
+    // v1.0.21 (permintaan kvlar 23 Okt 2026): petugas INSPEKSI_GARDU (menu OPS_INSDU_INPUT) punya Master Gardu di HP, hanya baca
+    var insdu = sesi && sesi.role === 'PETUGAS' && sesi.jenisTim === 'INSPEKSI_GARDU' && !!aksesUntuk_(sesi.role, sesi.jenisTim, 'OPS_INSDU_INPUT', aturanAkses_());
+    if (!petugasYandal_(sesi) && !hartek && !insdu) wajibAksesSalahSatu_(sesi, [MENU_GARDU_.ukur, MENU_GARDU_.ba]);
     if (!cfg_().GARDU_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'GARDU_SHEET_ID');
     var t = cekStrukturGardu_('GARDU_SHEET_ID', 'db_Gardu');
     return t.rows.filter(function (r) {

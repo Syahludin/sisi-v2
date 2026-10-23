@@ -7,6 +7,9 @@
  *                status, tindak lanjut, waktu selesai)
  *   ba         : Berita Acara yang dipakai gardu ini (Rekap_BA) = history perbaikan & manajemen trafo
  *                (trafo sebelum -> sesudah, status BA / PDF)
+ * v1.0.21 (permintaan kvlar 23 Okt 2026): Master Gardu (db_Gardu, pengukuran terakhir yang tercatat) jadi sumber ketiga.
+ *   terbaru    : {LWBP, WBP} = pengukuran dengan tanggal (lalu jam) terbaru dari 3 sumber per periode
+ *   gardu      : baris Master Gardu terkini (data trafo / nameplate + koordinat), null kalau tidak ada
  * Sumber yang spreadsheet-nya belum diatur dilewati (bagian itu kosong).
  */
 
@@ -99,6 +102,40 @@ function temuanRg_(garduId, noGardu) {
   });
 }
 
+/** v1.0.21: baris Master Gardu (bentuk HP, barisGarduHp_) gardu ini: gardu_id dulu, lalu No Gardu. */
+function masterGarduRg_(garduId, noGardu) {
+  if (!cfg_().GARDU_SHEET_ID) return null;
+  var rows = cekStrukturGardu_('GARDU_SHEET_ID', 'db_Gardu').rows;
+  var r = rows.filter(function (x) { return String(x.gardu_id) === garduId; })[0] ||
+          (noGardu ? rows.filter(function (x) { return teksRg_(x['No Gardu']).toUpperCase() === noGardu; })[0] : null);
+  return r ? barisGarduHp_(r) : null;
+}
+
+/** v1.0.21: pengukuran terakhir yang tercatat di Master Gardu, bentuk sama dengan riwayat Yandal / Inspeksi Gardu. */
+function ukurMasterRg_(m) {
+  if (!m || !m.tglUkur) return [];
+  var u = m.ukur || {};
+  return [{
+    sumber: 'Master Gardu', kode: m.kodeUkur || '', tanggal: m.tglUkur.slice(0, 10), periode: periodeUkurRg_(m.waktuBeban, ''), jam: '',
+    petugas: m.sumberUkur || '',
+    bebanR: u.bebanR, bebanS: u.bebanS, bebanT: u.bebanT, bebanN: u.bebanN,
+    teganganRS: u.teganganRS, teganganRT: u.teganganRT, teganganST: u.teganganST,
+    teganganRN: u.teganganRN, teganganSN: u.teganganSN, teganganTN: u.teganganTN,
+    kva: m.bebanKva, persen: m.persen, kategori: m.kategori || '', tidakSeimbang: null
+  }];
+}
+
+/** v1.0.21: pengukuran terbaru per periode (tanggal lalu jam; sama = yang berjam / bukan salinan master). */
+function terbaruRg_(ukur) {
+  var h = { LWBP: null, WBP: null };
+  ukur.forEach(function (u) {
+    if (!h.hasOwnProperty(u.periode)) return;
+    var a = h[u.periode], k = u.tanggal + ' ' + (u.jam || ''), ka = a ? a.tanggal + ' ' + (a.jam || '') : '';
+    if (!a || k > ka) h[u.periode] = u;
+  });
+  return h;
+}
+
 /** Berita Acara gardu (history perbaikan & manajemen trafo). */
 function baRg_(garduId, noGardu) {
   if (!cfg_().GARDU_SHEET_ID) return [];
@@ -129,9 +166,19 @@ function getRiwayatGardu_(sesi, data) {
   var d = validasi_(data, { garduId: { tipe: 'teks', wajib: true, maks: 60 }, noGardu: { tipe: 'teks', maks: 20 } });
   var id = String(d.garduId), no = teksRg_(d.noGardu).toUpperCase();
   var urutTurun = function (a, b) { return a.tanggal < b.tanggal ? 1 : a.tanggal > b.tanggal ? -1 : 0; };
-  var ukur = bagianRg_(function () { return ukurYandalRg_(id, no); }).concat(bagianRg_(function () { return ukurInsDuRg_(id, no); })).sort(urutTurun);
+  var ukur = bagianRg_(function () { return ukurYandalRg_(id, no); }).concat(bagianRg_(function () { return ukurInsDuRg_(id, no); }));
+  var master = null;
+  try { master = masterGarduRg_(id, no); } catch (e) {
+    if (!e || ['CONFIG_TIDAK_LENGKAP', 'SHEET_TIDAK_ADA', 'STRUKTUR_BERUBAH', 'SKEMA_BERUBAH'].indexOf(e.kode) === -1) throw e;
+  }
+  // salinan master dari pengukuran yang sudah ada di riwayat (kode sama) tidak ditulis dua kali
+  var kode = {};
+  ukur.forEach(function (u) { if (u.kode) kode[u.kode] = true; });
+  ukur = ukur.concat(ukurMasterRg_(master).filter(function (u) { return !u.kode || !kode[u.kode]; })).sort(urutTurun);
   return {
     garduId: id, noGardu: no,
+    gardu: master,
+    terbaru: terbaruRg_(ukur),
     pengukuran: ukur.slice(0, RIWAYAT_GARDU_MAKS_),
     temuan: bagianRg_(function () { return temuanRg_(id, no); }).sort(urutTurun),
     ba: bagianRg_(function () { return baRg_(id, no); }).sort(function (a, b) { return a.tanggalBa < b.tanggalBa ? 1 : a.tanggalBa > b.tanggalBa ? -1 : 0; })

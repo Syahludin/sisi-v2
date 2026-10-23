@@ -12,6 +12,7 @@ import 'p0_form_screen.dart';
 import 'p0_model.dart';
 import 'p0_repository.dart';
 import 'yandal_login.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Warna pembeda P0: sedang dikerjakan (amber) / sudah dikerjakan (hijau).
 const Color warnaProses = AppColors.amber700;
@@ -58,7 +59,7 @@ class PekerjaanShiftViewState extends State<PekerjaanShiftView> {
     if (semua == null) return const SisiLoading(pesan: 'Memuat pekerjaan shift...', ukuran: 70);
     final adaShift = P0Repository.shiftIdSesi(widget.sesi) != null;
     final selesai = semua.where((x) => x.selesai).length;
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: muat,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -224,7 +225,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     final selesai = semua.where((x) => x.selesai).toList();
     final kelompok = kelompokP0(semua);
     // v0.64.7: SingleChildScrollView (bukan ListView) supaya semua bagian terbangun dan bisa digulir ke tujuan.
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: muat,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

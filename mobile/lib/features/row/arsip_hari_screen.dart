@@ -15,6 +15,7 @@ import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'foto_repository.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Arsip > Lihat Pekerjaan (v0.37): semua pekerjaan satu tanggal (header > penyulang/realisasi > eksekusi + 3 foto).
 /// Pertama kali dibuka butuh sinyal (getArsipHariRow), lalu tersimpan di HP dan bisa dibuka offline.
@@ -151,11 +152,11 @@ class _ArsipHariScreenState extends State<ArsipHariScreen> {
       appBar: sisiAppBar('Pekerjaan', subjudul: tgl, actions: [
         IconButton(
           onPressed: _memuat ? null : () => _muat(paksa: true),
-          icon: const Icon(Icons.refresh_rounded),
+          icon: _memuat ? const SisiLoader(ukuran: 20, warna: Colors.white) : const Icon(Icons.refresh_rounded),
           tooltip: 'Muat ulang dari server',
         ),
       ]),
-      body: RefreshIndicator(onRefresh: () => _muat(paksa: true), child: isi),
+      body: RefreshSisi(onRefresh: () => _muat(paksa: true), child: isi),
     );
   }
 }

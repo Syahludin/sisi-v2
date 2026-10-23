@@ -15,6 +15,7 @@ import 'laporan_yandal_repository.dart';
 import 'laporan_yandal_screen.dart';
 import 'ringkas_tim.dart';
 import 'tim_screen.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Operasi > Laporan per Tim (v0.50 / v0.98.6): daftar seluruh tim (ROW, HARTEK, Inspeksi Jaringan, Inspeksi Gardu)
 /// dengan kartu bergaya tile logo seragam seperti menu Operasi lainnya.
@@ -301,7 +302,7 @@ class _LaporanTimScreenState extends State<LaporanTimScreen> {
       appBar: sisiAppBar('Laporan per Tim', subjudul: tgl, actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat(beriTahu: true))),
       ]),
-      body: RefreshIndicator(onRefresh: () => _muat(beriTahu: true), child: isi),
+      body: RefreshSisi(onRefresh: () => _muat(beriTahu: true), child: isi),
     );
   }
 
@@ -500,7 +501,7 @@ class _LayarLaporanHartekAdminState extends State<_LayarLaporanHartekAdmin> {
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Hartek • ULP ${widget.sesi.ulp}', actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat())),
       ]),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _muat,
         child: d.isEmpty
             ? bisaDitarik(SisiKosong(

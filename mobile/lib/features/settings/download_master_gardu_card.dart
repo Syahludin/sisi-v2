@@ -13,7 +13,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/popup_berhasil.dart';
 
 /// v0.69.0: kartu "Master Gardu" di Pengaturan (desain sama kartu Master Data). Hanya tampil untuk akun dengan
-/// menu Pengukuran Gardu / Berita Acara Gardu. Isi: db_Gardu AKTIF + TIDAK AKTIF (+ pejabat BA untuk menu BA).
+/// menu Pengukuran Gardu / Berita Acara Gardu (+ petugas Yandal, Hartek, dan v1.0.21 Inspeksi Gardu). Isi: db_Gardu AKTIF + TIDAK AKTIF (+ pejabat BA untuk menu BA).
 class DownloadMasterGarduCard extends StatefulWidget {
   const DownloadMasterGarduCard({super.key, required this.deps, required this.sesi});
   final Deps deps;
@@ -49,6 +49,8 @@ class _DownloadMasterGarduCardState extends State<DownloadMasterGarduCard> {
     });
     try {
       final berubah = await widget.deps.gardu.segarkan(widget.sesi);
+      // v1.0.21: tim Inspeksi Gardu = daftar gardu + jenis temuan form Inspeksi Gardu ikut diperbarui (siap offline)
+      if (widget.sesi.petugasInsDu) await widget.deps.insdu.segarkanMaster(widget.sesi, paksa: true);
       await _muat();
       if (!mounted) return;
       setState(() => _jalan = false);

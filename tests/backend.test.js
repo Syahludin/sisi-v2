@@ -7014,6 +7014,13 @@ test('v0.95.0: Master Gardu boleh dibaca petugas HARTEK (menu OPS_HARTEK_INPUT),
   const isi = x.h.MODUL_MASTER_OPSIONAL_.gardu(x.sesi);
   assert.deepStrictEqual([isi.length, isi[0].no, isi[0].lat, isi[0].lng], [1, 'TB0001', -3.0012, 106.4561]);
   assert.strictEqual(kodeError(() => x.h.MODUL_MASTER_OPSIONAL_.gardu({ ...x.sesi, jenisTim: 'ROW' })), 'AKSES_DITOLAK');
+  // v1.0.21: petugas INSPEKSI_GARDU dengan menu OPS_INSDU_INPUT juga boleh (hanya baca)
+  const insdu = { ...x.sesi, jenisTim: 'INSPEKSI_GARDU' };
+  assert.strictEqual(kodeError(() => x.h.MODUL_MASTER_OPSIONAL_.gardu(insdu)), 'AKSES_DITOLAK', 'tanpa menu OPS_INSDU_INPUT');
+  x.sheets.m.db_Menu.data.push(['OPS_INSDU_INPUT', 'Inspeksi Gardu', 'MOBILE', false, 2, true]);
+  x.sheets.m.db_Akses.data.push(['PETUGAS', 'INSPEKSI_GARDU', 'OPS_INSDU_INPUT', 'UBAH']);
+  x.h.CacheService.getScriptCache().remove('akses:v1');
+  assert.strictEqual(x.h.MODUL_MASTER_OPSIONAL_.gardu(insdu).length, 1);
   x.sheets.m.db_Akses.data.length = 1;
   x.h.CacheService.getScriptCache().remove('akses:v1');   // aturan akses di-cache
   assert.strictEqual(kodeError(() => x.h.MODUL_MASTER_OPSIONAL_.gardu(x.sesi)), 'AKSES_DITOLAK', 'HARTEK tanpa akses menu');
@@ -8779,6 +8786,10 @@ test('v1.0.17 kalender tim: pekerjaan tim sendiri + WO diterima / selesai + jadw
   assert.strictEqual(k.jenisTim, 'HARTEK');
   assert.deepStrictEqual(k.kegiatan.map((e) => [e.tanggal, e.jenis]).sort(), [[x.hariIni, 'PADAM'], [x.hariIni, 'PEKERJAAN'], [x.hariIni, 'WO']].sort());
   assert.ok(k.kegiatan.find((e) => e.jenis === 'PADAM').rincian.startsWith('09:00 – 11:00 WIB'));
+  // v1.0.21: rincian terstruktur untuk kartu pemadaman Beranda
+  const pd = k.kegiatan.find((e) => e.jenis === 'PADAM').padam;
+  assert.deepStrictEqual([pd.penyulang, pd.section, pd.jamPadam, pd.jamNyala, pd.pekerjaan, pd.statusPekerjaan],
+    ['TB-01', 'Kampung Baru', '09:00', '11:00', 'Pemeliharaan', 'Padam']);
   // tim ROW tidak melihat WO tim Hartek, tetap melihat jadwal padam
   const r = x.j(x.h.getKalenderTim_(x.sesi, { bulan }));
   assert.deepStrictEqual(r.kegiatan.map((e) => e.jenis), ['PADAM']);
@@ -9052,6 +9063,23 @@ test('v1.0.19 foto temuan: admin semua temuan, petugas InsJar hanya temuan timny
 });
 
 // ---------- v1.0.20 ----------
+
+test('v1.0.21 riwayat gardu: pengukuran terbaru LWBP / WBP dari 3 sumber (Yandal, Inspeksi Gardu, Master Gardu)', () => {
+  const x = konteksWo();
+  const t = x.h.terbaruRg_([
+    { sumber: 'Pengecekan Gardu Yandal', tanggal: '2026-10-20', jam: '19:00', periode: 'WBP' },
+    { sumber: 'Inspeksi Gardu', tanggal: '2026-10-21', jam: '10:00', periode: 'LWBP' },
+    { sumber: 'Inspeksi Gardu', tanggal: '2026-10-21', jam: '18:30', periode: 'WBP' },
+    { sumber: 'Master Gardu', tanggal: '2026-10-22', jam: '', periode: 'LWBP' },
+    { sumber: 'Master Gardu', tanggal: '2026-10-21', jam: '', periode: 'WBP' },
+    { sumber: 'x', tanggal: '2026-10-30', jam: '', periode: '' },
+  ]);
+  assert.deepStrictEqual([t.LWBP.sumber, t.LWBP.tanggal, t.WBP.sumber, t.WBP.jam], ['Master Gardu', '2026-10-22', 'Inspeksi Gardu', '18:30']);
+  const m = x.h.ukurMasterRg_({ tglUkur: '2026-10-22', waktuBeban: 'WBP', kodeUkur: 'K1', ukur: { bebanR: 80, teganganRN: 228 }, bebanKva: 50, persen: 50 });
+  assert.deepStrictEqual([m[0].sumber, m[0].periode, m[0].bebanR, m[0].teganganRN, m[0].kva], ['Master Gardu', 'WBP', 80, 228, 50]);
+  assert.strictEqual(x.h.ukurMasterRg_({ tglUkur: '' }).length, 0);
+  assert.deepStrictEqual({ ...x.h.terbaruRg_([]) }, { LWBP: null, WBP: null });
+});
 
 test('v1.0.20 riwayat gardu: periode ukur selalu LWBP / WBP (isian baku dipakai, kosong = dari jam ukur WBP 17:00-21:59)', () => {
   const x = konteksWo();

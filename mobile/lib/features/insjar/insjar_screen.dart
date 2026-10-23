@@ -8,6 +8,7 @@ import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
 import '../../widgets/kartu_laporan_tim.dart';
@@ -26,6 +27,7 @@ import 'insjar_header.dart';
 import 'insjar_lokal.dart';
 import 'insjar_store.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.0 (permintaan kvlar 19 Okt 2026): Inspeksi Jaringan untuk petugas tim INSPEKSI_JARINGAN (menu OPS_INSJAR_INPUT).
 /// Alur sama dengan Hartek dan ROW: Laporan Utama (KM + koordinat) > penyulang utama (penyulang + tier + section +
@@ -138,8 +140,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
       final hasil = await buka();
       if (!mounted) return;
       if (hasil != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Tersimpan di HP. Dikirim otomatis ke server.'), duration: Duration(seconds: 2)));
+        unawaited(tampilDataTersimpan(context));
         _kirimLatar();
       }
     } on ApiException catch (e) {
@@ -902,21 +903,6 @@ class _InsJarScreenState extends State<InsJarScreen> {
           icon: const Icon(Icons.history_rounded, size: 18),
           label: Text('$_tanggalLain data hari sebelumnya tidak terkirim · Buang'),
         ),
-      // v1.0.20: penyulang utama (section + temuan) langsung di halaman laporan, pola ROW / Hartek
-      const SizedBox(height: 18),
-      JudulSeksiSisi('Penyulang utama',
-          keterangan: '${_realisasi.length} penyulang · ${InsJarLokal.jumlahTemuan(_doc)} temuan',
-          aksi: _boleh
-              ? TextButton.icon(
-                  onPressed: _sibuk ? null : () => unawaited(_tambahRealisasi()),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Penyulang'),
-                )
-              : null),
-      if (InsJarLokal.grupPenyulang(_doc).isEmpty)
-        const KosongHartek(ikon: Icons.cable, judul: 'Belum ada penyulang utama', petunjuk: 'Tambah penyulang yang diinspeksi, lalu catat temuan di section-nya.')
-      else
-        for (final g in InsJarLokal.grupPenyulang(_doc)) _kartuPenyulang(g.penyulang, g.realisasi),
     ];
   }
 
@@ -980,7 +966,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
       lonceng: _halaman == HalamanInsJar.utama, // v1.0.19
       aksi: [
         if (_halaman == HalamanInsJar.utama)
-          tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _segar || _sibuk ? null : _segarkan)
+          tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _sibuk ? null : _segarkan, sibuk: _segar)
         else
           tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => _ke(HalamanInsJar.utama)),
       ],
@@ -993,7 +979,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: () async {
             if (!_sibuk && _halaman == HalamanInsJar.utama) await _segarkan();
           },

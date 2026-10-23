@@ -21,6 +21,7 @@ import 'header_detail_screen.dart';
 import 'ringkasan_row_screen.dart';
 import 'row_model.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Laporan Harian ROW (desain laporan_row_screen lama): tab "Hari ini" (data lokal) | "Arsip" (server, rentang tanggal).
 class LaporanRowScreen extends StatefulWidget {
@@ -303,7 +304,7 @@ class _LaporanRowScreenState extends State<LaporanRowScreen> {
       builder: (context, snap) {
         if (!snap.hasData) return const SisiLoading(pesan: 'Memuat data laporan...', ukuran: 70);
         final d = snap.data!;
-        return RefreshIndicator(
+        return RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -551,7 +552,7 @@ class ArsipViewState extends State<ArsipView> {
       final t = l['tanggal'] as String;
       perTahun.putIfAbsent(t.substring(0, 4), () => {}).putIfAbsent(t.substring(0, 7), () => []).add(l);
     }
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: segarkan,
       child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [
         Row(children: [

@@ -12,6 +12,7 @@ import '../../widgets/sisi_widgets.dart';
 import 'gardu_model.dart';
 import 'gardu_widgets.dart';
 import 'riwayat_gardu_screen.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.69.0 (permintaan kvlar 9 Okt 2026): menu Pengukuran Gardu (Operasi, ADMIN / SUPER / ADMIN_ES sesuai db_Akses).
 /// Berbasis Master Gardu lokal (offline): ringkasan kategori beban yang bisa diketuk sebagai saringan, cari, saring
@@ -242,7 +243,7 @@ class _PengukuranGarduScreenState extends State<PengukuranGarduScreen> {
                   tombol: _unduh ? 'Mengunduh...' : 'Download Master Gardu',
                   onTombol: _unduh ? null : _segarkan,
                 )
-              : RefreshIndicator(
+              : RefreshSisi(
                   onRefresh: _segarkan,
                   child: CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
                     SliverPadding(

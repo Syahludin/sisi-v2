@@ -24,6 +24,7 @@ import 'berita_acara_screen.dart';
 import 'detail_ba_screen.dart';
 import 'gardu_widgets.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.76.0 (permintaan kvlar 10 Okt 2026): PDF BA TIDAK dibuka lewat Drive. Bytes PDF diambil lewat server
 /// (getPdfBaGardu), disimpan di HP (per Waktu PDF, jadi buat ulang = unduh baru), ditampilkan di dalam aplikasi.
@@ -714,7 +715,7 @@ class _DaftarBaScreenState extends State<DaftarBaScreen> {
         _chipStatus(),
         _filterAktif(),
         Expanded(
-          child: RefreshIndicator(
+          child: RefreshSisi(
             onRefresh: _segarkan,
             child: _muat && _isi.isEmpty
                 ? bisaDitarik(const SisiLoading(pesan: 'Memuat daftar BA...'))

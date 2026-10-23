@@ -12,6 +12,7 @@ import '../../widgets/sisi_widgets.dart';
 import '../yandal/approval_p0_repository.dart';
 import '../yandal/approval_p0_screen.dart';
 import 'laporan_yandal_repository.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Warna + ikon status login shift Yandal.
 ({Color warna, Color latar, IconData ikon}) gayaLoginYandal(String status) => switch (status) {
@@ -134,7 +135,7 @@ class _LaporanYandalTimScreenState extends State<LaporanYandalTimScreen> {
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Yandal • ULP ${widget.sesi.ulp}', actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: () => unawaited(_muat(beriTahu: true))),
       ]),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _muat,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),

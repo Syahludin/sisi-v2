@@ -18,6 +18,7 @@ import 'realisasi_screen.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Detail laporan (desain lama): dua tab pill "Detail Laporan" | "Realisasi (n)", FAB "Tambah Penyulang".
 class HeaderDetailScreen extends StatefulWidget {
@@ -246,7 +247,7 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
                   ]),
                 ),
               ),
-              Expanded(child: RefreshIndicator(onRefresh: _segarkan, child: _tab == 0 ? _detail(h) : _daftarRealisasi())),
+              Expanded(child: RefreshSisi(onRefresh: _segarkan, child: _tab == 0 ? _detail(h) : _daftarRealisasi())),
             ]),
       floatingActionButton: _tab == 1 && _bolehUbah
           ? FloatingActionButton.extended(

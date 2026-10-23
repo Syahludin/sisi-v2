@@ -609,34 +609,15 @@ class _FormHartekPageState extends State<FormHartekPage> {
 
   Widget _tombolGps(IsianHartek i) {
     final jalan = _gpsKey == i.kunci;
-    return Padding(
-      padding: const EdgeInsets.all(6),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Material(
-          color: HartekGaya.merek,
-          borderRadius: BorderRadius.circular(11),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(11),
-            onTap: _sibuk
-                ? null
-                : jalan
-                    ? () => _gps?.hentikan()
-                    : _gpsKey != null
-                        ? null
-                        : () => _ambilGps(i),
-            child: Tooltip(
-              message: jalan ? 'Pakai titik terbaik sekarang' : 'Ambil koordinat GPS',
-              child: Center(
-                child: jalan
-                    ? const SisiLoader(ukuran: 18, warna: Colors.white)
-                    : const Icon(Icons.my_location_rounded, size: 20, color: Colors.white),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return TombolGpsSisi(
+      berjalan: jalan,
+      onTap: _sibuk
+          ? null
+          : jalan
+              ? () => _gps?.hentikan()
+              : _gpsKey != null
+                  ? null
+                  : () => _ambilGps(i),
     );
   }
 

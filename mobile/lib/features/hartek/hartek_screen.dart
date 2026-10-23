@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/kartu_laporan_tim.dart';
 import '../../widgets/sisi_motif.dart';
@@ -25,6 +26,7 @@ import 'hartek_repository.dart';
 import 'hartek_rincian.dart';
 import 'hartek_store.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.89.0 (permintaan kvlar 14 Okt 2026): desain ulang seluruh Hartek, lebih menarik tanpa chip.
 /// Laporan Utama = kartu odometer (KM awal, KM akhir, jarak tempuh) + ringkasan lokasi / pekerjaan / material.
@@ -137,10 +139,7 @@ class _HartekScreenState extends State<HartekScreen> {
       final hasil = await buka();
       if (!mounted) return;
       if (hasil != null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Tersimpan di HP. Dikirim otomatis ke server.'),
-          duration: Duration(seconds: 2),
-        ));
+        unawaited(tampilDataTersimpan(context));
         _kirimLatar();
       }
     } on ApiException catch (e) {
@@ -1609,14 +1608,14 @@ class _HartekScreenState extends State<HartekScreen> {
           IconButton(
             tooltip: 'Segarkan laporan',
             onPressed: _segar || _sibuk ? null : _segarkan,
-            icon: const Icon(Icons.refresh_rounded, color: HartekGaya.tinta),
+            icon: _segar ? const SisiLoader(ukuran: 20) : const Icon(Icons.refresh_rounded, color: HartekGaya.tinta),
           ),
           const SizedBox(width: 6),
         ],
       ),
       body: _doc == null && _akses
           ? const Center(child: SisiLoader())
-          : RefreshIndicator(
+          : RefreshSisi(
               onRefresh: () async {
                 if (!_sibuk) await _segarkan();
               },

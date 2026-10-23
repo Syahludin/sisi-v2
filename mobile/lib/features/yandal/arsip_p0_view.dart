@@ -12,6 +12,7 @@ import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'p0_model.dart' show teksMenit;
 import 'yandal_arsip_repository.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.63.5 (keputusan kvlar 8 Okt 2026): tab Arsip P0, mirip Arsip ROW. Download shift tim sendiri yang sudah
 /// selesai untuk rentang tanggal (sampai hari ini), disimpan di HP, lalu ditampilkan:
@@ -152,7 +153,7 @@ class ArsipP0ViewState extends State<ArsipP0View> {
       return '$p0 P0 · $ok approved · ${angkaPoint(point)} point';
     }
 
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: segarkan,
       child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [
         Row(children: [

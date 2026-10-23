@@ -200,6 +200,9 @@ class PanelKalenderTimState extends State<PanelKalenderTim> {
       );
 
   Widget _kartu(Map<String, dynamic> k, {required bool tampilTanggal}) {
+    if (k['jenis'] == 'PADAM' && k['padam'] is Map) {
+      return KartuPadamKalender(padam: Map<String, dynamic>.from(k['padam'] as Map), tanggal: tampilTanggal ? '${k['tanggal']}' : null, status: '${k['status'] ?? ''}');
+    }
     final (warna, label, ikon) = jenisKalenderTim['${k['jenis']}'] ?? (AppColors.neutral500, '${k['jenis']}', Icons.circle_outlined);
     final t = DateTime.tryParse('${k['tanggal']}');
     return Padding(
@@ -229,6 +232,94 @@ class PanelKalenderTimState extends State<PanelKalenderTim> {
             ),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// v1.0.21 (permintaan kvlar 23 Okt 2026): kartu informasi pemadaman Beranda dirombak supaya mudah dibaca.
+/// Kiri = blok jam (padam besar, s/d nyala, durasi) berwarna merah (padam) / teal (tanpa padam); kanan = penyulang,
+/// section, lalu baris berikon: daerah padam, pekerjaan, dampak pelanggan / gardu. Tanpa chip.
+class KartuPadamKalender extends StatelessWidget {
+  const KartuPadamKalender({super.key, required this.padam, this.tanggal, this.status = ''});
+  final Map<String, dynamic> padam;
+
+  /// yyyy-MM-dd; diisi = tanggal tampil di atas penyulang (daftar satu bulan).
+  final String? tanggal;
+  final String status;
+
+  String _t(String k) => '${padam[k] ?? ''}'.trim();
+
+  @override
+  Widget build(BuildContext context) {
+    final tanpaPadam = _t('statusPekerjaan') == 'Tanpa Padam';
+    final (Color tua, Color muda) = tanpaPadam ? (AppColors.brand700, AppColors.brand500) : (AppColors.red700, AppColors.red600);
+    final durasi = num.tryParse(_t('durasi')) ?? 0;
+    final pelanggan = num.tryParse(_t('pelanggan'))?.round() ?? 0;
+    final gardu = num.tryParse(_t('gardu'))?.round() ?? 0;
+    final t = tanggal == null ? null : DateTime.tryParse(tanggal!);
+    final realisasi = status == 'Terealisasi';
+    Widget baris(IconData i, String teks, {int maks = 2}) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.only(top: 1), child: Icon(i, size: 16, color: HartekGaya.redup)),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(teks, maxLines: maks, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, height: 1.35, color: HartekGaya.tinta))),
+          ]),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: muda.withValues(alpha: .28)),
+        boxShadow: [BoxShadow(color: tua.withValues(alpha: .08), blurRadius: 14, offset: const Offset(0, 5))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(
+            width: 84,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            decoration: BoxDecoration(gradient: LinearGradient(colors: [tua, muda], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(tanpaPadam ? Icons.power_rounded : Icons.power_off_rounded, color: Colors.white, size: 20),
+              const SizedBox(height: 6),
+              Text(_t('jamPadam'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white, fontFeatures: HartekGaya.tabular)),
+              const Text('s/d', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF))),
+              Text(_t('jamNyala'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, fontFeatures: HartekGaya.tabular)),
+              if (durasi > 0) ...[
+                const SizedBox(height: 4),
+                Text('${durasi % 1 == 0 ? durasi.toInt() : durasi.toStringAsFixed(1)} jam',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xE6FFFFFF))),
+              ],
+            ]),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  [
+                    if (t != null) '${t.day} ${labelBulan(t)}',
+                    tanpaPadam ? 'PEKERJAAN TANPA PADAM' : 'PEMADAMAN',
+                    if (realisasi) 'TEREALISASI',
+                  ].join(' · '),
+                  style: TextStyle(fontSize: 10.5, letterSpacing: .6, fontWeight: FontWeight.w900, color: realisasi ? AppColors.success700 : tua),
+                ),
+                const SizedBox(height: 3),
+                Text(_t('penyulang'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: HartekGaya.tinta)),
+                if (_t('section').isNotEmpty)
+                  Text('Section ${_t('section')}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: HartekGaya.merek)),
+                if (_t('daerah').isNotEmpty) baris(Icons.place_outlined, _t('daerah'), maks: 3),
+                if (_t('pekerjaan').isNotEmpty) baris(Icons.handyman_outlined, [_t('pekerjaan'), if (_t('lokasi').isNotEmpty) _t('lokasi')].join(' · ')),
+                if (pelanggan > 0 || gardu > 0)
+                  baris(Icons.groups_2_outlined, [if (pelanggan > 0) '$pelanggan pelanggan', if (gardu > 0) '$gardu gardu'].join(' · '), maks: 1),
+              ]),
+            ),
+          ),
+        ]),
       ),
     );
   }

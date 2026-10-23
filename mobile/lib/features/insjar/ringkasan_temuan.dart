@@ -98,6 +98,8 @@ class KartuRingkasTemuan extends StatelessWidget {
             ]),
           ]),
         ),
+        if (total > 0)
+          Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 0), child: RingkasStatusTemuan(status: hitungStatusTemuan(data.temuan))),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: SegmentedButton<ModeRingkasTemuan>(showSelectedIcon: false, segments: _segmen, selected: {mode}, onSelectionChanged: (v) => onMode(v.first)),
@@ -115,6 +117,7 @@ class KartuRingkasTemuan extends StatelessWidget {
                     jumlah: r.jumlah,
                     persen: r.jumlah * 100 / total,
                     lebar: r.jumlah / maks,
+                    status: r.status,
                     onTap: () => bukaDaftarTemuan(context, data, judul: r.jenis, sub: 'Semua penyulang', jenis: r.jenis),
                   )
               else
@@ -125,6 +128,7 @@ class KartuRingkasTemuan extends StatelessWidget {
                     persen: r.s.jumlah * 100 / total,
                     lebar: r.s.jumlah / maks,
                     keterangan: '${r.s.jenis.length} jenis temuan',
+                    status: r.s.status,
                     onTap: () => _buka(context, RingkasanSectionScreen(data: data, penyulang: r.penyulang, section: r.s.section)),
                   ),
             ]),
@@ -154,6 +158,7 @@ class KartuRingkasTemuan extends StatelessWidget {
 }
 
 /// Satu baris ringkasan: label, jumlah, persen, bar. [keterangan] = rincian kecil.
+/// v1.0.21: [status] (hitungStatusTemuan) = bar diwarnai per status + jumlah per status di bawahnya.
 class BarisRingkasTemuan extends StatelessWidget {
   const BarisRingkasTemuan({
     super.key,
@@ -162,12 +167,14 @@ class BarisRingkasTemuan extends StatelessWidget {
     required this.persen,
     required this.lebar,
     this.keterangan,
+    this.status,
     this.onTap,
   });
   final String label;
   final int jumlah;
   final double persen, lebar;
   final String? keterangan;
+  final List<int>? status;
   final VoidCallback? onTap;
 
   @override
@@ -203,7 +210,8 @@ class BarisRingkasTemuan extends StatelessWidget {
                     child: Text(keterangan!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: HartekGaya.redup)),
                   ),
                 const SizedBox(height: 6),
-                _Bar(lebar: lebar, tinggi: 8),
+                _Bar(lebar: lebar, tinggi: 8, status: status),
+                if (status != null) Padding(padding: const EdgeInsets.only(top: 5), child: TeksStatusTemuan(status!)),
               ]),
             ),
           ),
@@ -212,20 +220,94 @@ class BarisRingkasTemuan extends StatelessWidget {
 }
 
 class _Bar extends StatelessWidget {
-  const _Bar({required this.lebar, this.tinggi = 7});
+  const _Bar({required this.lebar, this.tinggi = 7, this.status});
   final double lebar, tinggi;
+  final List<int>? status;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (c, k) => Stack(children: [
-          Container(height: tinggi, decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(4))),
-          Container(
-            height: tinggi,
-            width: (k.maxWidth * lebar).clamp(tinggi, k.maxWidth),
-            decoration: BoxDecoration(color: AppColors.brand500, borderRadius: BorderRadius.circular(4)),
+  Widget build(BuildContext context) {
+    final st = status;
+    final ada = st != null && st.any((n) => n > 0);
+    return LayoutBuilder(
+      builder: (c, k) => Stack(children: [
+        Container(height: tinggi, decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(4))),
+        Container(
+          height: tinggi,
+          width: (k.maxWidth * lebar).clamp(tinggi, k.maxWidth),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(color: AppColors.brand500, borderRadius: BorderRadius.circular(4)),
+          // v1.0.21: isi bar dibagi per status (belum tim / di tim / dikerjakan / selesai)
+          child: ada
+              ? Row(children: [
+                  for (final s in StatusTemuan.values)
+                    if (st[s.index] > 0) Expanded(flex: st[s.index], child: ColoredBox(color: warnaStatusTemuan[s]!)),
+                ])
+              : null,
+        ),
+      ]),
+    );
+  }
+}
+
+/// v1.0.21: warna status penanganan temuan (sama di bar, angka, dan keterangan).
+const Map<StatusTemuan, Color> warnaStatusTemuan = {
+  StatusTemuan.belumTim: AppColors.red600,
+  StatusTemuan.diTim: AppColors.brand500,
+  StatusTemuan.dikerjakan: AppColors.accent600,
+  StatusTemuan.selesai: AppColors.success600,
+};
+
+/// v1.0.21: jumlah per status dalam satu baris (titik warna + angka + label pendek), status kosong tidak ditulis.
+class TeksStatusTemuan extends StatelessWidget {
+  const TeksStatusTemuan(this.status, {super.key});
+  final List<int> status;
+
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 10, runSpacing: 2, children: [
+        for (final s in StatusTemuan.values)
+          if (status[s.index] > 0)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 7, height: 7, decoration: BoxDecoration(color: warnaStatusTemuan[s], shape: BoxShape.circle)),
+              const SizedBox(width: 4),
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: '${status[s.index]} ', style: const TextStyle(fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                  TextSpan(text: s.pendek),
+                ]),
+                style: const TextStyle(fontSize: 11.5, color: HartekGaya.redup, fontFeatures: HartekGaya.tabular),
+              ),
+            ]),
+      ]);
+}
+
+/// v1.0.21 (permintaan kvlar 23 Okt 2026): ringkasan status penanganan temuan yang sedang tampil (ikut filter):
+/// empat kotak sama lebar, angka besar berwarna + label status.
+class RingkasStatusTemuan extends StatelessWidget {
+  const RingkasStatusTemuan({super.key, required this.status});
+  final List<int> status;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        for (final s in StatusTemuan.values) ...[
+          if (s.index > 0) const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
+              decoration: BoxDecoration(
+                color: warnaStatusTemuan[s]!.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border(top: BorderSide(color: warnaStatusTemuan[s]!, width: 3)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${status[s.index]}',
+                    style: TextStyle(fontSize: 19, height: 1.1, fontWeight: FontWeight.w900, color: warnaStatusTemuan[s], fontFeatures: HartekGaya.tabular)),
+                const SizedBox(height: 2),
+                Text(s.label, maxLines: 2, style: const TextStyle(fontSize: 10.5, height: 1.2, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
+              ]),
+            ),
           ),
-        ]),
-      );
+        ],
+      ]);
 }
 
 /// Rincian jenis temuan satu section, satu jenis per baris (label, bar, jumlah). Ketuk = daftar temuan jenis itu.
@@ -248,10 +330,14 @@ class _RincianJenisSection extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 flex: 5,
-                child: Text(j.jenis, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(j.jenis, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
+                  const SizedBox(height: 2),
+                  TeksStatusTemuan(j.status),
+                ]),
               ),
               const SizedBox(width: 8),
-              Expanded(flex: 3, child: _Bar(lebar: j.jumlah / maks)),
+              Expanded(flex: 3, child: _Bar(lebar: j.jumlah / maks, status: j.status)),
               SizedBox(
                 width: 34,
                 child: Text('${j.jumlah}',
@@ -286,12 +372,13 @@ class _KartuSection extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.linear_scale_rounded, size: 18, color: HartekGaya.merek),
                 const SizedBox(width: 8),
-                Expanded(child: Text(s.section, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.tinta))),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                  decoration: BoxDecoration(color: AppColors.brand100, borderRadius: BorderRadius.circular(999)),
-                  child: Text('${s.jumlah} temuan', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.brand800)),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(s.section, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                    TeksStatusTemuan(s.status),
+                  ]),
                 ),
+                Text('${s.jumlah}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
                 const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.neutral400),
               ]),
             ),
@@ -338,6 +425,8 @@ class _KartuPenyulangState extends State<_KartuPenyulang> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(p.penyulang, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
                   Text('${p.section.length} section', style: const TextStyle(fontSize: 12, color: HartekGaya.redup)),
+                  const SizedBox(height: 2),
+                  TeksStatusTemuan(p.status),
                 ]),
               ),
               Text('${p.jumlah}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
@@ -398,6 +487,8 @@ class _RingkasanTemuanScreenState extends State<RingkasanTemuanScreen> {
             ikon: Icons.insights_rounded,
             aksi: [tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context))],
           ),
+          // v1.0.21: status penanganan semua temuan yang tampil (ikut filter halaman Temuan Inspeksi)
+          if (d.total > 0) ...[RingkasStatusTemuan(status: hitungStatusTemuan(d.temuan)), const SizedBox(height: 12)],
           SegmentedButton<ModeRingkasTemuan>(showSelectedIcon: false, segments: _segmen, selected: {_mode}, onSelectionChanged: (v) => setState(() => _mode = v.first)),
           const SizedBox(height: 14),
           if (_mode == ModeRingkasTemuan.jenis) ...[
@@ -411,14 +502,13 @@ class _RingkasanTemuanScreenState extends State<RingkasanTemuanScreen> {
                     jumlah: r.jumlah,
                     persen: d.total == 0 ? 0 : r.jumlah * 100 / d.total,
                     lebar: r.jumlah / maksJ,
+                    status: r.status,
                     onTap: () => bukaDaftarTemuan(context, d, judul: r.jenis, sub: 'Semua penyulang', jenis: r.jenis),
                   ),
               ]),
             ),
           ] else ...[
-            Row(children: [
-              const Expanded(child: JudulSeksiSisi('Per penyulang & section', keterangan: 'ketuk penyulang = buka / tutup')),
-            ]),
+            const JudulSeksiSisi('Per penyulang & section'),
             for (final (i, p) in peny.indexed) _KartuPenyulang(data: d, p: p, terbukaAwal: i == 0 && peny.length <= 3),
           ],
         ]),
@@ -436,7 +526,7 @@ class RingkasanSectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isi = saringTemuan(data.temuan, penyulang: penyulang, section: section);
-    final RingkasSection s = (section: section, jumlah: isi.length, jenis: ringkasJenisTemuan(isi));
+    final RingkasSection s = (section: section, jumlah: isi.length, jenis: ringkasJenisTemuan(isi), status: hitungStatusTemuan(isi));
     return Scaffold(
       backgroundColor: HartekGaya.latar,
       body: SafeArea(
@@ -448,6 +538,7 @@ class RingkasanSectionScreen extends StatelessWidget {
             ikon: Icons.linear_scale_rounded,
             aksi: [tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context))],
           ),
+          if (isi.isNotEmpty) ...[RingkasStatusTemuan(status: s.status), const SizedBox(height: 12)],
           const JudulSeksiSisi('Jenis temuan', keterangan: 'ketuk = daftar temuan'),
           KartuHartek(padding: const EdgeInsets.all(8), child: _RincianJenisSection(data: data, penyulang: penyulang, s: s)),
           const SizedBox(height: 12),

@@ -14,6 +14,7 @@ import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/accurate_gps_button.dart';
 import '../../widgets/foto_slot.dart';
 import '../../widgets/kolom_pilih.dart';
 import '../../widgets/sisi_widgets.dart';
@@ -127,7 +128,6 @@ class _BaPengoperasianScreenState extends State<BaPengoperasianScreen> {
   List<Map<String, dynamic>> _pejabat = const [];
   String? _petugas1;
   String? _petugas2;
-  bool _gps = false;
   bool _kirim = false;
   bool _kotor = false;
 
@@ -291,32 +291,6 @@ class _BaPengoperasianScreenState extends State<BaPengoperasianScreen> {
       if (mounted) tampilPesan(context, _pesanGagal(e));
     } finally {
       if (mounted) setState(() => _muatOwner = false);
-    }
-  }
-
-  Future<void> _ambilGps() async {
-    setState(() => _gps = true);
-    try {
-      final siap = await Gps.siapkan();
-      if (siap != null) {
-        if (mounted) tampilPesan(context, siap);
-        return;
-      }
-      final p = await Gps.sampelPertama();
-      if (!mounted) return;
-      if (p == null) {
-        tampilPesan(context, 'Lokasi belum didapat. Coba lagi di tempat terbuka.');
-      } else if (p.isMocked) {
-        tampilPesan(context, 'Lokasi palsu (fake GPS) terdeteksi. Matikan aplikasi lokasi palsu.');
-      } else {
-        _ubah(() {
-          _koordinat.text = Koordinat.format(p.latitude, p.longitude);
-          _koordinatGps = _koordinat.text;
-          _akurasi = p.accuracy;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _gps = false);
     }
   }
 
@@ -845,25 +819,24 @@ class _BaPengoperasianScreenState extends State<BaPengoperasianScreen> {
         ),
       ],
       const SizedBox(height: 12),
-      TextFormField(
+      // v1.0.21: kolom koordinat seragam (gaya Input Temuan Inspeksi + pengambilan titik akurat PengambilanGps)
+      KolomKoordinat(
         controller: _koordinat,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-        decoration: sisiInput('Koordinat Trafo *',
-            hint: '-3.012345, 106.512345',
-            suffix: _gps
-                ? const Padding(padding: EdgeInsets.all(12), child: SisiLoader(ukuran: 18))
-                : IconButton(tooltip: 'Ambil GPS', icon: const Icon(Icons.my_location_rounded), onPressed: _ambilGps)),
+        label: 'Koordinat Trafo',
+        wajib: true,
+        akurasiM: _akurasi,
         validator: (v) => Koordinat.cek(v, wajib: true),
         onChanged: (v) {
           _kotor = true;
           // diketik manual = bukan titik GPS lagi, chip akurasi hilang
           if (_akurasi != null && v.trim() != _koordinatGps) setState(() => _akurasi = null);
         },
+        onHasil: (h) => _ubah(() {
+          _koordinat.text = h.koordinat;
+          _koordinatGps = h.koordinat;
+          _akurasi = h.akurasiM;
+        }),
       ),
-      if (_akurasi != null) ...[
-        const SizedBox(height: 6),
-        Align(alignment: Alignment.centerLeft, child: _ChipAkurasi(_akurasi!)),
-      ],
       const SizedBox(height: 12),
       TextFormField(
         controller: _jurusan,
@@ -1156,26 +1129,6 @@ class _KotakFoto extends StatelessWidget {
           ]),
         ),
       ),
-    );
-  }
-}
-
-/// Chip akurasi koordinat dari tombol GPS (warna = bagus / sedang / lemah).
-class _ChipAkurasi extends StatelessWidget {
-  const _ChipAkurasi(this.meter);
-  final double meter;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = akurasiBa(meter);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: a.latar, borderRadius: BorderRadius.circular(999)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.gps_fixed_rounded, size: 13, color: a.warna),
-        const SizedBox(width: 5),
-        Text(a.teks, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: a.warna)),
-      ]),
     );
   }
 }

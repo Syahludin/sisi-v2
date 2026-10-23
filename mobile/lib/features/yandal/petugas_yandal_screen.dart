@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'petugas_yandal_repository.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.63.0 Operasi > Pindah Tim Petugas Yandal (ADMIN / SUPER; keputusan kvlar 7 Okt 2026).
 /// v0.63.2 (keputusan kvlar 8 Okt 2026): layar 1 = kartu per tim Yandal, ketuk kartu = daftar petugas tim itu,
@@ -213,7 +214,7 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
             ? const Center(child: SisiLoader())
             : d == null
                 ? Center(child: Text(_pesan ?? 'Gagal memuat.'))
-                : RefreshIndicator(onRefresh: _muat, child: _daftarTim(context, d)),
+                : RefreshSisi(onRefresh: _muat, child: _daftarTim(context, d)),
       ),
     );
   }

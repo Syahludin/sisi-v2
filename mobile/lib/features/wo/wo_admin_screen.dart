@@ -14,6 +14,7 @@ import 'wo_bantu.dart';
 import 'wo_foto_server.dart';
 import 'wo_penerusan.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.11 (permintaan kvlar 21 Okt 2026): Penerusan WO Temuan untuk admin (menu OPS_PENERUSAN_WO).
 /// Temuan inspeksi (petugas Inspeksi Jaringan / Gardu dan admin) diteruskan ke tim ROW / HARTEK / YANDAL yang aktif.
@@ -205,7 +206,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
         if (ok && mounted) unawaited(_segarkan(diam: true));
       },
     ));
-    _pesan('WO ${teksWo(t['kodeTemuan'])} ${_pindah ? 'dipindah' : 'diteruskan'} ke $nama (diproses di latar).');
+    _pesan('Proses Kirim WO'); // v1.0.21: progres kirim tampil di kartu atas daftar
     return true;
   }
 
@@ -233,7 +234,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
         if (ok && mounted) unawaited(_segarkan(diam: true));
       },
     ));
-    _pesan('WO ditarik (diproses di latar).');
+    _pesan('Proses Tarik WO');
     return true;
   }
 
@@ -664,7 +665,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
     return Scaffold(
       backgroundColor: HartekGaya.latar,
       body: SafeArea(
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: _segarkanPaksa,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -678,7 +679,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
                     : '${r['baru'] ?? 0} baru · ${r['terkirim'] ?? 0} terkirim · ${r['dikerjakan'] ?? 0} dikerjakan${ganda > 0 ? ' · $ganda ganda' : ''}',
                 ikon: _pindah ? Icons.swap_horiz_rounded : Icons.alt_route_rounded,
                 aksi: [
-                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _muat ? null : _segarkanPaksa),
+                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkanPaksa, sibuk: _muat),
                   const SizedBox(width: 6),
                   tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
                 ],

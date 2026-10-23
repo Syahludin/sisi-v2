@@ -72,14 +72,55 @@ List<String> pilihanFilterTemuan(List<Map<String, dynamic>> semua, KategoriFilte
   return k == KategoriFilterTemuan.tanggal ? (l..sort((a, b) => b.compareTo(a))) : (l..sort());
 }
 
-/// Jumlah temuan per jenis, terbanyak dulu (sama banyak = abjad).
-List<({String jenis, int jumlah})> ringkasJenisTemuan(List<Map<String, dynamic>> l) {
-  final n = <String, int>{};
+/// v1.0.21 (permintaan kvlar 23 Okt 2026): status penanganan temuan dari WO-nya. Bukan filter: dihitung dari daftar yang
+/// sedang tampil, jadi berlaku di semua kondisi filter (per section, per jenis, per penyulang).
+enum StatusTemuan { belumTim, diTim, dikerjakan, selesai }
+
+extension LabelStatusTemuan on StatusTemuan {
+  String get label => switch (this) {
+        StatusTemuan.belumTim => 'Belum ada tim',
+        StatusTemuan.diTim => 'Di tim, belum dikerjakan',
+        StatusTemuan.dikerjakan => 'Sedang dikerjakan',
+        StatusTemuan.selesai => 'Selesai',
+      };
+
+  String get pendek => switch (this) {
+        StatusTemuan.belumTim => 'belum tim',
+        StatusTemuan.diTim => 'di tim',
+        StatusTemuan.dikerjakan => 'dikerjakan',
+        StatusTemuan.selesai => 'selesai',
+      };
+}
+
+/// Status WO temuan: kosong = belum diteruskan ke tim (StatusWo di wo_bantu).
+StatusTemuan statusTemuan(Map<String, dynamic> t) {
+  final wo = t['wo'];
+  return switch (wo is Map ? _t(wo['status']) : '') {
+    'SELESAI' => StatusTemuan.selesai,
+    'DIKERJAKAN' => StatusTemuan.dikerjakan,
+    'TERKIRIM' => StatusTemuan.diTim,
+    _ => StatusTemuan.belumTim,
+  };
+}
+
+/// Jumlah temuan per [StatusTemuan] (indeks = StatusTemuan.index).
+List<int> hitungStatusTemuan(Iterable<Map<String, dynamic>> l) {
+  final n = List<int>.filled(StatusTemuan.values.length, 0);
   for (final t in l) {
-    final j = nilaiFilterTemuan(t, KategoriFilterTemuan.jenis);
-    n[j] = (n[j] ?? 0) + 1;
+    n[statusTemuan(t).index]++;
   }
-  final hasil = [for (final e in n.entries) (jenis: e.key, jumlah: e.value)]
+  return n;
+}
+
+typedef RingkasJenis = ({String jenis, int jumlah, List<int> status});
+
+/// Jumlah temuan per jenis, terbanyak dulu (sama banyak = abjad). v1.0.21: + jumlah per status.
+List<RingkasJenis> ringkasJenisTemuan(List<Map<String, dynamic>> l) {
+  final grup = <String, List<Map<String, dynamic>>>{};
+  for (final t in l) {
+    grup.putIfAbsent(nilaiFilterTemuan(t, KategoriFilterTemuan.jenis), () => []).add(t);
+  }
+  final hasil = [for (final e in grup.entries) (jenis: e.key, jumlah: e.value.length, status: hitungStatusTemuan(e.value))]
     ..sort((a, b) => b.jumlah != a.jumlah ? b.jumlah - a.jumlah : a.jenis.compareTo(b.jenis));
   return hasil;
 }
@@ -93,12 +134,14 @@ String sectionTemuan(Map<String, dynamic> t) {
 
 /// v1.0.18 (permintaan kvlar 22 Okt 2026): ringkasan per section, tiap section berisi jumlah per jenis temuan.
 /// Section terbanyak dulu (sama banyak = abjad); jenis di dalamnya urut sama dengan [ringkasJenisTemuan].
-List<({String section, int jumlah, List<({String jenis, int jumlah})> jenis})> ringkasSectionTemuan(List<Map<String, dynamic>> l) {
+List<RingkasSection> ringkasSectionTemuan(List<Map<String, dynamic>> l) {
   final grup = <String, List<Map<String, dynamic>>>{};
   for (final t in l) {
     grup.putIfAbsent(sectionTemuan(t), () => []).add(t);
   }
-  final hasil = [for (final e in grup.entries) (section: e.key, jumlah: e.value.length, jenis: ringkasJenisTemuan(e.value))]
+  final hasil = [
+    for (final e in grup.entries) (section: e.key, jumlah: e.value.length, jenis: ringkasJenisTemuan(e.value), status: hitungStatusTemuan(e.value))
+  ]
     ..sort((a, b) => b.jumlah != a.jumlah ? b.jumlah - a.jumlah : a.section.compareTo(b.section));
   return hasil;
 }
@@ -117,8 +160,8 @@ String namaSectionTemuan(Map<String, dynamic> t) {
 
 String namaPenyulangTemuan(Map<String, dynamic> t) => _t(t['penyulang']).isEmpty ? '-' : _t(t['penyulang']);
 
-typedef RingkasSection = ({String section, int jumlah, List<({String jenis, int jumlah})> jenis});
-typedef RingkasPenyulang = ({String penyulang, int jumlah, List<RingkasSection> section});
+typedef RingkasSection = ({String section, int jumlah, List<RingkasJenis> jenis, List<int> status});
+typedef RingkasPenyulang = ({String penyulang, int jumlah, List<RingkasSection> section, List<int> status});
 
 /// v1.0.19 (permintaan kvlar 23 Okt 2026): ringkasan per penyulang (abjad) > section (kolom urutan db_Jaringan; section di
 /// luar master di belakang, abjad) > jumlah per jenis temuan.
@@ -136,8 +179,16 @@ List<RingkasPenyulang> ringkasPenyulangTemuan(List<Map<String, dynamic>> l, Map<
     }
 
     final sec = grup[p]!.keys.toList()..sort((a, b) => pos(a) != pos(b) ? pos(a) - pos(b) : a.compareTo(b));
-    final isi = [for (final s in sec) (section: s, jumlah: grup[p]![s]!.length, jenis: ringkasJenisTemuan(grup[p]![s]!))];
-    hasil.add((penyulang: p, jumlah: isi.fold<int>(0, (a, x) => a + x.jumlah), section: isi));
+    final isi = [
+      for (final s in sec)
+        (section: s, jumlah: grup[p]![s]!.length, jenis: ringkasJenisTemuan(grup[p]![s]!), status: hitungStatusTemuan(grup[p]![s]!))
+    ];
+    hasil.add((
+      penyulang: p,
+      jumlah: isi.fold<int>(0, (a, x) => a + x.jumlah),
+      section: isi,
+      status: hitungStatusTemuan([for (final s in grup[p]!.values) ...s]),
+    ));
   }
   return hasil;
 }

@@ -18,6 +18,7 @@ import '../../widgets/wa_panel.dart';
 import '../hartek/hartek_gaya.dart';
 import '../insjar/insjar_header.dart';
 import 'jadwal_padam_bantu.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.18: daftar dikelompokkan per tanggal (baris ringkas, rincian + aksi di lembar bawah), chip penyulang selalu
 /// terlihat (master + jadwal), kartu Kirim WA rentang tanggal khusus admin, ENS rupiah bulat.
@@ -580,7 +581,7 @@ class _JadwalPadamScreenState extends State<JadwalPadamScreen> {
           : null,
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: _muatJadwal,
           child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 10, 16, 110), children: [
             HeaderInsJar(

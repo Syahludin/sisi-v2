@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
@@ -9,10 +10,12 @@ import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_motif.dart';
+import '../../widgets/sisi_widgets.dart';
 import 'arsip_ba_lembar.dart' show bolehLihatBa;
 import 'daftar_ba_screen.dart';
 import 'gardu_model.dart';
 import 'gardu_widgets.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.17 (permintaan kvlar 22 Okt 2026): pilihan saat kartu gardu diketuk di menu admin Pengukuran Gardu.
 enum PilihanGardu { perbaikan, pengukuran }
@@ -157,6 +160,9 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
           appBar: AppBar(
             backgroundColor: AppColors.brand900,
             foregroundColor: Colors.white,
+            // v1.0.21: tombol kembali / refresh putih (tema AppBar memberi ikon biru tua yang tenggelam di latar gradien)
+            iconTheme: const IconThemeData(color: Colors.white),
+            actionsIconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: const DecoratedBox(
               decoration: BoxDecoration(gradient: SisiMotif.gradien),
               child: CustomPaint(painter: PolaJaringanPainter(alpha: .09, kerapatan: 5), size: Size.infinite),
@@ -175,7 +181,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
                 ]),
               ),
             ]),
-            actions: [IconButton(tooltip: 'Muat ulang', onPressed: _muat ? null : _muatData, icon: const Icon(Icons.refresh_rounded))],
+            actions: [TombolSegarkan(sibuk: _muat, onPressed: _muatData)],
             bottom: const TabBar(
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
@@ -216,7 +222,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   Widget _tabPerbaikan() {
     final ba = _daftar(_data?['ba']);
     final temuan = _daftar(_data?['temuan']);
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: _muatData,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
         _status(),
@@ -369,31 +375,48 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   }
 
   // ---------- tab 2: pengukuran ----------
+  // v1.0.21 (permintaan kvlar 23 Okt 2026): kartu Pengukuran Terakhir + Arus & Tegangan diganti kartu Data Trafo
+  // (nameplate + koordinat ke Google Maps). Pengukuran terbaru LWBP / WBP = tanggal terbaru dari 3 sumber (Master Gardu,
+  // Inspeksi Gardu, Yandal; dihitung server). Isi kartu ukur dikelompokkan: arus, tegangan fasa-netral, fasa-fasa.
+
+  /// Pengukuran terbaru per periode: dari server (`terbaru`), atau dihitung dari riwayat (server lama).
+  Map<String, dynamic>? _terbaru(String periode, List<Map<String, dynamic>> semua) {
+    final t = _data?['terbaru'];
+    if (t is Map) return t[periode] is Map ? Map<String, dynamic>.from(t[periode] as Map) : null;
+    Map<String, dynamic>? h;
+    for (final u in semua) {
+      if (_t(u['periode']).toUpperCase() != periode) continue;
+      final k = '${_t(u['tanggal'])} ${_t(u['jam'])}';
+      if (h == null || k.compareTo('${_t(h['tanggal'])} ${_t(h['jam'])}') > 0) h = u;
+    }
+    return h;
+  }
 
   Widget _tabPengukuran() {
     final semua = _daftar(_data?['pengukuran']);
+    final g = _data?['gardu'] is Map ? Gardu.dariJson(Map<String, dynamic>.from(_data!['gardu'] as Map)) : _g;
     int n(String p) => semua.where((u) => _t(u['periode']).toUpperCase() == p).length;
     final ukur = _periode.isEmpty ? semua : semua.where((u) => _t(u['periode']).toUpperCase() == _periode).toList();
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: _muatData,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
-        BagianGardu('Pengukuran Terakhir', Icons.speed_rounded, [
-          ('Tanggal Ukur', _g.tglUkur.isEmpty ? '' : tanggalPendek(_g.tglUkur)),
-          ('Waktu Beban', _g.waktuBeban),
-          ('Arus Maks per Fasa', _g.arusMaks == null ? '' : '${angkaId(_g.arusMaks)} A'),
-          ('Pembebanan', _g.bebanKva == null ? '' : '${angkaId(_g.bebanKva)} kVA'),
-          ('Persentase Beban', _g.persen == null ? '' : '${angkaId(_g.persen)} %'),
-          ('Kategori', '${_g.kategori.label} (${_g.kategori.range})'),
-        ], bawah: Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => unawaited(tampilDetailGardu(context, _g, denganBa: false)),
-            icon: const Icon(Icons.info_outline_rounded, size: 18),
-            label: const Text('Data gardu lengkap'),
-          ),
-        )),
-        BagianArusTegangan(_g),
         _status(),
+        _KartuDataTrafo(g, onLengkap: () => unawaited(tampilDetailGardu(context, g, denganBa: false))),
+        const SizedBox(height: 6),
+        _judul('Pengukuran terbaru', Icons.speed_rounded),
+        if (_data != null)
+          for (final p in const ['LWBP', 'WBP'])
+            if (_terbaru(p, semua) case final u?)
+              _kartuUkur(u, terbaru: true)
+            else
+              _kartu(
+                aksen: BadgePeriodeBeban.gaya(p).$2,
+                child: Row(children: [
+                  BadgePeriodeBeban(p, lengkap: true),
+                  const SizedBox(width: 10),
+                  const Expanded(child: Text('Belum ada pengukuran', style: TextStyle(fontSize: 13, color: AppColors.neutral500))),
+                ]),
+              ),
         _judul('Riwayat Pengukuran (${semua.length})', Icons.history_rounded),
         // v1.0.20: bedakan pengukuran LWBP (luar beban puncak) dan WBP (beban puncak)
         SegmentedButton<String>(
@@ -408,22 +431,20 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
         ),
         const SizedBox(height: 10),
         if (_data != null && ukur.isEmpty)
-          _kosong(semua.isEmpty ? 'Belum ada riwayat pengukuran (Yandal / Inspeksi Gardu).' : 'Tidak ada pengukuran $_periode.'),
+          _kosong(semua.isEmpty ? 'Belum ada riwayat pengukuran (Master Gardu / Yandal / Inspeksi Gardu).' : 'Tidak ada pengukuran $_periode.'),
         for (final u in ukur) _kartuUkur(u),
       ]),
     );
   }
 
-  Widget _kartuUkur(Map<String, dynamic> u) {
-    final kat = KategoriBeban.dari(_d(u['persen']));
-    String n(String k, String s) => _d(u[k]) == null ? '-' : '${angkaId(_d(u[k]))} $s';
-    Widget sel(String l, String v) => Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l, style: const TextStyle(fontSize: 10.5, color: AppColors.neutral500)),
-            Text(v, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-          ]),
-        );
+  Widget _kartuUkur(Map<String, dynamic> u, {bool terbaru = false}) {
+    final persen = _d(u['persen']);
+    final kat = KategoriBeban.dari(persen);
     final periode = _t(u['periode']).toUpperCase();
+    final ringkas = [
+      if (_d(u['kva']) != null) '${angkaId(_d(u['kva']))} kVA',
+      if (_d(u['tidakSeimbang']) != null) 'tidak seimbang ${angkaId(_d(u['tidakSeimbang']))}%',
+    ].join(' · ');
     return _kartu(
       aksen: periode == 'WBP' || periode == 'LWBP' ? BadgePeriodeBeban.gaya(periode).$2 : AppColors.neutral300,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -433,24 +454,207 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
           Expanded(
             child: Text(
               [if (_t(u['tanggal']).isNotEmpty) tanggalPendek(_t(u['tanggal'])), _t(u['jam'])].where((x) => x.isNotEmpty).join(' · '),
+              textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900),
             ),
           ),
-          if (_d(u['persen']) != null) _pil('${angkaId(_d(u['persen']))}% ${kat.label}', kat.warna, kat.latar),
         ]),
-        Text([_t(u['sumber']), _t(u['kode'])].where((x) => x.isNotEmpty).join(' · '), style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
+        const SizedBox(height: 4),
+        Text(
+          [if (terbaru) 'Terbaru dari ${_t(u['sumber'])}' else _t(u['sumber']), _t(u['kode'])].where((x) => x.isNotEmpty).join(' · '),
+          style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500),
+        ),
+        if (persen != null || ringkas.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            if (persen != null) ...[
+              Text('${angkaId(persen)}%',
+                  style: TextStyle(fontSize: 22, height: 1, fontWeight: FontWeight.w900, color: kat.warna, fontFeatures: const [FontFeature.tabularFigures()])),
+              const SizedBox(width: 6),
+              Text('beban ${kat.label.toLowerCase()}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: kat.warna)),
+            ],
+            const Spacer(),
+            if (ringkas.isNotEmpty) Text(ringkas, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.neutral700)),
+          ]),
+        ],
+        const SizedBox(height: 10),
+        _GrupUkur('Arus', 'A', Icons.bolt_rounded, AppColors.accent700, [
+          ('R', _d(u['bebanR'])), ('S', _d(u['bebanS'])), ('T', _d(u['bebanT'])), ('N', _d(u['bebanN'])),
+        ]),
         const SizedBox(height: 8),
-        Row(children: [sel('Arus R', n('bebanR', 'A')), sel('Arus S', n('bebanS', 'A')), sel('Arus T', n('bebanT', 'A')), sel('Arus N', n('bebanN', 'A'))]),
-        const SizedBox(height: 6),
-        Row(children: [sel('V R-N', n('teganganRN', 'V')), sel('V S-N', n('teganganSN', 'V')), sel('V T-N', n('teganganTN', 'V')), const Spacer()]),
-        const SizedBox(height: 6),
-        Row(children: [sel('V R-S', n('teganganRS', 'V')), sel('V R-T', n('teganganRT', 'V')), sel('V S-T', n('teganganST', 'V')), const Spacer()]),
-        const SizedBox(height: 6),
-        Row(children: [
-          sel('Beban', n('kva', 'kVA')),
-          sel('Tidak seimbang', n('tidakSeimbang', '%')),
-          const Spacer(flex: 2),
+        _GrupUkur('Tegangan fasa-netral', 'V', Icons.electric_bolt_rounded, AppColors.brand700, [
+          ('R-N', _d(u['teganganRN'])), ('S-N', _d(u['teganganSN'])), ('T-N', _d(u['teganganTN'])),
         ]),
+        const SizedBox(height: 8),
+        _GrupUkur('Tegangan fasa-fasa', 'V', Icons.swap_horiz_rounded, AppColors.navy900, [
+          ('R-S', _d(u['teganganRS'])), ('R-T', _d(u['teganganRT'])), ('S-T', _d(u['teganganST'])),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// v1.0.21: satu kelompok nilai ukur (arus / tegangan fasa-netral / fasa-fasa): judul + satuan, lalu sel per fasa
+/// (label kecil, angka besar tabular). Kosong = '-'.
+class _GrupUkur extends StatelessWidget {
+  const _GrupUkur(this.judul, this.satuan, this.ikon, this.warna, this.nilai);
+  final String judul, satuan;
+  final IconData ikon;
+  final Color warna;
+  final List<(String, double?)> nilai;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        decoration: BoxDecoration(
+          color: warna.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: warna.withValues(alpha: .14)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Icon(ikon, size: 14, color: warna),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(judul.toUpperCase(), style: TextStyle(fontSize: 10.5, letterSpacing: .5, fontWeight: FontWeight.w900, color: warna)),
+            ),
+            Text(satuan, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
+          ]),
+          const SizedBox(height: 6),
+          Row(children: [
+            for (final (l, v) in nilai)
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(l, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.neutral500)),
+                  Text(v == null ? '-' : angkaId(v),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.navy900, fontFeatures: [FontFeature.tabularFigures()])),
+                ]),
+              ),
+            for (var i = nilai.length; i < 4; i++) const Spacer(),
+          ]),
+        ]),
+      );
+}
+
+/// v1.0.21 (permintaan kvlar 23 Okt 2026): data trafo (nameplate) dari Master Gardu terkini + koordinat trafo yang bisa
+/// diketuk untuk membuka Google Maps. Pengganti kartu Pengukuran Terakhir + Arus & Tegangan di tab Pengukuran.
+class _KartuDataTrafo extends StatelessWidget {
+  const _KartuDataTrafo(this.g, {required this.onLengkap});
+  final Gardu g;
+  final VoidCallback onLengkap;
+
+  Future<void> _maps(BuildContext context) async {
+    final ok = await launchUrl(Uri.parse('https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}'), mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('Google Maps tidak bisa dibuka.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String t(String v) => v.trim().isEmpty ? '-' : v.trim();
+    final phb = [g.merkPhb, g.seriPhb, if (g.tahunPhb != null) '${g.tahunPhb}'].where((x) => x.trim().isNotEmpty).join(' · ');
+    final isi = <(String, String)>[
+      ('Merk', t(g.merk)),
+      ('No Seri', t(g.seri)),
+      ('Tahun', g.tahun?.toString() ?? '-'),
+      ('Asal Trafo', t(g.asalTrafo)),
+      ('Konstruksi', t(g.konstruksi)),
+      ('Jurusan', t(g.jurusan)),
+      ('Arus nominal', g.arusMaks == null ? '-' : '${angkaId(g.arusMaks)} A'),
+      ('Kepemilikan', t(g.kepemilikan)),
+      ('PHB-TR', t(phb)),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.neutral200),
+        boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(gradient: SisiMotif.gradien, borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.electrical_services_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('DATA TRAFO', style: TextStyle(fontSize: 10.5, letterSpacing: .8, fontWeight: FontWeight.w900, color: AppColors.brand700)),
+                Text(t(g.merk), maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(g.kva == null ? '-' : angkaId(g.kva),
+                  style: const TextStyle(fontSize: 24, height: 1, fontWeight: FontWeight.w900, color: AppColors.navy900, fontFeatures: [FontFeature.tabularFigures()])),
+              const Text('kVA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.neutral500)),
+            ]),
+          ]),
+        ),
+        const Divider(height: 1, color: AppColors.neutral150),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+          child: LayoutBuilder(
+            builder: (c, k) => Wrap(runSpacing: 10, children: [
+              for (final (l, v) in isi)
+                SizedBox(
+                  width: k.maxWidth / 2,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(l, style: const TextStyle(fontSize: 11, color: AppColors.neutral500)),
+                      Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                    ]),
+                  ),
+                ),
+            ]),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+          child: Material(
+            color: g.adaKoordinat ? AppColors.brand50 : AppColors.neutral100,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: g.adaKoordinat ? () => unawaited(_maps(context)) : null,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(children: [
+                  Icon(Icons.location_on_rounded, color: g.adaKoordinat ? AppColors.red600 : AppColors.neutral400),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Koordinat trafo', style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
+                      Text(g.adaKoordinat ? '${g.lat}, ${g.lng}' : 'Belum ada di Master Gardu',
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                    ]),
+                  ),
+                  if (g.adaKoordinat) ...[
+                    const Text('Google Maps', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.brand700)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.brand700),
+                  ],
+                ]),
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+            child: TextButton.icon(onPressed: onLengkap, icon: const Icon(Icons.info_outline_rounded, size: 18), label: const Text('Data gardu lengkap')),
+          ),
+        ),
       ]),
     );
   }

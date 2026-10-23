@@ -12,6 +12,7 @@ import '../insjar/insjar_header.dart';
 import 'wo_bantu.dart';
 import 'wo_foto_server.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.16 (permintaan kvlar 22 Okt 2026): menu Verifikasi WO Ganda (OPS_WO_GANDA, admin). WO yang diunggah lebih
 /// dari satu tim (tim lama tetap mengunggah hasil kerja offline sesudah WO dipindah). Admin membandingkan kiriman tiap
@@ -276,7 +277,7 @@ class _WoGandaScreenState extends State<WoGandaScreen> {
     return Scaffold(
       backgroundColor: HartekGaya.latar,
       body: SafeArea(
-        child: RefreshIndicator(
+        child: RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -288,7 +289,7 @@ class _WoGandaScreenState extends State<WoGandaScreen> {
                 sub: 'WO yang diunggah lebih dari satu tim',
                 ikon: Icons.how_to_reg_rounded,
                 aksi: [
-                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _muat ? null : _segarkan),
+                  tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan', _segarkan, sibuk: _muat),
                   const SizedBox(width: 6),
                   tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
                 ],

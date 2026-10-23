@@ -254,10 +254,11 @@ class _FormLoginState extends State<_FormLogin> {
         clipBehavior: Clip.antiAlias,
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // v1.0.19: strip Jaringan SiSi di atas form
+          // v1.0.21 (permintaan kvlar 23 Okt 2026): warna sama dengan header / latar aplikasi (tanpa ujung kuning)
           Container(
             height: 10,
-            decoration:
-                const BoxDecoration(gradient: LinearGradient(colors: [AppColors.brand800, AppColors.brand500, AppColors.accent400])),
+            decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [AppColors.brand950, AppColors.brand800, AppColors.brand700], stops: [0, .62, 1])),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),

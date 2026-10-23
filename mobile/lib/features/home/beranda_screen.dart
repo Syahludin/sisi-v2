@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,8 +12,9 @@ import '../kalender/kalender_tim_screen.dart';
 import '../row/masalah_sync_screen.dart';
 import '../yandal/rank_yandal.dart';
 import '../yandal/shift_yandal_screen.dart';
+import '../../widgets/refresh_sisi.dart';
 
-/// Beranda: kartu profil, status sync, kalender, akses cepat.
+/// Beranda: kartu profil, kalender, akses cepat (v1.0.21: kartu status sync dihapus).
 /// v1.0.18 (permintaan kvlar 22 Okt 2026): gaya "Jaringan SiSi" + kalender satu bulan (pekerjaan tim, WO, jadwal padam)
 /// supaya setiap petugas melihat rencana pekerjaan dan jadwal padam hari itu langsung dari Beranda.
 class BerandaScreen extends StatefulWidget {
@@ -41,9 +44,10 @@ class _BerandaScreenState extends State<BerandaScreen> {
       listenable: ctl,
       builder: (context, _) => Scaffold(
         backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi dari kerangka (seperti Pengaturan)
-        // Satu-satunya tombol sinkron ada di kartu sync (plus tarik ke bawah). Sync juga otomatis tiap 5 menit.
-        appBar: sisiAppBar('Beranda', online: ctl.online),
-        body: RefreshIndicator(
+        // v1.0.21 (permintaan kvlar 23 Okt 2026): kartu sinkron dihapus. Sinkron + muat ulang kalender = tombol refresh SiSi
+        // di app bar atau tarik ke bawah. Sync juga otomatis tiap 5 menit.
+        appBar: sisiAppBar('Beranda', online: ctl.online, actions: [TombolSegarkan(sibuk: ctl.sedangSync, onPressed: () => unawaited(_segarkan()))]),
+        body: RefreshSisi(
           onRefresh: _segarkan,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
@@ -53,8 +57,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
               if (sesi.petugasYandal) ...[KartuShiftYandal(sesi: sesi), const SizedBox(height: 16)], // v0.63.0
               // v0.63.5: Rank Yandal bulan berjalan (akun YANDAL + admin)
               if (sesi.petugasYandal || sesi.modeAdmin) ...[KartuRankYandal(deps: deps, sesi: sesi), const SizedBox(height: 16)],
-              _KartuSync(deps: deps, sesi: sesi),
-              const SizedBox(height: 22),
+              // data KONFLIK / DITOLAK tidak terkirim sendiri: petugas tetap harus melihat dan memilih tindakan
+              if (ctl.perluTindakan > 0) ...[_PerluTindakan(deps: deps, sesi: sesi, jumlah: ctl.perluTindakan), const SizedBox(height: 6)],
+              const SizedBox(height: 16),
               JudulSeksiSisi('Kalender', keterangan: sesi.role == 'PETUGAS' ? 'pekerjaan & jadwal padam' : 'jadwal padam'),
               Container(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
@@ -162,80 +167,33 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Kotak sync (pola p0_sync_button lama).
-class _KartuSync extends StatelessWidget {
-  const _KartuSync({required this.deps, required this.sesi});
+/// v0.62 (M4): data yang KONFLIK / DITOLAK tidak terkirim sendiri, petugas harus memilih tindakan.
+/// v1.0.21: sisa kartu sinkron lama, hanya tampil kalau ada data yang perlu tindakan.
+class _PerluTindakan extends StatelessWidget {
+  const _PerluTindakan({required this.deps, required this.sesi, required this.jumlah});
   final Deps deps;
   final Sesi sesi;
+  final int jumlah;
 
   @override
-  Widget build(BuildContext context) {
-    final ctl = deps.syncCtl;
-    final terakhir = ctl.terakhirBerhasil == null ? 'belum pernah' : DateFormat('HH:mm', 'id_ID').format(ctl.terakhirBerhasil!);
-    // v1.0.20: kartu sinkron bergaya Jaringan SiSi (ikon bergradien, kartu putih berbayang)
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neutral200),
-        boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 4))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: ctl.belumTerkirim == 0 ? SisiMotif.gradien : const LinearGradient(colors: [AppColors.accent400, AppColors.accent600]),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(ctl.belumTerkirim == 0 ? Icons.cloud_done_rounded : Icons.cloud_upload_rounded,
-                color: ctl.belumTerkirim == 0 ? Colors.white : AppColors.brand950, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(ctl.belumTerkirim == 0 ? 'Semua data terkirim' : '${ctl.belumTerkirim} data belum terkirim',
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy900)),
-              Text('Sinkron terakhir: $terakhir', style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
-              if (ctl.pesan != null) Text(ctl.pesan!, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral700)),
+  Widget build(BuildContext context) => Material(
+        color: AppColors.red100,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MasalahSyncScreen(deps: deps, sesi: sesi))),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              const Icon(Icons.sync_problem_rounded, color: AppColors.red700),
+              const SizedBox(width: 10),
+              Expanded(child: Text('$jumlah data perlu tindakan', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.red700))),
+              const Text('Lihat', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.red700)),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.red700),
             ]),
           ),
-        ]),
-        if (ctl.perluTindakan > 0) ...[
-          const SizedBox(height: 10),
-          // v0.62 (M4): data yang KONFLIK / DITOLAK tidak terkirim sendiri, petugas harus memilih tindakan.
-          Material(
-            color: AppColors.red100,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MasalahSyncScreen(deps: deps, sesi: sesi))),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(children: [
-                  const Icon(Icons.sync_problem_rounded, color: AppColors.red700),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('${ctl.perluTindakan} data perlu tindakan',
-                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.red700)),
-                  ),
-                  const Text('Lihat', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.red700)),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.red700),
-                ]),
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: ctl.sedangSync ? null : ctl.sinkron,
-          child: Text(ctl.sedangSync ? 'Menyinkronkan...' : 'Sinkron sekarang'),
         ),
-      ]),
-    );
-  }
+      );
 }
 
 class _AksesCepat extends StatelessWidget {

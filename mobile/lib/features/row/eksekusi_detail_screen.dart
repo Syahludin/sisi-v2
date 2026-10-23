@@ -22,6 +22,7 @@ import 'perbaikan_repository.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
 import 'watermark.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Detail eksekusi + foto. Foto Pekerjaan / Sesudah biasanya menyusul dari sini.
 /// v0.65.6 (keputusan kvlar 8 Okt 2026): foto kamera diverifikasi di review kamera, tombol Simpan Foto di kamera langsung
@@ -199,7 +200,7 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
       MaterialPageRoute(builder: (_) => FormEksekusiScreen(deps: widget.deps, sesi: widget.sesi, realisasi: r, edit: e)),
     );
     await _muat();
-    if (berubah == true && mounted) tampilPesan(context, 'Perubahan tersimpan. Terkirim otomatis saat online.');
+    if (berubah == true && mounted) unawaited(tampilDataTersimpan(context));
   }
 
   Future<void> _unduhUlang() async {
@@ -292,7 +293,7 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
             ? const SisiLoading(ukuran: 60)
             : AbsorbPointer(
                 absorbing: sibuk,
-                child: RefreshIndicator(
+                child: RefreshSisi(
                 onRefresh: _segarkan,
                 child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
                   SectionCard(judul: 'Foto pekerjaan', ikon: Icons.photo_camera_outlined, children: [

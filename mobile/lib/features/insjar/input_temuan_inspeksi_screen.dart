@@ -29,6 +29,7 @@ import 'insjar_lokal.dart';
 import 'insjar_store.dart' show pesanInsJar;
 import 'ringkasan_temuan.dart';
 import 'temuan_offline.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.0 (permintaan kvlar 19 Okt 2026): Input Temuan Inspeksi khusus admin (menu OPS_INPUT_TEMUAN).
 /// Form sama dengan petugas Inspeksi Jaringan + pilihan penyulang. Online (admin di kantor): simpan langsung ke server
@@ -537,32 +538,43 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     final semua = _semua;
     final tampil = _filter.saring(semua);
     final o = _offline;
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: () => _unduh(),
       child: CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // info data offline + rentang
-              Row(children: [
-                Icon(o == null ? Icons.cloud_off_outlined : Icons.offline_pin_rounded, size: 18, color: HartekGaya.redup),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    o == null
-                        ? (_offlineDibaca ? 'Daftar belum diunduh ke HP.' : 'Membaca daftar di HP...')
-                        : 'Offline · ${tanggalHartek(_teks(o['dari']))} s.d. ${tanggalHartek(_teks(o['sampai']))}'
-                            '${_teks(o['diambil']).isEmpty ? '' : ' · diunduh ${waktuWo(_teks(o['diambil']))}'}',
-                    style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup),
+              // v1.0.21 (permintaan kvlar 23 Okt 2026): keterangan offline / diunduh diganti satu kolom rentang tanggal selebar layar
+              Material(
+                color: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: HartekGaya.garis)),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _muat ? null : _pilihRentang,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+                    child: Row(children: [
+                      const Icon(Icons.date_range_rounded, color: HartekGaya.merek),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('Rentang tanggal temuan', style: TextStyle(fontSize: 11.5, color: HartekGaya.redup)),
+                          Text(
+                            o == null
+                                ? (_offlineDibaca ? 'Pilih rentang tanggal' : 'Membaca daftar di HP...')
+                                : '${tanggalHartek(_teks(o['dari']))}  –  ${tanggalHartek(_teks(o['sampai']))}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: HartekGaya.tinta),
+                          ),
+                        ]),
+                      ),
+                      _muat ? const SisiLoader(ukuran: 20) : const Icon(Icons.expand_more_rounded, color: HartekGaya.redup),
+                    ]),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: _muat ? null : _pilihRentang,
-                  icon: const Icon(Icons.date_range_rounded, size: 18),
-                  label: const Text('Rentang'),
-                ),
-              ]),
+              ),
               if (_galat != null)
                 Container(
                   margin: const EdgeInsets.only(top: 6, bottom: 6),

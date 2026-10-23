@@ -13,103 +13,105 @@ import 'api_client.dart';
 import 'versi.dart';
 
 /// v1.0.19 (permintaan kvlar 23 Okt 2026): update aplikasi langsung dari app. Server (getUpdateApp) memberi APK versi
-/// terbaru di folder Drive (APK_FOLDER_ID): HP mengunduh di latar dengan progres, mencocokkan ukuran + SHA-256, meminta
-/// konfirmasi, lalu membuka pemasang Android. Android tetap menolak APK yang tanda tangannya beda dengan app terpasang.
+/// terbaru di folder Drive (APK_FOLDER_ID): HP mengunduh di latar dengan progres, mencocokkan ukuran + SHA-256, lalu
+/// membuka pemasang Android. Android tetap menolak APK yang tanda tangannya beda dengan app terpasang.
+///
+/// v1.0.21: satu dialog langsung tampil saat tombol diketuk (cek server -> unduh -> periksa -> buka pemasang), tanpa
+/// jeda kosong. APK yang sudah terunduh + terverifikasi disimpan; kalau pemasang tertutup / salah ketuk, ketuk lagi
+/// langsung memasang tanpa unduh ulang. File versi lain dihapus.
 class PembaruApk {
   PembaruApk._();
 
-  /// Hasil: true = pemasang Android dibuka. false = tidak ada update / gagal / dibatalkan (pesan sudah tampil).
+  /// Hasil: true = pemasang Android dibuka. false = tidak ada update / gagal / dibatalkan (pesan sudah tampil di dialog).
   static Future<bool> jalankan(BuildContext context, ApiClient api, String token) async {
-    Map<String, dynamic> apk;
-    try {
-      final r = await api.call('getUpdateApp', token: token, data: {'versiApp': versiApp}, timeout: const Duration(seconds: 40));
-      if (r['tersedia'] != true || r['apk'] is! Map) {
-        if (context.mounted) _pesan(context, 'File update belum ada di folder update. Hubungi admin.');
-        return false;
-      }
-      apk = Map<String, dynamic>.from(r['apk'] as Map);
-    } catch (_) {
-      if (context.mounted) _pesan(context, 'Tidak bisa cek file update. Cek sinyal lalu coba lagi.');
-      return false;
-    }
-    if (!context.mounted) return false;
+    final st = ValueNotifier<_Status>(const _Status('Memeriksa update...'));
     final batal = _Batal();
-    final progres = ValueNotifier<double?>(null);
-    final unduh = _unduh(apk, progres, batal);
+    final nav = Navigator.of(context, rootNavigator: true);
+    var terbuka = true;
     unawaited(showDialog<void>(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
-      builder: (c) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          icon: const Icon(Icons.system_update_rounded, size: 36, color: AppColors.brand700),
-          title: Text('Mengunduh v${apk['versi']}'),
-          content: ValueListenableBuilder<double?>(
-            valueListenable: progres,
-            builder: (c, v, _) => Column(mainAxisSize: MainAxisSize.min, children: [
-              LinearProgressIndicator(value: v, minHeight: 8, borderRadius: BorderRadius.circular(8)),
-              const SizedBox(height: 10),
-              Text(v == null ? 'Menyiapkan unduhan...' : '${(v * 100).floor()}% dari ${_mb(apk['ukuranByte'])}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            ]),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () {
-                  batal.ya = true;
-                  Navigator.pop(c);
-                },
-                child: const Text('Batalkan')),
-          ],
-        ),
-      ),
-    ));
-    String path;
+      builder: (c) => PopScope(canPop: false, child: _DialogPembaru(status: st, batal: batal)),
+    ).whenComplete(() => terbuka = false));
+    void tutup() {
+      if (terbuka) nav.pop();
+    }
+
     try {
-      path = await unduh;
+      final r = await api.call('getUpdateApp', token: token, data: {'versiApp': versiApp}, timeout: const Duration(seconds: 40));
+      if (batal.ya) return false;
+      if (r['tersedia'] != true || r['apk'] is! Map) throw _Galat('File update belum ada di folder update. Hubungi admin.');
+      final apk = Map<String, dynamic>.from(r['apk'] as Map);
+      final judul = 'SiSi v${apk['versi']}';
+      final path = await _siapkan(apk, judul, st, batal);
+      if (batal.ya) return false;
+      // pemasang dibuka lagi tiap tombol Pasang diketuk: file tetap tersimpan sampai versi baru terpasang
+      while (true) {
+        st.value = _Status('Membuka pemasang $judul...', judul: judul);
+        final h = await OpenFilex.open(path, type: 'application/vnd.android.package-archive');
+        if (h.type == ResultType.done) {
+          tutup();
+          return true;
+        }
+        final lagi = Completer<bool>();
+        st.value = _Status('Pemasang tidak terbuka: ${h.message}\nIzinkan "Pasang aplikasi tidak dikenal" untuk SiSi, lalu ketuk Pasang.',
+            judul: judul, galat: true, siapPasang: lagi);
+        if (!await lagi.future) {
+          tutup();
+          return false;
+        }
+      }
     } on _Dibatalkan {
       return false;
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        _pesan(context, e is _Galat ? e.pesan : 'Unduhan gagal. Cek sinyal lalu coba lagi.');
-      }
+      if (batal.ya) return false;
+      st.value = _Status(e is _Galat ? e.pesan : 'Tidak bisa mengunduh update. Cek sinyal lalu coba lagi.', galat: true);
       return false;
-    } finally {
-      progres.dispose();
     }
-    if (!context.mounted) return false;
-    Navigator.of(context, rootNavigator: true).pop();
-    final ya = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        icon: const Icon(Icons.verified_rounded, size: 36, color: AppColors.success700),
-        title: const Text('Pasang update sekarang?'),
-        content: Text('SiSi v${apk['versi']} sudah diunduh dan terverifikasi. Data di HP tetap aman.\n'
-            'Kalau diminta, izinkan "Pasang aplikasi tidak dikenal" untuk SiSi.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Nanti')),
-          FilledButton.icon(onPressed: () => Navigator.pop(c, true), icon: const Icon(Icons.install_mobile_rounded), label: const Text('Ya, pasang')),
-        ],
-      ),
-    );
-    if (ya != true) return false;
-    final h = await OpenFilex.open(path, type: 'application/vnd.android.package-archive');
-    if (h.type != ResultType.done && context.mounted) _pesan(context, 'Pemasang tidak terbuka: ${h.message}');
-    return h.type == ResultType.done;
   }
 
-  static Future<String> _unduh(Map<String, dynamic> apk, ValueNotifier<double?> progres, _Batal batal) async {
+  /// APK siap pasang: pakai file yang sudah terverifikasi kalau ada, kalau tidak unduh (.part) lalu periksa.
+  static Future<String> _siapkan(Map<String, dynamic> apk, String judul, ValueNotifier<_Status> st, _Batal batal) async {
     final dir = Directory(p.join((await getTemporaryDirectory()).path, 'update_apk'));
-    if (await dir.exists()) await dir.delete(recursive: true);
     await dir.create(recursive: true);
-    final file = File(p.join(dir.path, 'SiSi-${apk['versi']}.apk'));
+    final nama = 'SiSi-${apk['versi']}.apk';
+    final file = File(p.join(dir.path, nama));
+    await for (final f in dir.list()) {
+      if (p.basename(f.path) != nama) await f.delete(recursive: true).catchError((_) => f);
+    }
+    final ukuran = (num.tryParse('${apk['ukuranByte']}') ?? 0).toInt();
+    final sha = '${apk['sha256'] ?? ''}'.toLowerCase();
+    if (await file.exists()) {
+      st.value = _Status('Memeriksa file yang sudah diunduh...', judul: judul);
+      if (await _cocok(file, ukuran, sha)) return file.path;
+      await file.delete();
+    }
+    final part = File('${file.path}.part');
+    await _unduh(apk, part, ukuran, judul, st, batal);
+    st.value = _Status('Memeriksa file update...', judul: judul, progres: 1);
+    if (ukuran > 0 && await part.length() != ukuran) throw _Galat('Ukuran file tidak cocok. Coba unduh ulang.');
+    if (!await _cocok(part, 0, sha)) {
+      await part.delete();
+      throw _Galat('File update rusak (SHA-256 beda). Coba unduh ulang.');
+    }
+    await part.rename(file.path);
+    return file.path;
+  }
+
+  static Future<bool> _cocok(File f, int ukuran, String sha) async {
+    if (ukuran > 0 && await f.length() != ukuran) return false;
+    return sha.isEmpty || (await sha256.bind(f.openRead()).first).toString() == sha;
+  }
+
+  static Future<void> _unduh(Map<String, dynamic> apk, File part, int ukuran, String judul, ValueNotifier<_Status> st, _Batal batal) async {
+    st.value = _Status('Menyiapkan unduhan...', judul: judul);
     final klien = http.Client();
     try {
       final resp = await klien.send(http.Request('GET', Uri.parse('${apk['url']}'))).timeout(const Duration(seconds: 60));
       if (resp.statusCode != 200) throw _Galat('Server Drive menolak unduhan (${resp.statusCode}).');
-      final total = resp.contentLength ?? (num.tryParse('${apk['ukuranByte']}') ?? 0).toInt();
-      final out = file.openWrite();
+      final total = resp.contentLength ?? ukuran;
+      final out = part.openWrite();
       var n = 0, awal = true;
       try {
         await for (final b in resp.stream.timeout(const Duration(seconds: 60))) {
@@ -119,19 +121,16 @@ class PembaruApk {
           awal = false;
           out.add(b);
           n += b.length;
-          if (total > 0) progres.value = (n / total).clamp(0, 1).toDouble();
+          if (total > 0) {
+            st.value = _Status('${_mb(n)} dari ${_mb(total)}', judul: judul, progres: (n / total).clamp(0, 1).toDouble(), unduh: true);
+          }
         }
       } finally {
         await out.close();
       }
-      final ukuran = (num.tryParse('${apk['ukuranByte']}') ?? 0).toInt();
-      if (ukuran > 0 && n != ukuran) throw _Galat('Ukuran file tidak cocok. Coba unduh ulang.');
-      final sha = '${apk['sha256'] ?? ''}'.toLowerCase();
-      if (sha.isNotEmpty && (await sha256.bind(file.openRead()).first).toString() != sha) throw _Galat('File update rusak (SHA-256 beda). Coba unduh ulang.');
-      return file.path;
     } catch (e) {
       try {
-        if (await file.exists()) await file.delete();
+        if (await part.exists()) await part.delete();
       } catch (_) {}
       rethrow;
     } finally {
@@ -140,13 +139,60 @@ class PembaruApk {
   }
 
   static String _mb(Object? b) => '${((num.tryParse('$b') ?? 0) / 1048576).toStringAsFixed(1)} MB';
+}
 
-  static void _pesan(BuildContext c, String t) {
-    if (!c.mounted) return;
-    ScaffoldMessenger.maybeOf(c)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(t)));
-  }
+class _Status {
+  const _Status(this.pesan, {this.judul, this.progres, this.unduh = false, this.galat = false, this.siapPasang});
+  final String pesan;
+  final String? judul;
+  final double? progres;
+  final bool unduh;
+  final bool galat;
+
+  /// Pemasang gagal dibuka: tombol Pasang (true) / Tutup (false).
+  final Completer<bool>? siapPasang;
+}
+
+class _DialogPembaru extends StatelessWidget {
+  const _DialogPembaru({required this.status, required this.batal});
+  final ValueNotifier<_Status> status;
+  final _Batal batal;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<_Status>(
+        valueListenable: status,
+        builder: (c, s, _) {
+          final pasang = s.siapPasang;
+          return AlertDialog(
+            icon: Icon(s.galat ? Icons.error_outline_rounded : Icons.system_update_rounded,
+                size: 36, color: s.galat ? AppColors.red700 : AppColors.brand700),
+            title: Text(s.judul == null ? 'Update Aplikasi' : (s.unduh ? 'Mengunduh ${s.judul}' : s.judul!), textAlign: TextAlign.center),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (!s.galat) ...[
+                LinearProgressIndicator(value: s.progres, minHeight: 8, borderRadius: BorderRadius.circular(8)),
+                const SizedBox(height: 10),
+              ],
+              Text(s.unduh ? '${((s.progres ?? 0) * 100).floor()}%  ·  ${s.pesan}' : s.pesan,
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            ]),
+            actions: [
+              if (pasang != null) ...[
+                TextButton(onPressed: () => pasang.complete(false), child: const Text('Tutup')),
+                FilledButton.icon(
+                    onPressed: () => pasang.complete(true), icon: const Icon(Icons.install_mobile_rounded), label: const Text('Pasang')),
+              ] else if (s.galat)
+                FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))
+              else
+                TextButton(
+                    onPressed: () {
+                      batal.ya = true;
+                      Navigator.pop(c);
+                    },
+                    child: const Text('Batalkan')),
+            ],
+          );
+        },
+      );
 }
 
 class _Batal {

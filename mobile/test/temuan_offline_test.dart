@@ -60,6 +60,21 @@ void main() {
     expect(saringTemuan(l, penyulang: 'TB-01', section: 'Gadung', jenis: 'Pohon').length, 2);
   });
 
+  test('v1.0.21 status penanganan temuan per jenis / section / penyulang (bukan filter)', () {
+    final l = [
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Pohon'},
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Pohon', 'wo': {'status': 'TERKIRIM'}},
+      {'penyulang': 'TB-01', 'section': 'Gadung', 'jenisTemuan': 'Pohon', 'wo': {'status': 'DIKERJAKAN'}},
+      {'penyulang': 'TB-01', 'section': 'Rias', 'jenisTemuan': 'Isolator', 'wo': {'status': 'SELESAI'}},
+      {'penyulang': 'TB-02', 'section': 'Rias', 'jenisTemuan': 'Pohon', 'wo': {'status': ''}},
+    ];
+    expect(hitungStatusTemuan(l), [2, 1, 1, 1], reason: 'belum tim, di tim, dikerjakan, selesai');
+    expect(ringkasJenisTemuan(l).first.status, [2, 1, 1, 0]);
+    final p = ringkasPenyulangTemuan(l, const {});
+    expect(p.first.status, [1, 1, 1, 1]);
+    expect(p.first.section.first.jenis.first.status, [1, 1, 1, 0]);
+  });
+
   test('v1.0.17 simpanan offline: temuan baru disisipkan tanpa ganda, urut tanggal terbaru', () {
     final isi = {'dari': '2026-10-01', 'sampai': '2026-10-21', 'temuan': semua};
     final baru = SimpananTemuanOffline.sisipkan(isi, {'temuanId': '3', 'jenisTemuan': 'Isolator pecah', 'tanggal': '2026-10-22', 'kodeTemuan': 'PEG-1'});

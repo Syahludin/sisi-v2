@@ -16,6 +16,7 @@ import 'p0_form_screen.dart';
 import 'p0_model.dart';
 import 'p0_repository.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Filter status pengukuran gardu 2 hari terakhir di tab History Pengukuran Gardu.
 enum FilterHistoryGardu {
@@ -287,7 +288,7 @@ class HistoryPengukuranGarduViewState extends State<HistoryPengukuranGarduView> 
       FilterHistoryGardu.semua => [...saringKelompok.diukur2Hari, ...saringKelompok.siapDiukur],
     };
 
-    return RefreshIndicator(
+    return RefreshSisi(
       onRefresh: segarkan,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),

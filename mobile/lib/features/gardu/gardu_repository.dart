@@ -25,7 +25,8 @@ class GarduRepository {
         if (s.aksiMenu(menuUkur) != null ||
             s.aksiMenu(menuBa) != null ||
             s.petugasYandal ||
-            (s.petugasHartek && s.aksiMenu('OPS_HARTEK_INPUT') != null))
+            (s.petugasHartek && s.aksiMenu('OPS_HARTEK_INPUT') != null) ||
+            s.petugasInsDu) // v1.0.21: petugas Inspeksi Gardu (hanya baca)
           'gardu',
         if (s.aksiMenu(menuBa) != null && (s.role == 'ADMIN' || s.role == 'SUPER')) 'pejabatBa',
         // v0.75.0: aturan "Pengukuran Gardu 2 Hari Sekali" (dibaca petugas YANDAL + admin)

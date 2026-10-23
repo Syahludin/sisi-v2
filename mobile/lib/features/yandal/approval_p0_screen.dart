@@ -19,6 +19,7 @@ import 'p0_form_screen.dart' show daftarPekerjaanP0;
 import 'p0_model.dart';
 import 'switching_panel.dart' show PilihIndikator;
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.75.0 (permintaan kvlar 10 Okt 2026): menu Approval P0 (ADMIN / SUPER). Alur sama dengan Verifikasi P0 v1:
 /// pilih tanggal > tab Menunggu / Disetujui / Ditolak (jumlah) > cari > kartu P0 dengan 3 foto (Sebelum / Pekerjaan /
@@ -336,9 +337,9 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Approval P0', subjudul: 'Verifikasi pekerjaan P0 Yandal', actions: [
-        IconButton(onPressed: _muat ? null : () => unawaited(_ambil()), icon: const Icon(Icons.refresh_rounded), tooltip: 'Muat ulang'),
+        TombolSegarkan(sibuk: _muat, onPressed: () => unawaited(_ambil())),
       ]),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _ambil,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 32), children: [
           _barTanggal(),

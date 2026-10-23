@@ -16,6 +16,7 @@ import '../hartek/hartek_gaya.dart';
 import '../hartek/hartek_store.dart' show GudangHartekSql;
 import '../insjar/insjar_header.dart';
 import 'arsip_tim.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.17: pembungkus layar laporan tim (Hartek / Inspeksi Jaringan / Inspeksi Gardu) dengan pil "Hari ini | Arsip",
 /// pola sama dengan Laporan Harian ROW.
@@ -244,7 +245,7 @@ class _ArsipTimViewState extends State<ArsipTimView> {
     }
     return Scaffold(
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _download,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [
           HeaderInsJar(kicker: 'Arsip Laporan', judul: widget.modul.judul, sub: widget.sesi.timNama, ikon: Icons.inventory_2_outlined),

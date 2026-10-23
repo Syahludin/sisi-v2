@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'pemakaian_model.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.85.0: menu Operasi "Pemakaian Engine" (OPS_ENGINE): satu layar untuk kuota harian Apps Script dan
 /// Cloud Run per layanan (data nyata Cloud Monitoring). Menggantikan kartu Pemakaian Server di Pengaturan (v0.84.0).
@@ -69,7 +70,7 @@ class _PemakaianEngineScreenState extends State<PemakaianEngineScreen> {
               child: _sibuk
                   ? const SisiLoader()
                   : Padding(padding: const EdgeInsets.all(24), child: Text(_galat ?? 'Gagal memuat.', textAlign: TextAlign.center)))
-          : RefreshIndicator(
+          : RefreshSisi(
               onRefresh: () => _muat(segarkan: true),
               child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
                 _Ringkas(d),

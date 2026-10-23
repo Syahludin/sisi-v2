@@ -23,6 +23,7 @@ import 'pekerjaan_shift_view.dart';
 import 'switching_panel.dart';
 import 'ubah_lokasi_p0_screen.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.64.0: detail satu P0. Foto urut Sebelum (mulai) > Pekerjaan (proses) > Sesudah (selesai), kamera SiSi ber-watermark.
 /// v0.64.7 (keputusan kvlar 8 Okt 2026): foto baru = "belum disimpan" (masih boleh diambil ulang); tombol Simpan Foto
@@ -358,7 +359,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
         if (x.foto.isEmpty && !x.terkirim)
           IconButton(tooltip: 'Hapus P0', onPressed: () => unawaited(_hapus()), icon: const Icon(Icons.delete_outline_rounded)),
       ]),
-      body: RefreshIndicator(
+      body: RefreshSisi(
         onRefresh: _segarkan,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
         Container(

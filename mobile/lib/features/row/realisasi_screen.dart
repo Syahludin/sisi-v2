@@ -11,6 +11,7 @@ import 'eksekusi_detail_screen.dart';
 import 'form_eksekusi_screen.dart';
 import 'perbaikan_repository.dart';
 import 'row_model.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// Daftar eksekusi satu penyulang (desain lama): kartu dengan ikon potong, FAB amber "Input Eksekusi".
 class RealisasiScreen extends StatefulWidget {
@@ -136,7 +137,7 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
       ]),
       body: r == null
           ? const SisiLoading(ukuran: 60)
-          : RefreshIndicator(
+          : RefreshSisi(
               onRefresh: _segarkan,
               child: _eks.isEmpty
               ? bisaDitarik(SisiKosong(

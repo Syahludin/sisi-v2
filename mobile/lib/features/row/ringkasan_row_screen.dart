@@ -11,6 +11,7 @@ import '../insjar/insjar_header.dart';
 import 'header_detail_screen.dart';
 import 'realisasi_screen.dart';
 import 'row_model.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v0.90.0 (permintaan kvlar 14 Okt 2026): ringkasan detail laporan ROW, dibuka dengan mengetuk kartu laporan.
 /// Total Rabas / Tebang Sedang / Tebang Besar, lalu per penyulang (angka per jenis + rincian per section).
@@ -112,7 +113,7 @@ class _RingkasanRowScreenState extends State<RingkasanRowScreen> {
       appBar: sisiAppBar('Ringkasan ROW', subjudul: h?.kode),
       body: _muat || h == null
           ? const SisiLoading(ukuran: 60)
-          : RefreshIndicator(
+          : RefreshSisi(
               onRefresh: _muatData,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

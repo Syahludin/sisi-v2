@@ -8,6 +8,7 @@ import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
 import '../../widgets/kartu_laporan_tim.dart';
@@ -29,6 +30,7 @@ import 'insdu_bantu.dart';
 import 'insdu_lokal.dart';
 import 'insdu_store.dart';
 import '../../widgets/sisi_loader.dart';
+import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.11 (permintaan kvlar 21 Okt 2026): Inspeksi Gardu petugas INSPEKSI_GARDU (menu OPS_INSDU_INPUT).
 /// Alur: Laporan Utama > gardu (db_Gardu + tier) > pengukuran LWBP + cover (gardu masuk laporan) > WBP > temuan.
@@ -140,15 +142,14 @@ class _InsDuScreenState extends State<InsDuScreen> {
   }
 
   /// Buka form (layar penuh). Simpan = tulis ke HP lalu kirim di latar.
-  Future<void> _form(Future<Map<String, dynamic>?> Function() buka, {String? berhasil}) async {
+  Future<void> _form(Future<Map<String, dynamic>?> Function() buka) async {
     if (_sibuk || !_boleh) return;
     setState(() => _sibuk = true);
     try {
       final hasil = await buka();
       if (!mounted) return;
       if (hasil != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(berhasil ?? 'Tersimpan di HP. Dikirim otomatis ke server.'), duration: const Duration(seconds: 2)));
+        unawaited(tampilDataTersimpan(context));
         _kirimLatar();
       }
     } on ApiException catch (e) {
@@ -343,7 +344,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
             return const {'lokal': true};
           },
         );
-      }, berhasil: 'Gardu tersimpan di HP.');
+      });
 
   /// v1.0.14: ubah gardu / tier gardu yang sudah diinput.
   Future<void> _ubahGardu(Map<String, dynamic> r) => _form(() async {
@@ -1001,22 +1002,6 @@ class _InsDuScreenState extends State<InsDuScreen> {
           node: h, ubahHeader: true, onCobaUlang: () => _cobaUlang(id, ubah: true), onBuang: () => _buang(id, ubah: true), padding: const EdgeInsets.only(top: 12)),
       const SizedBox(height: 14),
       _statusKirim(),
-      // v1.0.20: gardu (pengukuran + temuan) langsung di halaman laporan, pola ROW / Hartek
-      const SizedBox(height: 18),
-      JudulSeksiSisi('Gardu diinspeksi',
-          keterangan: '${ring.gardu} gardu · ${ring.temuan + ring.tertinggal} temuan',
-          aksi: _boleh
-              ? TextButton.icon(
-                  onPressed: _sibuk ? null : () => unawaited(_tambahGardu()),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Gardu'),
-                )
-              : null),
-      if (_realisasi.isEmpty)
-        const KosongHartek(
-            ikon: Icons.electrical_services_outlined, judul: 'Belum ada gardu', petunjuk: 'Ketuk Gardu (atau + di kartu) untuk menambah gardu.')
-      else
-        for (final r in _realisasi) _kartuGardu(r),
     ];
   }
 
@@ -1099,7 +1084,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
       lonceng: _halaman == HalamanInsDu.utama, // v1.0.19
       aksi: [
         if (_halaman == HalamanInsDu.utama)
-          tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _segar || _sibuk ? null : _segarkan)
+          tombolHeaderInsJar(Icons.refresh_rounded, 'Segarkan laporan', _sibuk ? null : _segarkan, sibuk: _segar)
         else
           tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => _ke(HalamanInsDu.utama)),
       ],
@@ -1397,7 +1382,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
         backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
         body: SafeArea(
           bottom: false,
-          child: RefreshIndicator(
+          child: RefreshSisi(
             onRefresh: () async {
               if (!_sibuk && _halaman == HalamanInsDu.utama) await _segarkan();
             },
