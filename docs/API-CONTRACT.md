@@ -1,4 +1,19 @@
+## v1.0.31 P0 dari WO Tindak Lanjut (HP Yandal)
+- `getP0WoYandal` (BARU, petugas YANDAL dari HP, syncShift): data `{}`. Jawaban `{shiftId, list}`: baris `yan_P0` shift sesi yang berasal dari WO (`foto_meta.WO`), bentuk item sama dengan `getApprovalP0` + `temuanId`, `tlId`. Item approval juga mendapat `waktuPekerjaan`, `waktuDibuat`.
+- `getFotoP0WoYandal` (BARU, petugas YANDAL dari HP, syncShift): `{p0Id, slot SEBELUM|PEKERJAAN|SESUDAH, ukuran KECIL|PENUH}`. Hanya P0 dari WO milik tim sesi (lainnya `DATA_TIDAK_DITEMUKAN`). Jawaban sama dengan `getFotoApprovalP0`.
 
+
+
+## v1.0.26 Ubah pekerjaan WO
+- `ubahPekerjaanWo` (BARU, menu OPS_WO_TIM, UBAH, petugas WO ROW / Hartek / Yandal): isian sama dengan `simpanPekerjaanWo` (tanpa `idBaris`) + `tlId`, `revision`. Hanya pekerjaan DRAFT milik tim, WO dikerjakan, foto Sebelum sudah ada (`FOTO_SEBELUM_BELUM_ADA`) dan foto Sesudah belum (`FOTO_SESUDAH_SUDAH_ADA`). Foto tidak berubah. Jawaban `{tlId, kodeTl, revision, pekerjaan}`. Audit `WO_PEKERJAAN_UBAH`.
+
+## v1.0.23 db_Gardu blok WBP + LWBP + cover, tanggal ukur
+- `db_Gardu` 89 kolom (WAJIB `ADMIN_rombakDbGardu` sesudah deploy, sebelum itu fitur gardu STRUKTUR_BERUBAH): kolom pengukuran lama = WBP; blok baru LWBP (`Tanggal Ukur LWBP`, `Kode Ukur LWBP`, 10 angka `... LWBP (A/V)`, `Pembebanan LWBP (kVA)`, `Persentase Beban LWBP (%)`, `Kategori Beban LWBP`, `Sumber Data LWBP`, `ukur_id_lwbp`) + cover (`Tanggal Cover`, Cover FCO Atas / Bawah, Cover Bushing TM / TR, Cover Arrester, Jumperan Atas / Bawah). Rombak memindahkan pengukuran LWBP yang tersimpan di kolom lama ke blok LWBP dan memformat kolom tanggal `dd mmmm yyyy`.
+- Penulis master (Pengecekan Gardu Yandal, Inspeksi Gardu, `updateUkurMasterGardu`, sinkron sheet lama) menulis ke blok periodenya; WBP dan LWBP tidak saling menimpa. Inspeksi Gardu LWBP juga mengisi cover. Tanggal dari sel (Date / ISO) dibaca `tglSel_` (dulu teks dipotong jadi "Fri Oct 16").
+- Sinkron harian sheet lama: tanggal db = terbaru dari WBP / LWBP; sheet lama lebih baru = grup WBP DAN LWBP masuk ke bloknya; db lebih baru = blok bertanggal terbaru ke grupnya.
+- `getMaster` modul `gardu` / `getRiwayatGardu.gardu`: tambah `lwbp: {tglUkur, kodeUkur, bebanKva, persen, kategori, ukur, sumberUkur} | null` dan `cover: {tanggal, coverFcoAtas, ...} | null`. `terbaru` / pengukuran Master Gardu = 2 blok (WBP, LWBP).
+- Aturan 2 hari Yandal: tanggal ukur terbaru WBP / LWBP.
+- `ADMIN_perbaikiTanggalGardu` (editor): tanggal db_Gardu berbentuk teks String(Date) ("Fri Oct 16") diperbaiki ke yyyy-MM-dd (tanpa tahun = tahun terdekat yang tidak di masa depan).
 
 ## v1.0.22 Kunci update, revisi master, Update Pengukuran Gardu
 - Semua jawaban sukses membawa `master` (Script Property `MASTER_REVISI`, diisi `ADMIN_lengkapiMaster` dengan waktu ISO) kalau terisi. Berubah = HP yang login mengunduh ulang Master Data + Master Gardu (+ master Inspeksi Gardu) sekali per revisi.

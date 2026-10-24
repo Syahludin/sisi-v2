@@ -64,11 +64,15 @@ function targetRowHarian_() {
   return { rabas: baca('TARGET_RABAS_HARIAN', 20), tebang: baca('TARGET_TEBANG_HARIAN', 6) };
 }
 
-/** Sel tanggal di sheet bisa Date (diubah otomatis Sheets) atau teks yyyy-MM-dd. */
+/**
+ * Sel tanggal di sheet bisa Date (diubah otomatis Sheets) atau teks yyyy-MM-dd.
+ * v1.0.23: juga teks String(Date) bertahun (mis. 'Fri Oct 16 2026 17:30:00 GMT+0700'), lihat tglTeksJs_.
+ */
 function tglSel_(v) {
   if (v instanceof Date) return isNaN(v.getTime()) ? '' : tglJakarta_(v);
   var s = String(v === null || v === undefined ? '' : v).trim();
-  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{4}/.test(s) ? tglTeksJs_(s) : '';
 }
 
 /** "Senin, 5 Oktober 2026" (tanpa nol di depan tanggal, seperti format lama). */

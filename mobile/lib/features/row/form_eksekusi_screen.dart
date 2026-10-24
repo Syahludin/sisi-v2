@@ -90,7 +90,7 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
   }
 
   Future<void> _kirim() async {
-    if (!_form.currentState!.validate()) return;
+    if (!validasiForm(_form)) return; // v1.0.31: gulir ke kolom merah
     final hj = _hasilJenis;
     if (hj == null || !hj.ok) return;
     final sec = _section.firstWhere((s) => s.id == _sectionId);
@@ -255,7 +255,8 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
           subjudul: _modeEdit ? widget.edit!.kode : 'Penyulang ${widget.realisasi.penyulang}'),
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
+        // v1.0.31: tidak lazy (ListView membangun kolom di luar layar belakangan), semua kolom wajib ikut divalidasi
+        child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SectionCard(judul: 'Lokasi pekerjaan', ikon: Icons.electrical_services_outlined, children: [
             KolomPilih(
               key: ValueKey('section-${_section.length}-$_sectionId'),
@@ -347,7 +348,7 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
               const Text('Dapat dikerjakan secara bertahap. Kamera: posisi HP mendatar (landscape).', style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
             ]),
           ],
-        ]),
+        ])),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

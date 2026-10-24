@@ -40,10 +40,64 @@ var DB_GARDU_HEADER_ = [
   'Tanggal Ukur Terakhir', 'Kode Ukur Terakhir', 'Waktu Beban',
   'Beban R (A)', 'Beban S (A)', 'Beban T (A)', 'Beban N (A)', 'Tegangan R-S (V)', 'Tegangan R-T (V)', 'Tegangan S-T (V)',
   'Tegangan R-N (V)', 'Tegangan S-N (V)', 'Tegangan T-N (V)',
-  'Arus Maks per Fasa (A)', 'Pembebanan (kVA)', 'Persentase Beban (%)', 'Kategori Beban', 'Sumber Data', 'Diubah Oleh',
+  'Arus Maks per Fasa (A)', 'Pembebanan (kVA)', 'Persentase Beban (%)', 'Kategori Beban', 'Sumber Data',
+  // v1.0.23 (keputusan kvlar 23 Okt 2026): kolom pengukuran di atas = WBP; blok LWBP lengkap + cover gardu (Inspeksi Gardu)
+  'Tanggal Ukur LWBP', 'Kode Ukur LWBP',
+  'Beban R LWBP (A)', 'Beban S LWBP (A)', 'Beban T LWBP (A)', 'Beban N LWBP (A)', 'Tegangan R-S LWBP (V)', 'Tegangan R-T LWBP (V)',
+  'Tegangan S-T LWBP (V)', 'Tegangan R-N LWBP (V)', 'Tegangan S-N LWBP (V)', 'Tegangan T-N LWBP (V)',
+  'Pembebanan LWBP (kVA)', 'Persentase Beban LWBP (%)', 'Kategori Beban LWBP', 'Sumber Data LWBP',
+  'Tanggal Cover', 'Cover FCO Atas', 'Cover FCO Bawah', 'Cover Bushing TM', 'Cover Bushing TR', 'Cover Arrester', 'Jumperan Atas', 'Jumperan Bawah',
+  'Diubah Oleh',
   'Timestamp', 'Timestamp Update', 'gardu_id', 'gardu_id_lanjutan', 'gardu_id_nomor_baru', 'section_id',
-  'ba_id_pengoperasian', 'ba_id_terakhir', 'ukur_id_terakhir', 'revision', 'dibuat_oleh', 'diubah_oleh'
+  'ba_id_pengoperasian', 'ba_id_terakhir', 'ukur_id_terakhir', 'ukur_id_lwbp', 'revision', 'dibuat_oleh', 'diubah_oleh'
 ];
+
+/**
+ * v1.0.23: kolom blok pengukuran per periode. Kolom lama (Tanggal Ukur Terakhir, 10 angka, Pembebanan, Persentase,
+ * Kategori, Sumber Data, ukur_id_terakhir) = WBP; LWBP punya blok sendiri. Arus Maks per Fasa (nominal trafo) bersama.
+ */
+var UKUR_BLOK_LWBP_ = {
+  'Tanggal Ukur Terakhir': 'Tanggal Ukur LWBP', 'Kode Ukur Terakhir': 'Kode Ukur LWBP',
+  'Beban R (A)': 'Beban R LWBP (A)', 'Beban S (A)': 'Beban S LWBP (A)', 'Beban T (A)': 'Beban T LWBP (A)', 'Beban N (A)': 'Beban N LWBP (A)',
+  'Tegangan R-S (V)': 'Tegangan R-S LWBP (V)', 'Tegangan R-T (V)': 'Tegangan R-T LWBP (V)', 'Tegangan S-T (V)': 'Tegangan S-T LWBP (V)',
+  'Tegangan R-N (V)': 'Tegangan R-N LWBP (V)', 'Tegangan S-N (V)': 'Tegangan S-N LWBP (V)', 'Tegangan T-N (V)': 'Tegangan T-N LWBP (V)',
+  'Pembebanan (kVA)': 'Pembebanan LWBP (kVA)', 'Persentase Beban (%)': 'Persentase Beban LWBP (%)', 'Kategori Beban': 'Kategori Beban LWBP',
+  'Sumber Data': 'Sumber Data LWBP', ukur_id_terakhir: 'ukur_id_lwbp'
+};
+
+/** v1.0.23: 7 isian cover Inspeksi Gardu (kunci INSDU_COVER_) -> kolom db_Gardu. */
+var COVER_GARDU_ = { coverFcoAtas: 'Cover FCO Atas', coverFcoBawah: 'Cover FCO Bawah', coverBushingTm: 'Cover Bushing TM',
+  coverBushingTr: 'Cover Bushing TR', coverArrester: 'Cover Arrester', jumperanAtas: 'Jumperan Atas', jumperanBawah: 'Jumperan Bawah' };
+
+/** v1.0.23: kolom tanggal db_Gardu, format tampil sel dd mmmm yyyy (16 Oktober 2026). */
+var KOLOM_TANGGAL_GARDU_ = ['Tanggal Operasi', 'Tanggal BA Terakhir', 'Tanggal Ukur Terakhir', 'Tanggal Ukur LWBP', 'Tanggal Cover'];
+
+/**
+ * v1.0.23: isian pengukuran (bernama kolom lama / WBP) -> kolom blok [periode]. WBP = nama sama + Waktu Beban WBP.
+ * Kunci di luar blok (Arus Maks, Diubah Oleh, Timestamp, ...) ikut apa adanya.
+ */
+function kolomUkurPeriode_(periode, u) {
+  var hasil = {};
+  Object.keys(u).forEach(function (k) {
+    if (k === 'Waktu Beban') return;
+    hasil[periode === 'LWBP' && UKUR_BLOK_LWBP_[k] ? UKUR_BLOK_LWBP_[k] : k] = u[k];
+  });
+  if (periode !== 'LWBP') hasil['Waktu Beban'] = 'WBP';
+  return hasil;
+}
+
+/** v1.0.23: nilai blok [periode] dari baris db_Gardu, dengan nama kolom lama / WBP (kebalikan kolomUkurPeriode_). */
+function ukurBlokGardu_(g, periode) {
+  var hasil = {};
+  Object.keys(UKUR_BLOK_LWBP_).forEach(function (k) { hasil[k] = g[periode === 'LWBP' ? UKUR_BLOK_LWBP_[k] : k]; });
+  return hasil;
+}
+
+/** v1.0.23: tanggal ukur terbaru gardu (WBP atau LWBP), yyyy-MM-dd atau ''. */
+function tglUkurTerbaruGardu_(g) {
+  var a = tglSel_(g['Tanggal Ukur Terakhir']), b = tglSel_(g['Tanggal Ukur LWBP']);
+  return a > b ? a : b;
+}
 
 var DB_PEJABAT_BA_HEADER_ = ['pejabat_id', 'nama', 'jabatan', 'peran', 'urutan', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'];
 
@@ -161,6 +215,7 @@ function ADMIN_siapkanSheetGardu() {
         if (s.nama === 'db_Gardu') {
           pasangDropdown_(sh, s.header, 'Status Gardu', GARDU_STATUS_);
           pasangDropdown_(sh, s.header, 'Asal Nomor', GARDU_ASAL_NOMOR_);
+          formatTanggalGardu_(sh, s.header);   // v1.0.23
         }
         if (s.nama === 'db_Pejabat_BA') pasangDropdown_(sh, s.header, 'peran', PEJABAT_PERAN_);
         if (s.nama === 'res_NomorGardu') pasangDropdown_(sh, s.header, 'Status', RES_STATUS_);
@@ -179,6 +234,92 @@ function ADMIN_siapkanSheetGardu() {
     });
   });
   console.log(masalah ? 'SELESAI dengan ' + masalah + ' masalah' : 'SEMUA OK');
+}
+
+/** v1.0.23: jam ukur HH:mm dari sel: Date (Sheets) = jam WIB, teks ISO = jam di teks, 'HH:mm...' = apa adanya. */
+function jamUkurSel_(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, 'Asia/Jakarta', 'HH:mm');
+  var s = String(v === null || v === undefined ? '' : v).trim(), m = /T(\d{2}:\d{2})/.exec(s) || /^(\d{1,2}:\d{2})/.exec(s);
+  return m ? m[1] : '';
+}
+
+var BULAN_JS_ = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+
+/**
+ * v1.0.23 (laporan kvlar: tanggal ukur 'Fri Oct 16'): teks tanggal gaya JavaScript = String(Date) dari sel yang diubah
+ * Sheets menjadi tanggal, kadang terpotong 10 huruf. -> yyyy-MM-dd. Tanpa tahun = tahun terdekat yang tidak melewati
+ * [hariIni] (pengukuran tidak pernah di masa depan). Bukan pola ini = ''.
+ */
+function tglTeksJs_(v, hariIni) {
+  var m = /^(?:[A-Z][a-z]{2} )?([A-Z][a-z]{2}) (\d{1,2})(?: (\d{4}))?/.exec(String(v === null || v === undefined ? '' : v).trim());
+  if (!m || !BULAN_JS_[m[1]]) return '';
+  var bd = pad2_(BULAN_JS_[m[1]]) + '-' + pad2_(Number(m[2]));
+  if (m[3]) return m[3] + '-' + bd;
+  var hari = hariIni || tglJakarta_(new Date()), y = Number(hari.slice(0, 4));
+  return (y + '-' + bd) > hari ? (y - 1) + '-' + bd : y + '-' + bd;
+}
+
+/**
+ * v1.0.23 editor: perbaiki tanggal db_Gardu yang tersimpan sebagai teks String(Date) (mis. 'Fri Oct 16') menjadi
+ * yyyy-MM-dd, lalu format kolom tanggal dd mmmm yyyy. Tanggal yang sudah benar tidak disentuh. Aman diulang.
+ */
+function ADMIN_perbaikiTanggalGardu() {
+  pastikanPemilik_();
+  return denganLock_(function () {
+    var t = cekStrukturGardu_('GARDU_SHEET_ID', 'db_Gardu'), isi = [], hariIni = tglJakarta_(new Date());
+    t.rows.forEach(function (r) {
+      var u = perbaikanTanggalGardu_(r, hariIni);
+      if (Object.keys(u).length) isi.push({ r: r, u: u });
+    });
+    if (isi.length) tulisBlok_(t, isi, []);
+    formatTanggalGardu_(t.sheet, t.header);
+    console.log('Tanggal db_Gardu diperbaiki: ' + isi.length + ' gardu' +
+      (isi.length ? ' (' + isi.slice(0, 10).map(function (x) { return teksGarduLama_(x.r['No Gardu']); }).join(', ') + (isi.length > 10 ? ', ...' : '') + ')' : '') +
+      '. Kolom tanggal tampil dd mmmm yyyy.');
+    return { diperbaiki: isi.length };
+  });
+}
+
+/** Kolom tanggal satu baris db_Gardu yang berisi teks String(Date) -> {kolom: yyyy-MM-dd} (murni). */
+function perbaikanTanggalGardu_(r, hariIni) {
+  var u = {};
+  KOLOM_TANGGAL_GARDU_.forEach(function (k) {
+    var v = r[k];
+    if (v === '' || v === null || v === undefined || Object.prototype.toString.call(v) === '[object Date]') return;
+    if (/^\d{4}-\d{2}-\d{2}/.test(String(v).trim())) return;
+    var t = tglTeksJs_(v, hariIni);
+    if (t) u[k] = t;
+  });
+  return u;
+}
+
+/** v1.0.23: kolom tanggal db_Gardu tampil dd mmmm yyyy (16 Oktober 2026). Stub tanpa format = dilewati. */
+function formatTanggalGardu_(sh, header) {
+  KOLOM_TANGGAL_GARDU_.forEach(function (k) {
+    var i = header.indexOf(k);
+    if (i === -1 || typeof sh.getMaxRows !== 'function') return;
+    var r = sh.getRange(2, i + 1, Math.max(sh.getMaxRows() - 1, 1), 1);
+    if (typeof r.setNumberFormat === 'function') r.setNumberFormat('dd mmmm yyyy');
+  });
+}
+
+/**
+ * v1.0.23 (murni, mengubah [baris] di tempat): kolom lama berisi pengukuran LWBP (Waktu Beban LWBP) dan blok LWBP masih
+ * kosong = nilainya dipindah ke blok LWBP, kolom lama dikosongkan (kolom lama sekarang khusus WBP). Hasil: jumlah baris.
+ */
+function pindahUkurLwbpGardu_(baris, header) {
+  var i = function (k) { return header.indexOf(k); }, n = 0;
+  baris.forEach(function (b) {
+    if (String(b[i('Waktu Beban')] || '').trim().toUpperCase() !== 'LWBP') return;
+    if (String(b[i('Tanggal Ukur LWBP')] || '').trim()) return;
+    Object.keys(UKUR_BLOK_LWBP_).forEach(function (k) {
+      b[i(UKUR_BLOK_LWBP_[k])] = b[i(k)];
+      b[i(k)] = '';
+    });
+    b[i('Waktu Beban')] = '';
+    n++;
+  });
+  return n;
 }
 
 /** v0.67.0: jumlah sel spreadsheet (batas Google 10 juta). Hasil { sel, sheet } atau null kalau tidak terbaca. */
@@ -220,6 +361,8 @@ function ADMIN_rombakDbGardu() {
     var baru = [DB_GARDU_HEADER_.slice()].concat(data.map(function (r) {
       return DB_GARDU_HEADER_.map(function (h) { var i = head.indexOf(h); return i === -1 || r[i] === undefined || r[i] === null ? '' : r[i]; });
     }));
+    // v1.0.23: kolom lama = WBP. Pengukuran LWBP yang tersimpan di kolom lama dipindah ke blok LWBP (yang masih kosong).
+    var pindah = pindahUkurLwbpGardu_(baru.slice(1), DB_GARDU_HEADER_);
     var lebarLama = Math.max(semua[0] ? semua[0].length : 0, sh.getLastColumn());
     if (typeof sh.getMaxColumns === 'function' && sh.getMaxColumns() < DB_GARDU_HEADER_.length) {
       sh.insertColumnsAfter(sh.getMaxColumns(), DB_GARDU_HEADER_.length - sh.getMaxColumns());
@@ -231,8 +374,10 @@ function ADMIN_rombakDbGardu() {
     }
     pasangDropdown_(sh, DB_GARDU_HEADER_, 'Status Gardu', GARDU_STATUS_);
     pasangDropdown_(sh, DB_GARDU_HEADER_, 'Asal Nomor', GARDU_ASAL_NOMOR_);
+    formatTanggalGardu_(sh, DB_GARDU_HEADER_);
     var tambah = DB_GARDU_HEADER_.filter(function (h) { return head.indexOf(h) === -1; });
-    console.log('db_Gardu dirombak: ' + data.length + ' baris, ' + DB_GARDU_HEADER_.length + ' kolom' + (tambah.length ? ', kolom baru: ' + tambah.join(', ') : '') + '. Isi tetap.');
-    return { status: 'OK', baris: data.length, tambah: tambah };
+    console.log('db_Gardu dirombak: ' + data.length + ' baris, ' + DB_GARDU_HEADER_.length + ' kolom' + (tambah.length ? ', kolom baru: ' + tambah.join(', ') : '') +
+      '. Isi tetap' + (pindah ? ', ' + pindah + ' pengukuran LWBP dipindah ke blok LWBP' : '') + '.');
+    return { status: 'OK', baris: data.length, tambah: tambah, pindahLwbp: pindah };
   });
 }

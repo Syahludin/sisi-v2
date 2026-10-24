@@ -398,6 +398,8 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   // dibaca dari Master Gardu yang sama dengan Data Trafo, jadi keduanya tampil bersamaan tanpa menunggu server. Pengukuran
   // Terbaru dan Riwayat sama-sama bertab Semua / LWBP / WBP, urut terbaru ke terlama, kartu bisa dibuka / ditutup.
   // Riwayat: Update Pengukuran Gardu = pengukuran itu menjadi pengukuran Master Gardu (Pengukuran Terbaru ikut berubah).
+  // v1.0.23 (permintaan kvlar 23 Okt 2026): Master Gardu punya blok WBP dan LWBP (Pengukuran Terbaru = 2 kartu). Tiap seksi
+  // dibungkus satu kartu besar (judul satu baris, tombol ikon buka / tutup semua di kanan atas). Tanggal DD MMMM YYYY.
 
   static const _menuUkur = 'OPS_PENGUKURAN_GARDU';
 
@@ -406,20 +408,30 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
     return p.contains('LWBP') ? 'LWBP' : (p.contains('WBP') ? 'WBP' : '');
   }
 
-  /// Pengukuran terakhir Master Gardu dalam bentuk kartu ukur riwayat. null = belum pernah diukur.
-  static Map<String, dynamic>? ukurMaster(Gardu g) => g.tglUkur.isEmpty
-      ? null
-      : {
-          'sumber': 'Master Gardu',
-          'ukurId': '',
-          'kode': g.kodeUkur,
-          'tanggal': g.tglUkur.length >= 10 ? g.tglUkur.substring(0, 10) : g.tglUkur,
-          'periode': _periodeDari(g.waktuBeban),
-          'jam': '',
-          ...g.ukur,
-          'kva': g.bebanKva,
-          'persen': g.persen,
-        };
+  /// Pengukuran Master Gardu (blok WBP + LWBP) dalam bentuk kartu ukur riwayat, terbaru dulu. Kosong = belum pernah diukur.
+  static List<Map<String, dynamic>> ukurMaster(Gardu g) {
+    Map<String, dynamic>? satu(String tgl, String kode, String periode, Map<String, Object?> ukur, Object? kva, Object? persen) => tgl.isEmpty
+        ? null
+        : {
+            'sumber': 'Master Gardu',
+            'ukurId': '',
+            'kode': kode,
+            'tanggal': tgl.length >= 10 ? tgl.substring(0, 10) : tgl,
+            'periode': periode,
+            'jam': '',
+            ...ukur,
+            'kva': kva,
+            'persen': persen,
+          };
+    final l = g.lwbp ?? const <String, dynamic>{};
+    return [
+      if (satu(g.tglUkur, g.kodeUkur, _periodeDari(g.waktuBeban).isEmpty ? 'WBP' : _periodeDari(g.waktuBeban), g.ukur, g.bebanKva, g.persen) case final w?) w,
+      if (satu(_t(l['tglUkur']), _t(l['kodeUkur']), 'LWBP', l['ukur'] is Map ? Map<String, Object?>.from(l['ukur'] as Map) : const {}, l['bebanKva'],
+              l['persen'])
+          case final x?)
+        x,
+    ]..sort(_urutTerbaru);
+  }
 
   static int _urutTerbaru(Map<String, dynamic> a, Map<String, dynamic> b) =>
       '${_t(b['tanggal'])} ${_t(b['jam'])}'.compareTo('${_t(a['tanggal'])} ${_t(a['jam'])}');
@@ -433,14 +445,14 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   Widget _tabPengukuran() {
     final semua = [..._daftar(_data?['pengukuran'])]..sort(_urutTerbaru);
     final g = _data?['gardu'] is Map ? Gardu.dariJson(Map<String, dynamic>.from(_data!['gardu'] as Map)) : _g;
-    final master = [if (ukurMaster(g) case final m?) m];
+    final master = ukurMaster(g);
     final ubah = widget.sesi.bisaUbah(_menuUkur);
     return RefreshSisi(
       onRefresh: _muatData,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
         _KartuDataTrafo(g, onLengkap: () => unawaited(tampilDetailGardu(context, g, denganBa: false))),
         const SizedBox(height: 6),
-        ..._seksiUkur(
+        _seksiUkur(
           seksi: 'terbaru',
           judul: 'Pengukuran Terbaru',
           ikon: Icons.speed_rounded,
@@ -453,7 +465,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
         ),
         _status(),
         if (_data != null || semua.isNotEmpty)
-          ..._seksiUkur(
+          _seksiUkur(
             seksi: 'riwayat',
             judul: 'Riwayat Pengukuran',
             ikon: Icons.history_rounded,
@@ -463,7 +475,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
             awalTerbuka: false,
             kosong: 'Belum ada riwayat pengukuran (Master Gardu / Yandal / Inspeksi Gardu).',
             kartu: (u, k) {
-              final dipakai = master.isNotEmpty && _t(u['kode']).isNotEmpty && _t(u['kode']) == _t(master.first['kode']);
+              final dipakai = _t(u['kode']).isNotEmpty && master.any((m) => _t(m['kode']) == _t(u['kode']) && _t(m['periode']) == _t(u['periode']));
               final bisa = ubah && !dipakai && _t(u['ukurId']).isNotEmpty && _t(u['sumber']) != 'Master Gardu' && _t(u['periode']).isNotEmpty;
               return _kartuUkur(u, k, awalTerbuka: false, dipakaiMaster: dipakai, onUpdate: bisa ? () => unawaited(_updateMaster(u, k)) : null);
             },
@@ -472,8 +484,9 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
     );
   }
 
-  /// Judul seksi + tombol buka / tutup semua, tab Semua / LWBP / WBP, lalu kartu (sudah urut terbaru).
-  List<Widget> _seksiUkur({
+  /// Satu kartu besar per seksi: judul (satu baris) + ikon buka / tutup semua di kanan atas, tab Semua / LWBP / WBP,
+  /// lalu kartu ukur (sudah urut terbaru).
+  Widget _seksiUkur({
     required String seksi,
     required String judul,
     required IconData ikon,
@@ -488,38 +501,57 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
     final tampil = periode.isEmpty ? daftar : daftar.where((u) => _t(u['periode']).toUpperCase() == periode).toList();
     final kunci = [for (final u in tampil) _kunciUkur(seksi, u)];
     final semuaTerbuka = kunci.isNotEmpty && kunci.every((k) => _terbuka(k, awalTerbuka));
-    return [
-      Row(children: [
-        Expanded(child: _judul('$judul (${daftar.length})', ikon)),
-        if (kunci.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: TextButton.icon(
-              onPressed: () => setState(() {
-                for (final k in kunci) {
-                  _bukaUkur[k] = !semuaTerbuka;
-                }
-              }),
-              icon: Icon(semuaTerbuka ? Icons.unfold_less_rounded : Icons.unfold_more_rounded, size: 18),
-              label: Text(semuaTerbuka ? 'Tutup semua' : 'Buka semua'),
-            ),
-          ),
-      ]),
-      // v1.0.20: bedakan pengukuran LWBP (luar beban puncak) dan WBP (beban puncak)
-      SegmentedButton<String>(
-        showSelectedIcon: false,
-        segments: [
-          ButtonSegment(value: '', label: Text('Semua · ${daftar.length}')),
-          ButtonSegment(value: 'LWBP', icon: const Icon(Icons.wb_sunny_rounded, size: 16), label: Text('LWBP · ${n('LWBP')}')),
-          ButtonSegment(value: 'WBP', icon: const Icon(Icons.nights_stay_rounded, size: 16), label: Text('WBP · ${n('WBP')}')),
-        ],
-        selected: {periode},
-        onSelectionChanged: (v) => gantiPeriode(v.first),
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neutral200),
+        boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 12, offset: const Offset(0, 4))],
       ),
-      const SizedBox(height: 10),
-      if (tampil.isEmpty) _kosong(daftar.isEmpty ? kosong : 'Tidak ada pengukuran $periode.'),
-      for (var i = 0; i < tampil.length; i++) kartu(tampil[i], kunci[i]),
-    ];
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const PercikSisi(tinggi: 16),
+          const SizedBox(width: 8),
+          Icon(ikon, size: 18, color: AppColors.brand700),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text('$judul (${daftar.length})',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+          ),
+          IconButton(
+            tooltip: semuaTerbuka ? 'Tutup semua' : 'Buka semua',
+            onPressed: kunci.isEmpty
+                ? null
+                : () => setState(() {
+                      for (final k in kunci) {
+                        _bukaUkur[k] = !semuaTerbuka;
+                      }
+                    }),
+            icon: Icon(semuaTerbuka ? Icons.unfold_less_rounded : Icons.unfold_more_rounded, color: AppColors.brand700),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        // v1.0.20: bedakan pengukuran LWBP (luar beban puncak) dan WBP (beban puncak)
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(value: '', label: Text('Semua · ${daftar.length}')),
+            ButtonSegment(value: 'LWBP', icon: const Icon(Icons.wb_sunny_rounded, size: 16), label: Text('LWBP · ${n('LWBP')}')),
+            ButtonSegment(value: 'WBP', icon: const Icon(Icons.nights_stay_rounded, size: 16), label: Text('WBP · ${n('WBP')}')),
+          ],
+          selected: {periode},
+          onSelectionChanged: (v) => gantiPeriode(v.first),
+        ),
+        const SizedBox(height: 10),
+        if (tampil.isEmpty) _kosong(daftar.isEmpty ? kosong : 'Tidak ada pengukuran $periode.'),
+        for (var i = 0; i < tampil.length; i++) kartu(tampil[i], kunci[i]),
+      ]),
+    );
   }
 
   Future<void> _updateMaster(Map<String, dynamic> u, String kunci) async {
@@ -530,7 +562,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
         icon: const Icon(Icons.published_with_changes_rounded, size: 36, color: AppColors.brand700),
         title: const Text('Update Pengukuran Gardu', textAlign: TextAlign.center),
         content: Text(
-          'Pengukuran $periode ${tanggalPendek(_t(u['tanggal']))} dari ${_t(u['sumber'])} menjadi pengukuran terbaru '
+          'Pengukuran $periode ${tanggalPanjang(_t(u['tanggal']))} dari ${_t(u['sumber'])} menjadi pengukuran terbaru '
           'Master Gardu ${_g.no}. Kartu Pengukuran Terbaru ikut berubah.',
           textAlign: TextAlign.center,
         ),
@@ -588,7 +620,7 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  [if (_t(u['tanggal']).isNotEmpty) tanggalPendek(_t(u['tanggal'])), _t(u['jam'])].where((x) => x.isNotEmpty).join(' · '),
+                  [if (_t(u['tanggal']).isNotEmpty) tanggalPanjang(_t(u['tanggal'])), _t(u['jam'])].where((x) => x.isNotEmpty).join(' · '),
                   textAlign: TextAlign.right,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900),
                 ),

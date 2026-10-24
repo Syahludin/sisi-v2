@@ -127,6 +127,10 @@ class ItemApprovalP0 {
   String get waktuApprove => _t('waktuApprove');
   String get waktuSebelum => _t('waktuSebelum');
   String get waktuSesudah => _t('waktuSesudah');
+  String get waktuPekerjaan => _t('waktuPekerjaan'); // v1.0.31
+  String get waktuDibuat => _t('waktuDibuat'); // v1.0.31
+  /// v1.0.31: P0 dari WO Tindak Lanjut (getP0WoYandal).
+  String get tlId => _t('tlId');
   double? get durasi => _n('durasi');
   double? get jarakClosing => _n('jarakClosing');
   double? get jarakAntar => _n('jarakAntar');

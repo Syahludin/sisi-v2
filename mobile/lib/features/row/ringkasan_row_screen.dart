@@ -11,11 +11,13 @@ import '../insjar/insjar_header.dart';
 import 'header_detail_screen.dart';
 import 'realisasi_screen.dart';
 import 'row_model.dart';
+import 'unduh_foto_row.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// v0.90.0 (permintaan kvlar 14 Okt 2026): ringkasan detail laporan ROW, dibuka dengan mengetuk kartu laporan.
 /// Total Rabas / Tebang Sedang / Tebang Besar, lalu per penyulang (angka per jenis + rincian per section).
 /// Ketuk penyulang = daftar eksekusi. Kelola laporan (ubah, batal, WA dari server) tetap di Detail Laporan.
+/// v1.0.34: kartu penyulang desain baru + tombol Download Foto (semua foto penyulang ke galeri).
 class RingkasanRowScreen extends StatefulWidget {
   const RingkasanRowScreen({super.key, required this.deps, required this.sesi, required this.headerId});
   final Deps deps;
@@ -145,13 +147,25 @@ class _RingkasanRowScreenState extends State<RingkasanRowScreen> {
                       warna: AppColors.success700,
                       latar: AppColors.success100,
                       judul: r.penyulang,
-                      sub: [
-                        '${_rinci.where((x) => x.realisasiId == r.id).fold(0, (a, x) => a + x.n)} eksekusi',
-                        if ((_belum[r.id] ?? 0) > 0) '${_belum[r.id]} foto belum lengkap',
-                      ].join(' · '),
+                      sub: '${r.kode} · ${_rinci.where((x) => x.realisasiId == r.id).fold(0, (a, x) => a + x.n)} eksekusi',
+                      catatan: (_belum[r.id] ?? 0) > 0 ? '${_belum[r.id]} eksekusi foto belum lengkap' : null,
                       angka: _angka(r.id),
                       baris: _perSection(r.id),
                       onTap: () => _bukaPenyulang(r),
+                      labelBuka: 'Lihat eksekusi',
+                      // v1.0.34: semua foto penyulang ini ke galeri (sama dengan Download Foto Full di Detail Laporan)
+                      aksi: _rinci.any((x) => x.realisasiId == r.id)
+                          ? TombolUnduhFotoRow(
+                              deps: widget.deps,
+                              sesi: widget.sesi,
+                              label: 'Download Foto',
+                              padat: true,
+                              eksekusi: () async => [
+                                for (final e in await widget.deps.row.eksekusiDari(r.id))
+                                  if (e.aktif) (id: e.id, kode: e.kode),
+                              ],
+                            )
+                          : null,
                     ),
                   const SizedBox(height: 14),
                   OutlinedButton.icon(

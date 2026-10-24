@@ -9,7 +9,9 @@ import '../theme/app_colors.dart';
 /// (CircularProgressIndicator) di seluruh aplikasi.
 ///
 /// Satu garis membentuk huruf S dengan sudut patah, digambar berurutan seperti logo SiSi:
-///   kanan bawah (ekor atas) -> kiri atas -> kiri bawah (tengah) -> kanan bawah -> kembali ke kiri bawah (ekor bawah).
+///   kanan bawah (ekor atas) -> kiri atas -> kiri bawah (tengah) -> kanan bawah -> kiri bawah -> naik ke kiri atas (ekor
+///   bawah). v1.0.31 (permintaan kvlar 24 Okt 2026): ruas terakhir naik ke kiri atas supaya S utuh seperti logo (ekor atas
+///   dan ekor bawah sama-sama melengkung ke dalam).
 /// Siklus: garis tumbuh dari titik awal sampai ujung (titik sudut muncul saat dilewati kepala garis), menetap sebentar,
 /// lalu terhapus dari pangkal ke ujung, berulang. HP dengan "kurangi animasi" = S utuh tanpa gerak.
 /// v1.0.22: [diam] = logo S utuh tanpa gerak (ikon tombol refresh saat tidak ada aktivitas).
@@ -28,12 +30,15 @@ class SisiLoader extends StatefulWidget {
   final bool diam;
 
   /// Titik sudut S patah dalam kotak 0..1 (urutan gambar).
+  /// v1.0.33 (permintaan kvlar 24 Okt 2026): titik atas dan titik bawah satu garis tegak (x = .5); seluruh S simetris
+  /// titik terhadap pusat (.5, .5), tiap titik punya cermin: ekor atas <-> ekor bawah, kiri <-> kanan.
   static const List<Offset> titik = [
-    Offset(.76, .34), // kanan bawah (ekor atas)
-    Offset(.34, .10), // kiri atas
-    Offset(.22, .46), // kiri bawah (tengah)
-    Offset(.78, .66), // kanan bawah
-    Offset(.26, .90), // kembali ke kiri bawah (ekor bawah)
+    Offset(.80, .30), // kanan bawah (ekor atas)
+    Offset(.50, .08), // atas
+    Offset(.20, .40), // kiri (tengah)
+    Offset(.80, .60), // kanan (tengah)
+    Offset(.50, .92), // bawah (segaris dengan atas)
+    Offset(.20, .70), // naik ke kiri atas (ekor bawah)
   ];
 
   /// Bagian garis yang tampil pada fase [t] (0..1 satu siklus): (awal, akhir) dalam pecahan panjang garis.
@@ -117,14 +122,15 @@ class _LukisS extends CustomPainter {
     final (a, b) = SisiLoader.potongan(t);
     final tebal = math.max(1.4, s * .085);
 
-    // jejak tipis seluruh S (bayangan bentuk) supaya bentuk huruf tetap terbaca di awal siklus
+    // jejak tipis seluruh S (bayangan bentuk) supaya bentuk huruf tetap terbaca di awal siklus. v1.0.33: sudut bulat
+    // (bukan lancip) supaya lekuk S lebih halus
     canvas.drawPath(
       jalur,
       Paint()
-        ..color = warna.withValues(alpha: .14)
+        ..color = warna.withValues(alpha: .22) // v1.0.33: .14 -> .22, S utuh terbaca sejak awal siklus
         ..style = PaintingStyle.stroke
         ..strokeWidth = tebal
-        ..strokeJoin = StrokeJoin.miter
+        ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );
     if (b > a) {
@@ -134,7 +140,7 @@ class _LukisS extends CustomPainter {
           ..color = warna
           ..style = PaintingStyle.stroke
           ..strokeWidth = tebal
-          ..strokeJoin = StrokeJoin.miter
+          ..strokeJoin = StrokeJoin.round
           ..strokeCap = StrokeCap.round,
       );
     }

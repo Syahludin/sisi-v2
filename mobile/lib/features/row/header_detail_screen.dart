@@ -17,6 +17,7 @@ import 'perbaikan_repository.dart';
 import 'realisasi_screen.dart';
 import 'row_model.dart';
 import 'row_repository.dart';
+import 'unduh_foto_row.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
@@ -371,7 +372,21 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
     }
     return ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), children: [
       for (final r in _real) ...[
-        _KartuRealisasi(r: r, jumlah: _jumlah[r.id] ?? 0, belum: _belum[r.id] ?? 0, onTap: () => _bukaRealisasi(r)),
+        _KartuRealisasi(
+          r: r,
+          jumlah: _jumlah[r.id] ?? 0,
+          belum: _belum[r.id] ?? 0,
+          onTap: () => _bukaRealisasi(r),
+          unduh: TombolUnduhFotoRow(
+            deps: widget.deps,
+            sesi: widget.sesi,
+            label: 'Download Foto Full',
+            eksekusi: () async => [
+              for (final e in await widget.deps.row.eksekusiDari(r.id))
+                if (e.aktif) (id: e.id, kode: e.kode),
+            ],
+          ),
+        ),
         const SizedBox(height: 10),
       ],
     ]);
@@ -381,11 +396,14 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
 /// Kartu penyulang. Warna status foto sama dengan kartu eksekusi: amber = masih ada eksekusi yang fotonya
 /// belum lengkap (atau belum ada eksekusi), hijau = semua eksekusi foto lengkap.
 class _KartuRealisasi extends StatelessWidget {
-  const _KartuRealisasi({required this.r, required this.jumlah, required this.belum, required this.onTap});
+  const _KartuRealisasi({required this.r, required this.jumlah, required this.belum, required this.onTap, required this.unduh});
   final RowRealisasi r;
   final int jumlah;
   final int belum;
   final VoidCallback onTap;
+
+  /// v1.0.33: Download Foto Full penyulang ini (semua eksekusi aktif) ke galeri.
+  final Widget unduh;
 
   @override
   Widget build(BuildContext context) {
@@ -438,6 +456,7 @@ class _KartuRealisasi extends StatelessWidget {
                     Expanded(child: Text(teks, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: warna))),
                     const Icon(Icons.chevron_right_rounded, color: AppColors.neutral400),
                   ]),
+                  if (r.aktif && jumlah > 0) ...[const SizedBox(height: 10), unduh],
                 ]),
               ),
             ]),

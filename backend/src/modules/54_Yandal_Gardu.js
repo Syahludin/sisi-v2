@@ -187,19 +187,23 @@ function terapkanUkurGardu_(r, sesi, iso) {
   var tG = tabelGarduUkur_();
   var g = tG.rows.filter(function (x) { return String(x.gardu_id) === String(r.gardu_id); })[0];
   if (!g || teksP0_(g['Status Gardu']).toUpperCase() !== 'AKTIF') return 'TIDAK';
-  var tgl = teksP0_(r['Jam Ukur']).slice(0, 10);
-  var tglMaster = tglSel_(g['Tanggal Ukur Terakhir']);
-  var milikIni = String(g.ukur_id_terakhir || '') === String(r.ukur_id);
+  // v1.0.23: Jam Ukur bisa sel tanggal (diubah Sheets), dulu dipotong jadi 'Fri Oct 16'. Blok master sesuai periode.
+  var tgl = tglSel_(r['Jam Ukur']);
+  if (!tgl) return '';
+  var periode = periodeUkurRg_(r['Waktu Beban'], jamUkurSel_(r['Jam Ukur'])) || 'WBP';
+  var blok = ukurBlokGardu_(g, periode);
+  var tglMaster = tglSel_(blok['Tanggal Ukur Terakhir']);
+  var milikIni = String(blok.ukur_id_terakhir || '') === String(r.ukur_id);
   if (!milikIni && tglMaster && tglMaster > tgl) return 'TIDAK';
   var angka = {};   // v0.79.0: 10 angka pengukuran ikut ke master
   YAN_NILAI_GARDU_.forEach(function (n) { angka[n.kolom] = r[n.kolom]; });
-  tulisBlok_(tG, [{ r: g, u: Object.assign(angka, {
+  tulisBlok_(tG, [{ r: g, u: kolomUkurPeriode_(periode, Object.assign(angka, {
     'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': teksP0_(r['Kode Pengukuran Gardu']),
     'Arus Maks per Fasa (A)': r['Arus Maks per Fasa (A)'], 'Pembebanan (kVA)': r['Pembebanan (kVA)'],
-    'Persentase Beban (%)': r['Persentase Beban (%)'], 'Waktu Beban': teksP0_(r['Waktu Beban']),
-    'Kategori Beban': teksP0_(r['Kategori Beban']), ukur_id_terakhir: String(r.ukur_id),
+    'Persentase Beban (%)': r['Persentase Beban (%)'], 'Kategori Beban': teksP0_(r['Kategori Beban']),
+    'Sumber Data': 'Pengecekan Gardu Yandal', ukur_id_terakhir: String(r.ukur_id),
     'Diubah Oleh': sesi.nama || sesi.username, 'Timestamp Update': iso, diubah_oleh: sesi.userId
-  }) }], [], { bolehId: ['ukur_id_terakhir'] });
+  })) }], [], { bolehId: ['ukur_id_terakhir', 'ukur_id_lwbp'] });
   return 'YA';
 }
 

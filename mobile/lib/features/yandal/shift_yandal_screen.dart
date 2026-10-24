@@ -183,6 +183,8 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
       switch (_tab) {
         case 0:
           await widget.deps.syncCtl.sinkron();
+          // v1.0.31: P0 dari WO Tindak Lanjut ikut diperbarui (kode P0 dari server)
+          if (widget.sesi.petugasWo) await widget.deps.wo.tarik(widget.sesi).catchError((Object _) {});
           await _kunciPekerjaan.currentState?.muat();
         case 1:
           await _kunciArsip.currentState?.segarkan();

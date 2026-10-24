@@ -111,6 +111,8 @@ class _PilihLokasiP0State extends State<PilihLokasiP0> {
         ],
         nilaiAwal: _pny ?? (_penyulangDipilih && !wajibPny ? _tanpa : null),
         selaluCari: true,
+        // v1.0.31: wajib (Pengecekan Switching / Gardu) belum dipilih = kolom merah saat Simpan
+        validator: wajibPny ? (v) => (v ?? '').isEmpty || v == _tanpa ? 'Penyulang wajib dipilih' : null : null,
         onChanged: (v) {
           _penyulangDipilih = true;
           unawaited(_pilihPenyulang(v == _tanpa ? null : v));
@@ -137,6 +139,7 @@ class _PilihLokasiP0State extends State<PilihLokasiP0> {
             ],
             nilaiAwal: _sectionId,
             selaluCari: true,
+            validator: sw ? (v) => (v ?? '').isEmpty || v == _tanpa ? 'Section LBS / ACR wajib dipilih' : null : null,
             onChanged: (v) {
               setState(() => _sectionId = v == _tanpa ? null : v);
               _kabari();

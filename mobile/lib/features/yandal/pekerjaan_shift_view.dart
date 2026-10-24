@@ -11,6 +11,10 @@ import 'p0_detail_screen.dart';
 import 'p0_form_screen.dart';
 import 'p0_model.dart';
 import 'p0_repository.dart';
+import '../wo/wo_bantu.dart';
+import '../hartek/hartek_lokal.dart';
+import '../wo/wo_store.dart' show WoLokal;
+import 'p0_wo_detail_screen.dart';
 import 'yandal_login.dart';
 import '../../widgets/refresh_sisi.dart';
 
@@ -40,10 +44,18 @@ class PekerjaanShiftViewState extends State<PekerjaanShiftView> {
     unawaited(muat());
   }
 
+  List<Map<String, dynamic>> _p0Wo = const [];
+
   Future<void> muat() async {
     final id = P0Repository.shiftIdSesi(widget.sesi);
     final l = id == null ? <P0Lokal>[] : await widget.deps.p0.daftarShift(widget.sesi.userId, id);
-    if (mounted) setState(() => _p0 = l);
+    final w = await p0WoShift(widget.deps, widget.sesi); // v1.0.29
+    if (mounted) {
+      setState(() {
+        _p0 = l;
+        _p0Wo = w;
+      });
+    }
   }
 
   /// [fokus] = SEMUA | PROSES | SELESAI: langsung ke bagian itu (angka ringkasan di kartu shift).
@@ -71,7 +83,7 @@ class PekerjaanShiftViewState extends State<PekerjaanShiftView> {
             KartuShiftInteraktif(
               sesi: widget.sesi,
               proses: semua.length - selesai,
-              selesai: selesai,
+              selesai: selesai + _p0Wo.length, // v1.0.29: + P0 dari WO Tindak Lanjut
               sekarang: widget.deps.jam.sekarang,
               onTap: () => unawaited(bukaDetail()),
               onAngka: (j) => unawaited(bukaDetail(fokus: j)),
@@ -88,6 +100,97 @@ class PekerjaanShiftViewState extends State<PekerjaanShiftView> {
             ]),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// v1.0.29 (permintaan kvlar 24 Okt 2026): P0 dari WO Tindak Lanjut di shift sesi (dicatat server saat WO Selesai,
+/// tidak ada di P0 HP) supaya ikut terhitung "Sudah dikerjakan" di ringkasan shift.
+Future<List<Map<String, dynamic>>> p0WoShift(Deps deps, Sesi s) async {
+  final kode = '${s.yandal?['kodeShift'] ?? ''}'.trim();
+  if (kode.isEmpty) return const [];
+  try {
+    return WoLokal.p0Shift(await deps.wo.doc(s), kode);
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// v1.0.29: kartu ringkas satu P0 dari WO Tindak Lanjut (kode P0 / menunggu kirim, pekerjaan, kode temuan).
+/// v1.0.31 (permintaan kvlar 24 Okt 2026): bentuk sama dengan kartu P0 lokal; ketuk = detail P0 (data + foto yan_P0).
+class KartuP0Wo extends StatelessWidget {
+  const KartuP0Wo({super.key, required this.p, this.onTap});
+  final Map<String, dynamic> p;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = petaWo(p['temuan']);
+    final kode = teksWo(p['kodeRealisasiModul']);
+    final nama = teksWo(p['pekerjaanLainnya']).isNotEmpty ? teksWo(p['pekerjaanLainnya']) : teksWo(p['pekerjaan']);
+    final lokasi = [teksWo(t['penyulang']), teksWo(t['section'])].where((x) => x.isNotEmpty).join(' · ');
+    final foto = {...HartekLokal.fotoDiServer(p), ...HartekLokal.fotoDiHp(p)};
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: latarSelesai, width: 1.5),
+          ),
+          child: IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(width: 6, color: warnaSelesai),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(nama.isEmpty ? 'Pekerjaan WO' : nama,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                      ),
+                      const StatusBadge('SELESAI', warna: warnaSelesai, latar: latarSelesai),
+                    ]),
+                    Row(children: [
+                      Flexible(
+                        child: Text(kode.isEmpty ? 'Menunggu kode P0 dari server' : kode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: kode.isEmpty ? AppColors.accent700 : AppColors.neutral500)),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(kode.isEmpty ? Icons.cloud_upload_outlined : Icons.cloud_done_rounded,
+                          size: 14, color: kode.isEmpty ? AppColors.neutral400 : AppColors.success700),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text(['WO ${teksWo(t['kodeTemuan'])}', if (lokasi.isNotEmpty) lokasi].join(' · '),
+                        style: const TextStyle(fontSize: 12, color: AppColors.neutral700)),
+                    const SizedBox(height: 8),
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Expanded(
+                        child: Wrap(spacing: 10, runSpacing: 4, children: [
+                          for (final s in slotP0)
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(foto.containsKey(s) ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                                  size: 16, color: foto.containsKey(s) ? warnaSelesai : AppColors.neutral300),
+                              const SizedBox(width: 3),
+                              Text(labelSlotP0[s]!, style: const TextStyle(fontSize: 11, color: AppColors.neutral700)),
+                            ]),
+                        ]),
+                      ),
+                      if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.neutral400),
+                    ]),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -146,11 +249,17 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     unawaited(muat());
   }
 
+  List<Map<String, dynamic>> _p0Wo = const [];
+
   Future<void> muat() async {
     final id = P0Repository.shiftIdSesi(widget.sesi);
     final l = id == null ? <P0Lokal>[] : await widget.deps.p0.daftarShift(widget.sesi.userId, id);
+    final w = await p0WoShift(widget.deps, widget.sesi); // v1.0.29
     if (!mounted) return;
-    setState(() => _p0 = l);
+    setState(() {
+      _p0 = l;
+      _p0Wo = w;
+    });
     final f = widget.fokus;
     if (f != null && !_fokusAwal) {
       _fokusAwal = true;
@@ -163,7 +272,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     final k = jenis == 'SEMUA' ? 'RINCIAN' : jenis;
     if (!_kunciBagian.containsKey(k)) return;
     final l = _p0 ?? const <P0Lokal>[];
-    final ada = k == 'RINCIAN' ? l.isNotEmpty : l.any((x) => (k == 'SELESAI') == x.selesai);
+    final ada = k == 'RINCIAN' ? l.isNotEmpty || _p0Wo.isNotEmpty : l.any((x) => (k == 'SELESAI') == x.selesai) || (k == 'SELESAI' && _p0Wo.isNotEmpty);
     if (!ada) {
       tampilPesan(context, k == 'RINCIAN' ? 'Belum ada P0 di shift ini.' : k == 'PROSES' ? 'Tidak ada P0 progress.' : 'Belum ada P0 selesai.');
       return;
@@ -194,6 +303,36 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     await muat();
   }
 
+  /// v1.0.31: P0 dari WO Tindak Lanjut = detail seperti P0 lokal.
+  Future<void> _bukaWo(Map<String, dynamic> p) async {
+    await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => P0WoDetailScreen(deps: widget.deps, sesi: widget.sesi, p: p)));
+    await muat();
+  }
+
+  /// v1.0.31 (permintaan kvlar 24 Okt 2026): tombol refresh kanan atas = kirim P0 / WO tertunda, tarik WO terbaru (kode P0
+  /// dari server), lalu muat ulang.
+  bool _menyegarkan = false;
+
+  Future<void> _segarkan() async {
+    if (_menyegarkan) return;
+    setState(() => _menyegarkan = true);
+    final ctl = widget.deps.syncCtl;
+    try {
+      await ctl.sinkron();
+      if (widget.sesi.petugasWo) {
+        try {
+          await widget.deps.wo.tarik(widget.sesi);
+        } catch (_) {/* offline: data WO di HP */}
+      }
+      await muat();
+      if (mounted) tampilPesan(context, ctl.online == false ? 'Tidak ada sinyal. Menampilkan data di HP.' : 'Pekerjaan shift diperbarui.');
+    } catch (_) {
+      if (mounted) tampilPesan(context, 'Gagal memperbarui. Coba lagi.');
+    } finally {
+      if (mounted) setState(() => _menyegarkan = false);
+    }
+  }
+
   Future<void> _bukaKelompok(KelompokP0 k) async {
     await Navigator.push<void>(context,
         MaterialPageRoute(builder: (_) => P0KelompokScreen(deps: widget.deps, sesi: widget.sesi, nama: k.nama)));
@@ -210,7 +349,9 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     final sh = (y['shift'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{};
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
-      appBar: sisiAppBar('Pekerjaan Shift', subjudul: '${widget.sesi.timNama} • Shift ${sh['no'] ?? '-'}'),
+      appBar: sisiAppBar('Pekerjaan Shift', subjudul: '${widget.sesi.timNama} • Shift ${sh['no'] ?? '-'}', actions: [
+        TombolSegarkan(sibuk: _menyegarkan, onPressed: _segarkan),
+      ]),
       body: _isi(),
       floatingActionButton: !_bolehTambah
           ? null
@@ -226,13 +367,17 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     final kelompok = kelompokP0(semua);
     // v0.64.7: SingleChildScrollView (bukan ListView) supaya semua bagian terbangun dan bisa digulir ke tujuan.
     return RefreshSisi(
-      onRefresh: muat,
+      onRefresh: _segarkan,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           KartuShiftInteraktif(
-              sesi: widget.sesi, proses: proses.length, selesai: selesai.length, sekarang: widget.deps.jam.sekarang, onAngka: fokus),
+              sesi: widget.sesi,
+              proses: proses.length,
+              selesai: selesai.length + _p0Wo.length, // v1.0.29: + P0 dari WO Tindak Lanjut
+              sekarang: widget.deps.jam.sekarang,
+              onAngka: fokus),
           ...peringatanJam(widget.deps),
           const SizedBox(height: 14),
           Row(children: [
@@ -251,7 +396,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
             Expanded(
               child: _KotakRingkas(
                 judul: 'Sudah dikerjakan',
-                jumlah: selesai.length,
+                jumlah: selesai.length + _p0Wo.length,
                 ikon: Icons.task_alt_rounded,
                 warna: warnaSelesai,
                 latar: latarSelesai,
@@ -261,16 +406,17 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
             ),
           ]),
           const SizedBox(height: 18),
-          if (semua.isEmpty)
+          if (semua.isEmpty && _p0Wo.isEmpty)
             SisiKosong(
               ikon: Icons.post_add_rounded,
               judul: 'Belum ada P0 di shift ini',
               pesan: _bolehTambah ? 'Tekan + di kanan bawah untuk menambah Penugasan P0.' : 'Jam shift sudah berakhir.',
             )
           else ...[
-            _Judul('Rincian pekerjaan', 'per jenis pekerjaan',
-                key: _kunciBagian['RINCIAN'], chip: true, buka: _buka['RINCIAN'], onTap: () => _lipat('RINCIAN')),
-            if (_buka['RINCIAN'] ?? true) ...[
+            if (semua.isNotEmpty)
+              _Judul('Rincian pekerjaan', 'per jenis pekerjaan',
+                  key: _kunciBagian['RINCIAN'], chip: true, buka: _buka['RINCIAN'], onTap: () => _lipat('RINCIAN')),
+            if (semua.isNotEmpty && (_buka['RINCIAN'] ?? true)) ...[
               const SizedBox(height: 8),
               for (final k in kelompok) ...[_KartuKelompok(k: k, onTap: () => unawaited(_bukaKelompok(k))), const SizedBox(height: 8)],
             ],
@@ -283,13 +429,15 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
                 for (final x in proses) ...[KartuP0(p0: x, onTap: () => unawaited(buka(x))), const SizedBox(height: 8)],
               ],
             ],
-            if (_saring != 'PROSES' && selesai.isNotEmpty) ...[
+            if (_saring != 'PROSES' && (selesai.isNotEmpty || _p0Wo.isNotEmpty)) ...[
               const SizedBox(height: 10),
-              _Judul('Sudah dikerjakan', '${selesai.length} P0',
+              _Judul('Sudah dikerjakan', '${selesai.length + _p0Wo.length} P0',
                   key: _kunciBagian['SELESAI'], warna: warnaSelesai, buka: _buka['SELESAI'], onTap: () => _lipat('SELESAI')),
               if (_buka['SELESAI'] ?? true) ...[
                 const SizedBox(height: 8),
                 for (final x in selesai) ...[KartuP0(p0: x, onTap: () => unawaited(buka(x))), const SizedBox(height: 8)],
+                // v1.0.29: P0 dari WO Tindak Lanjut (dicatat server, menunggu verifikasi admin)
+                for (final p in _p0Wo) ...[KartuP0Wo(p: p, onTap: () => unawaited(_bukaWo(p))), const SizedBox(height: 8)],
               ],
             ],
           ],

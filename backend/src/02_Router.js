@@ -54,6 +54,9 @@ function endpoints_() {
     // syncShift: tetap boleh sesudah akhir shift (mode sync) supaya P0 shift itu bisa dikirim sebelum logout.
     simpanP0Yandal: { fn: simpanP0Yandal_, syncShift: true, batasMenit: 40 },
     uploadFotoP0Yandal: { fn: uploadFotoP0Yandal_, syncShift: true, batasMenit: 40 },
+    // v1.0.31: P0 dari WO Tindak Lanjut di shift sesi (yan_P0) + fotonya, tampil seperti P0 lokal (hanya baca)
+    getP0WoYandal: { fn: getP0WoYandal_, syncShift: true, batasMenit: 30 },
+    getFotoP0WoYandal: { fn: getFotoP0WoYandal_, syncShift: true, batasMenit: 60 },
     // v0.66.0: Pengecekan Switching (anak P0), aturan sama dengan kirim P0
     simpanSwitchingYandal: { fn: simpanSwitchingYandal_, syncShift: true, batasMenit: 40 },
     uploadFotoSwitchingYandal: { fn: uploadFotoSwitchingYandal_, syncShift: true, batasMenit: 40 },
@@ -183,7 +186,9 @@ function endpoints_() {
     // Lihat modules/80_Riwayat_Gardu.js
     getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 },
     // v1.0.22: Update Pengukuran Gardu = satu pengukuran riwayat ditulis ke Master Gardu (pengukuran terbaru)
-    updateUkurMasterGardu: { fn: updateUkurMasterGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 }
+    updateUkurMasterGardu: { fn: updateUkurMasterGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 },
+    // v1.0.26: ubah pekerjaan WO DRAFT (sesudah foto Sebelum, sebelum foto Sesudah). Lihat modules/75_TindakLanjut.js
+    ubahPekerjaanWo: { fn: ubahPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 30 }
   };
 }
 

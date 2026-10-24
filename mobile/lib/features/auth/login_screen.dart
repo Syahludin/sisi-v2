@@ -22,10 +22,48 @@ import '../../widgets/sisi_loader.dart';
 /// v1.0.19 (permintaan kvlar 23 Okt 2026): desain ulang Jaringan SiSi (latar gradien + motif tiang & kawat, logo bercahaya,
 /// tombol kuning PLN), alur tetap sama.
 /// PRD Alur B: login -> getMaster -> getKodeRow -> dashboard.
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.deps, required this.onMasuk});
   final Deps deps;
   final void Function(Sesi) onMasuk;
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+/// v1.0.28 (permintaan kvlar 23 Okt 2026): animasi pembuka. Siluet jaringan (tiang lalu kawat) tergambar lebih dulu,
+/// disusul logo SiSi + judul, lalu tombol Login. Form username / password muncul pelan saat Login diketuk.
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))..forward();
+  late final Animation<double> _siluet = CurvedAnimation(parent: _intro, curve: const Interval(0, .55, curve: Curves.easeInOut));
+  late final Animation<double> _logo = CurvedAnimation(parent: _intro, curve: const Interval(.5, .74, curve: Curves.easeOutBack));
+  late final Animation<double> _teks = CurvedAnimation(parent: _intro, curve: const Interval(.58, .82, curve: Curves.easeOutCubic));
+  late final Animation<double> _tombol = CurvedAnimation(parent: _intro, curve: const Interval(.74, 1, curve: Curves.easeOutBack));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) _intro.value = 1; // "Kurangi animasi" di HP
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  /// Muncul: memudar masuk, naik [geser] px, membesar dari [skala].
+  Widget _muncul(Animation<double> a, Widget child, {double geser = 0, double skala = 1}) => AnimatedBuilder(
+        animation: a,
+        child: child,
+        builder: (_, c) => Opacity(
+          opacity: a.value.clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, (1 - a.value) * geser),
+            child: Transform.scale(scale: skala + (1 - skala) * a.value, child: c),
+          ),
+        ),
+      );
 
   Future<void> _bukaForm(BuildContext context) async {
     // v0.63.0: form mengembalikan Sesi (akun biasa) atau TiketYandal (akun YANDAL: pilih petugas dulu)
@@ -33,13 +71,15 @@ class LoginScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _FormLogin(deps: deps),
+      // v1.0.28: kartu username / password naik dengan tempo pelan
+      sheetAnimationStyle: const AnimationStyle(duration: Duration(milliseconds: 750), reverseDuration: Duration(milliseconds: 320)),
+      builder: (_) => _FormLogin(deps: widget.deps),
     );
     if (hasil == null || !context.mounted) return;
     Sesi? s = hasil is Sesi ? hasil : null;
     if (hasil is TiketYandal) {
       s = await Navigator.of(context).push<Sesi>(
-        MaterialPageRoute(builder: (_) => PilihPetugasScreen(deps: deps, tiket: hasil)),
+        MaterialPageRoute(builder: (_) => PilihPetugasScreen(deps: widget.deps, tiket: hasil)),
       );
     }
     if (s == null || !context.mounted) return;
@@ -55,7 +95,7 @@ class LoginScreen extends StatelessWidget {
         return _DialogBerhasil(sesi: masuk);
       },
     );
-    onMasuk(masuk);
+    widget.onMasuk(masuk);
   }
 
   @override
@@ -72,7 +112,12 @@ class LoginScreen extends StatelessWidget {
             right: 0,
             bottom: 0,
             height: tinggi * .36,
-            child: const IgnorePointer(child: CustomPaint(painter: PolaJaringanPainter(alpha: .16, kerapatan: 5))),
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _siluet,
+                builder: (_, __) => CustomPaint(painter: PolaJaringanPainter(alpha: .16, kerapatan: 5, progres: _siluet.value)),
+              ),
+            ),
           ),
           SafeArea(
             child: Stack(children: [
@@ -92,7 +137,7 @@ class LoginScreen extends StatelessWidget {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Container(
+                    _muncul(_logo, skala: .4, Container(
                       width: 128,
                       height: 128,
                       padding: const EdgeInsets.all(14),
@@ -106,8 +151,9 @@ class LoginScreen extends StatelessWidget {
                       ),
                       child: Image.asset('assets/images/logo-sisi.png',
                           errorBuilder: (context, error, stack) => const Icon(Icons.hub, size: 80, color: AppColors.navy700)),
-                    ),
+                    )),
                     const SizedBox(height: 22),
+                    _muncul(_teks, geser: 18, Column(mainAxisSize: MainAxisSize.min, children: [
                     const Text('SiSi',
                         style: TextStyle(fontSize: 46, height: 1, fontWeight: FontWeight.w900, letterSpacing: -1, color: Colors.white)),
                     const SizedBox(height: 6),
@@ -128,7 +174,9 @@ class LoginScreen extends StatelessWidget {
                             style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .6, color: Colors.white)),
                       ]),
                     ),
+                    ])),
                     const SizedBox(height: 38),
+                    _muncul(_tombol, geser: 34, Column(mainAxisSize: MainAxisSize.min, children: [
                     SizedBox(
                       width: 280,
                       height: 56,
@@ -147,6 +195,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text('Masuk dengan akun tim / admin ULP', style: TextStyle(fontSize: 12, color: Color(0xB3FFFFFF))),
+                    ])),
                   ]),
                 ),
               ),

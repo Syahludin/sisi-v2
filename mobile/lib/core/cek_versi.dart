@@ -102,12 +102,24 @@ class PemeriksaVersi {
             wajib: wajib,
             onCekLagi: () async {
               final ulang = await _ambil();
-              if (ulang != null && ulang.statusUntuk(versiApp) != StatusVersi.wajibUpdate && d.mounted) Navigator.pop(d);
+              if (ulang != null && ulang.statusUntuk(versiApp) == StatusVersi.sama && d.mounted) Navigator.pop(d);
+              if (ulang != null && d.mounted && wajib && ulang.statusUntuk(versiApp) != StatusVersi.wajibUpdate) Navigator.pop(d);
             }),
       );
     } finally {
       _dialogTerbuka = false;
     }
+  }
+
+  /// v1.0.26: buka kartu update dari info versi terakhir (pita merah / form terkunci). Belum ada info = cek ke server.
+  Future<void> tampilkan() async {
+    final info = terakhir.value, c = _konteks();
+    if (info == null || c == null || !c.mounted) {
+      await cek(manual: true);
+      return;
+    }
+    if (_dialogTerbuka) return;
+    await _dialog(c, info, wajib: info.statusUntuk(versiApp) == StatusVersi.wajibUpdate);
   }
 
   Future<InfoVersi?> _ambil() async {
@@ -143,54 +155,89 @@ class DialogUpdateVersi extends StatelessWidget {
     }
   }
 
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu sendiri (bukan AlertDialog, yang menumpuk tombol jadi satu kolom
+  /// kalau tidak muat): X di kanan atas, Cek Lagi + Update Sekarang SELALU satu baris di bawah.
   @override
   Widget build(BuildContext context) {
     final poin = info.catatan.split('|').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final bisaUnduh = info.linkUnduh.isNotEmpty || _langsung;
     return PopScope(
       canPop: !wajib,
-      child: AlertDialog(
-        actionsOverflowButtonSpacing: 4,
-        icon: Icon(wajib ? Icons.system_update_rounded : Icons.new_releases_rounded, size: 40, color: wajib ? AppColors.red700 : AppColors.brand700),
-        title: Text(wajib ? 'Wajib Update Aplikasi' : 'Update Tersedia', textAlign: TextAlign.center),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(14)),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              _Versi(judul: 'Aplikasi ini', versi: versiApp, warna: AppColors.neutral700),
-              const Icon(Icons.arrow_forward_rounded, color: AppColors.neutral400),
-              _Versi(judul: Env.isStaging ? 'Server STAGING' : 'Server', versi: info.server, warna: AppColors.success700),
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 8, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  tooltip: 'Tutup',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: AppColors.neutral500),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Icon(wajib ? Icons.system_update_rounded : Icons.new_releases_rounded, size: 44, color: wajib ? AppColors.red700 : AppColors.brand700),
+                  const SizedBox(height: 10),
+                  Text(wajib ? 'Wajib Update Aplikasi' : 'Update Tersedia',
+                      textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.navy900)),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(14)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                      _Versi(judul: 'Aplikasi ini', versi: versiApp, warna: AppColors.neutral700),
+                      const Icon(Icons.arrow_forward_rounded, color: AppColors.neutral400),
+                      _Versi(judul: Env.isStaging ? 'Server STAGING' : 'Server', versi: info.server, warna: AppColors.success700),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    wajib
+                        ? '${KunciUpdate.pesan}. Sebelum update, input dan sinkron data dimatikan; halaman tetap bisa dibuka. '
+                            'Data yang belum terkirim tetap aman di HP.'
+                        : '${KunciUpdate.pesan}.',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  if (poin.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Text('Yang baru:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                    for (final x in poin) Text('•  $x', style: const TextStyle(fontSize: 12.5)),
+                  ],
+                  if (!bisaUnduh) ...[
+                    const SizedBox(height: 10),
+                    const Text('Minta file APK terbaru ke admin.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent700)),
+                  ],
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => unawaited(onCekLagi()),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                        child: const FittedBox(child: Text('Cek Lagi')),
+                      ),
+                    ),
+                    if (bisaUnduh) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => unawaited(_download(context)),
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                          child: FittedBox(child: Text(_langsung ? 'Update Sekarang' : 'Download Update')),
+                        ),
+                      ),
+                    ],
+                  ]),
+                ]),
+              ),
             ]),
           ),
-          const SizedBox(height: 12),
-          Text(
-            // v1.0.22: teks baru (permintaan kvlar)
-            wajib
-                ? '${KunciUpdate.pesan}. Sebelum update, input dan sinkron data dimatikan; halaman tetap bisa dibuka. '
-                    'Data yang belum terkirim tetap aman di HP.'
-                : '${KunciUpdate.pesan}.',
-            style: const TextStyle(fontSize: 13),
-          ),
-          if (poin.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Text('Yang baru:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-            for (final x in poin) Text('•  $x', style: const TextStyle(fontSize: 12.5)),
-          ],
-          if (info.linkUnduh.isEmpty && !_langsung) ...[
-            const SizedBox(height: 10),
-            const Text('Minta file APK terbaru ke admin.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent700)),
-          ],
-        ]),
-        actions: [
-          // v1.0.22: wajib update juga bisa ditutup (input + sinkron tetap mati sampai terupdate)
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(wajib ? 'Tutup' : 'Nanti')),
-          if (wajib) TextButton(onPressed: () => unawaited(onCekLagi()), child: const Text('Cek Lagi')),
-          if (info.linkUnduh.isNotEmpty || _langsung)
-            FilledButton.icon(
-                onPressed: () => unawaited(_download(context)),
-                icon: const Icon(Icons.system_update_rounded),
-                label: Text(_langsung ? 'Update Sekarang' : 'Download Update')),
-        ],
+        ),
       ),
     );
   }

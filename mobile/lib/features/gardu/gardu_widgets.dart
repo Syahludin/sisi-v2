@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/app_colors.dart';
+import '../../widgets/animasi_masuk.dart';
 import 'gardu_model.dart';
 
 /// Cincin persentase beban (warna kategori). Lebih dari 100% = cincin penuh.
+/// v1.0.27 (permintaan kvlar 23 Okt 2026): saat tampil busur bergerak melingkar dari 0 ke persentase, angka ikut naik.
 class CincinBeban extends StatelessWidget {
   const CincinBeban({super.key, required this.persen, this.ukuran = 52, this.tebal = 6});
   final double? persen;
@@ -17,18 +19,27 @@ class CincinBeban extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final k = KategoriBeban.dari(persen);
+    final diam = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    Widget lukis(double p) => CustomPaint(
+          painter: _CincinPainter(nilai: (p / 100).clamp(0, 1).toDouble(), warna: k.warna, tebal: tebal),
+          child: Center(
+            child: Text(
+              persen == null ? '-' : '${angkaId(p, desimal: 0)}%',
+              style: TextStyle(fontSize: ukuran * .24, fontWeight: FontWeight.w900, color: k.warna),
+            ),
+          ),
+        );
     return SizedBox(
       width: ukuran,
       height: ukuran,
-      child: CustomPaint(
-        painter: _CincinPainter(nilai: ((persen ?? 0) / 100).clamp(0, 1).toDouble(), warna: k.warna, tebal: tebal),
-        child: Center(
-          child: Text(
-            persen == null ? '-' : '${angkaId(persen, desimal: 0)}%',
-            style: TextStyle(fontSize: ukuran * .24, fontWeight: FontWeight.w900, color: k.warna),
-          ),
-        ),
-      ),
+      child: diam || persen == null
+          ? lukis(persen ?? 0)
+          : TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: persen),
+              duration: durasiMasukSisi,
+              curve: Curves.easeOutCubic,
+              builder: (_, p, __) => lukis(p),
+            ),
     );
   }
 }
@@ -120,7 +131,7 @@ class KartuGardu extends StatelessWidget {
                 Wrap(spacing: 10, runSpacing: 4, children: [
                   _Metrik(Icons.bolt_rounded, '${angkaId(g.kva)} kVA'),
                   _Metrik(Icons.speed_rounded, g.arusMaks == null ? '- A' : '${angkaId(g.arusMaks)} A'),
-                  _Metrik(Icons.event_rounded, g.tglUkur.isEmpty ? 'belum ukur' : tanggalPendek(g.tglUkur)),
+                  _Metrik(Icons.event_rounded, g.tglUkur.isEmpty ? 'belum ukur' : tanggalPanjang(g.tglUkur)),
                   if (g.tglUkur.isNotEmpty) BadgePeriodeBeban(g.waktuBeban), // v1.0.20: LWBP / WBP ukur terakhir
                 ]),
               ]),
@@ -171,6 +182,18 @@ String tanggalPendek(String iso) {
   return '${int.parse(m.group(3)!)} ${_bulan[b - 1]} ${m.group(1)}';
 }
 
+const _bulanPanjang = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+/// v1.0.23 (permintaan kvlar 23 Okt 2026): tanggal pengukuran gardu DD MMMM YYYY, '2026-10-06' -> '06 Oktober 2026'.
+/// Format lain = apa adanya.
+String tanggalPanjang(String iso) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso);
+  if (m == null) return iso;
+  final b = int.parse(m.group(2)!);
+  if (b < 1 || b > 12) return iso;
+  return '${m.group(3)} ${_bulanPanjang[b - 1]} ${m.group(1)}';
+}
+
 /// Bottom sheet detail gardu. [onRiwayatBa] (v0.86.0) = tombol semua BA gardu ini, v2 + arsip v1 (admin BA saja).
 /// v1.0.17: [denganBa] false = bagian Riwayat Berita Acara tidak ditampilkan (menu admin Pengukuran Gardu memindahkannya
 /// ke History Perbaikan & Manajemen Trafo). Bagian Arus & Tegangan selalu tampil.
@@ -189,7 +212,7 @@ Future<void> tampilDetailGardu(BuildContext context, Gardu g, {VoidCallback? onR
         _KepalaDetail(g),
         const SizedBox(height: 12),
         _Bagian('Pengukuran Terakhir', Icons.speed_rounded, [
-          ('Tanggal Ukur', g.tglUkur.isEmpty ? '' : tanggalPendek(g.tglUkur)),
+          ('Tanggal Ukur', g.tglUkur.isEmpty ? '' : tanggalPanjang(g.tglUkur)),
           ('Waktu Beban', g.waktuBeban),
           ('Arus Maks per Fasa', g.arusMaks == null ? '' : '${angkaId(g.arusMaks)} A'),
           ('Pembebanan', g.bebanKva == null ? '' : '${angkaId(g.bebanKva)} kVA'),

@@ -142,7 +142,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
   Future<void> _lihatPdf() async {
     final path = await _pdf();
     if (path == null || !mounted) return;
-    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: path, judul: '${_b.noGardu} · BA', namaFile: namaPdfBa(_b))));
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: path, judul: '${_b.noGardu} · BA', namaFile: namaPdfBa(_b))));
   }
 
   Future<void> _downloadPdf() async {
@@ -238,9 +238,9 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
     if (path == null || !mounted) return;
     final nama = p.basename(path);
     if (nama.toLowerCase().endsWith('.pdf')) {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: path, judul: '${_b.noGardu} · BA TTD', namaFile: nama)));
+      await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: path, judul: '${_b.noGardu} · BA TTD', namaFile: nama)));
     } else {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: path, judul: 'BA TTD', keterangan: _b.noGardu)));
+      await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: path, judul: 'BA TTD', keterangan: _b.noGardu)));
     }
   }
 
@@ -322,7 +322,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
       return f.path;
     });
     if (path == null || !mounted) return;
-    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: path, judul: label, keterangan: _b.noGardu)));
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: path, judul: label, keterangan: _b.noGardu)));
   }
 
   Future<bool> _konfirmasi(String judul, String isi) async =>

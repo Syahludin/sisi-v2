@@ -490,6 +490,8 @@ function logout_(sesi, data, platform) {
     var yan = petugasYandal_(sesi) ? siapkanLogoutYandal_(sesi.deviceId) : null;   // v0.63.0: baca dulu
     ubahBarisDikenal_(t, r, { dicabut_pada: sekarangIso_() });
     if (yan) yan(d.alasan || 'MANUAL');
+    // v1.0.29: HP yang logout tidak menerima notifikasi akun ini lagi (YANDAL tetap: pengingat login shift berikutnya)
+    if (!petugasYandal_(sesi)) matikanNotifInstall_(teksSel_(r.install_id));
   });
   hapusSesiCache_(sesi._tokenHash);
   buangIndeksKenal_();   // v0.62.4: HP yang logout kembali jadi HP asing sampai login sukses lagi

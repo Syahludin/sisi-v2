@@ -31,6 +31,7 @@ class _UbahLokasiP0ScreenState extends State<UbahLokasiP0Screen> {
     section: widget.p0.section,
   );
   late final _daerah = TextEditingController(text: widget.p0.daerah);
+  final _form = GlobalKey<FormState>(); // v1.0.31
   bool _simpan = false;
 
   @override
@@ -40,6 +41,7 @@ class _UbahLokasiP0ScreenState extends State<UbahLokasiP0Screen> {
   }
 
   Future<void> _kirim() async {
+    if (!validasiForm(_form)) return;
     final x = widget.p0, l = _lokasi;
     if (x.butuhSwitching && (l.penyulang == null || l.sectionId == null)) {
       tampilPesan(context, l.penyulang == null ? 'Pengecekan Switching wajib pilih penyulang.' : 'Pilih section LBS / ACR.');
@@ -71,7 +73,10 @@ class _UbahLokasiP0ScreenState extends State<UbahLokasiP0Screen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Edit lokasi P0', subjudul: x.kodeTampil),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
+      body: Form(
+        key: _form,
+        // v1.0.31: tidak lazy (ListView membangun kolom di luar layar belakangan), semua kolom wajib ikut divalidasi
+        child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.neutral200)),
@@ -131,7 +136,8 @@ class _UbahLokasiP0ScreenState extends State<UbahLokasiP0Screen> {
             child: Text('Section tidak bisa diubah lagi setelah data switching disimpan.',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
           ),
-      ]),
+      ])),
+      ),
     );
   }
 }

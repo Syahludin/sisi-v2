@@ -64,7 +64,7 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
   }
 
   Future<void> _kirim() async {
-    if (!_form.currentState!.validate()) return;
+    if (!validasiForm(_form)) return; // v1.0.31: gulir ke kolom merah
     final kmA = _angka(_kmAwal), kmB = _angka(_kmAkhir);
     if (kmA != null && kmB != null && kmB < kmA) {
       tampilPesan(context, 'KM akhir lebih kecil dari KM awal.');
@@ -131,9 +131,8 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
           subjudul: _ubah ? widget.header!.kode : 'Titik lapangan & KM kendaraan hari ini'),
       body: Form(
         key: _form,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
+        // v1.0.31: tidak lazy (ListView membangun kolom di luar layar belakangan), semua kolom wajib ikut divalidasi
+        child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -199,7 +198,7 @@ class _FormHeaderScreenState extends State<FormHeaderScreen> {
             const Text('Koordinat dan KM boleh diisi bertahap. Laporan WA baru bisa dikirim setelah keempatnya terisi.',
                 style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
           ],
-        ),
+        )),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

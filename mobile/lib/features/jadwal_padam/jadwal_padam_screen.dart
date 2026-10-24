@@ -14,6 +14,7 @@ import '../../widgets/kalender_bulan.dart';
 import '../../widgets/kolom_pilih.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_motif.dart';
+import '../../widgets/sisi_widgets.dart' show validasiForm;
 import '../../widgets/wa_panel.dart';
 import '../hartek/hartek_gaya.dart';
 import '../insjar/insjar_header.dart';
@@ -728,7 +729,7 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
   }
 
   Future<void> _kirim() async {
-    if (!_form.currentState!.validate()) return;
+    if (!validasiForm(_form)) return; // v1.0.31: gulir ke kolom merah
     setState(() => _simpan = true);
     final ubah = widget.jadwal != null;
     final data = <String, dynamic>{
@@ -792,7 +793,8 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
       body: SafeArea(
         child: Form(
           key: _form,
-          child: ListView(padding: const EdgeInsets.fromLTRB(16, 10, 16, 24), children: [
+          // v1.0.31: tidak lazy (ListView membangun kolom di luar layar belakangan), semua kolom wajib ikut divalidasi
+          child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 10, 16, 24), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             HeaderInsJar(
               kicker: 'Jadwal Padam',
               judul: widget.jadwal == null ? 'Jadwal baru' : 'Ubah jadwal',
@@ -889,7 +891,7 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
                   ? const SisiLoader(ukuran: 24, warna: Colors.white)
                   : Text(widget.jadwal == null ? 'Simpan jadwal' : 'Simpan perubahan', style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
-          ]),
+          ])),
         ),
       ),
     );

@@ -8,11 +8,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
-import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_loader.dart';
 import '../hartek/foto_lapangan.dart';
 import '../hartek/foto_rincian.dart';
@@ -28,6 +28,7 @@ import 'insjar_header.dart';
 import 'insjar_lokal.dart';
 import 'insjar_store.dart' show pesanInsJar;
 import 'ringkasan_temuan.dart';
+import 'temuan_admin_antre.dart';
 import 'temuan_offline.dart';
 import '../../widgets/refresh_sisi.dart';
 
@@ -36,6 +37,8 @@ import '../../widgets/refresh_sisi.dart';
 /// (simpanTemuanInspeksi, idBaris dibuat sekali per form, jadi kirim ulang = duplikat, bukan baris kembar), lalu foto
 /// temuan / tiang (uploadFotoTemuanInspeksi). Foto yang gagal terkirim ditandai di kartu dan bisa dikirim ulang.
 /// v1.0.11: object Gardu memilih gardu AKTIF (db_Gardu); kartu menampilkan status WO + tombol Penerusan WO di header.
+/// v1.0.29 (permintaan kvlar 24 Okt 2026): Simpan tidak menunggu server. Form langsung tertutup, pop up "Data Berhasil
+/// disimpan", temuan masuk daftar HP lalu dikirim di latar (AntreanTemuanAdmin), tanpa chip / pesan kirim.
 ///
 /// v1.0.17 (permintaan kvlar 22 Okt 2026): menu bernama "Temuan Inspeksi", dua tab:
 ///  1. Input: kosong, hanya keterangan + tombol + (kanan bawah) untuk membuka form temuan.
@@ -72,11 +75,9 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   String? _galat;
   bool _sibuk = false, _muat = false, _offlineDibaca = false;
 
-  /// Foto yang belum diterima server: temuanId -> {SLOT: path}, plus galatnya.
-  final Map<String, Map<String, String>> _tertunda = {};
-  final Map<String, Map<String, String>> _galatFoto = {};
-
   Sesi get _sesi => widget.sesi;
+  AntreanTemuanAdmin get _antre => widget.deps.temuanAdmin;
+  int _jumlahAntre = 0;
   bool get _boleh => _sesi.bisaUbah(InputTemuanInspeksiScreen.menu);
 
   /// v1.0.11: akun yang punya menu Penerusan WO bisa langsung meneruskan temuan dari layar ini.
@@ -96,14 +97,31 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   @override
   void initState() {
     super.initState();
+    _antre.addListener(_antreBerubah);
     unawaited(_mulai());
   }
 
   @override
   void dispose() {
+    _antre.removeListener(_antreBerubah);
     _tab.dispose();
     super.dispose();
   }
+
+  /// v1.0.29: antrean kirim berubah (kode temuan dari server / foto terkirim): daftar HP dibaca ulang; ada temuan yang
+  /// selesai terkirim = daftar diperbarui diam-diam dari server (foto + kode tampil).
+  void _antreBerubah() {
+    if (!mounted) return;
+    final n = _hitungAntre();
+    final berkurang = n < _jumlahAntre;
+    _jumlahAntre = n;
+    unawaited(_simpanan.baca(_sesi.userId).then((o) {
+      if (mounted && o != null) setState(() => _offline = o);
+    }));
+    if (berkurang) unawaited(_unduh(diam: true));
+  }
+
+  int _hitungAntre() => _semua.where((t) => _antre.item(_sesi.userId, _teks(t['temuanId'])) != null).length;
 
   void _gantiTab() {
     if (!_tab.indexIsChanging && mounted) setState(() {}); // tombol + hanya di tab Input
@@ -119,6 +137,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
 
   /// Daftar + master form dari HP dulu (instan), lalu perbarui keduanya di latar kalau ada sinyal.
   Future<void> _mulai() async {
+    await _antre.daftar(_sesi.userId);
     final o = await _simpanan.baca(_sesi.userId);
     MasterInsJar? m;
     try {
@@ -130,7 +149,9 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       _offline = o;
       _offlineDibaca = true;
       _master ??= m;
+      _jumlahAntre = _hitungAntre();
     });
+    unawaited(_antre.kirim(_sesi)); // v1.0.29: sisa antrean (mis. app ditutup sebelum terkirim)
     unawaited(_muatMaster());
     if (!_bukaTujuan()) {
       await _unduh(diam: o != null);
@@ -180,13 +201,17 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     });
     try {
       final r = await _api('getTemuanInspeksi', {'dari': _iso(awal), 'sampai': _iso(akhir)});
-      final isi = {
+      var isi = <String, dynamic>{
         'dari': _teks(r['dari']),
         'sampai': _teks(r['sampai']),
         'diambil': _teks(r['diambil']),
         'temuan': r['temuan'] ?? const [],
         'urutanSection': r['urutanSection'] ?? const [], // v1.0.19: urutan section db_Jaringan per penyulang
       };
+      // v1.0.29: temuan yang masih di antrean kirim (belum di server) tetap tampil
+      for (final t in _antre.belumDiServer(_sesi.userId)) {
+        isi = SimpananTemuanOffline.sisipkan(isi, t);
+      }
       await _simpanan.tulis(_sesi.userId, isi);
       if (mounted) {
         setState(() {
@@ -243,39 +268,17 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
             : s == StatusWo.terkirim
                 ? HartekGaya.merek
                 : HartekGaya.redup;
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(children: [
-        Icon(Icons.assignment_turned_in_outlined, size: 16, color: warna),
-        const SizedBox(width: 6),
-        Expanded(child: Text(teks, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: warna))),
+    // v1.0.29: kotak berwarna di bawah kartu daftar temuan
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: BoxDecoration(color: warna.withValues(alpha: .08), borderRadius: BorderRadius.circular(12)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.assignment_turned_in_outlined, size: 17, color: warna),
+        const SizedBox(width: 8),
+        Expanded(child: Text(teks, style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: warna))),
       ]),
     );
-  }
-
-  /// Kirim foto satu slot. true = diterima server.
-  Future<bool> _kirimFoto(String temuanId, String slot, String path) async {
-    final bytes = await FotoLapangan.baca(path);
-    if (bytes == null) {
-      _galatFoto.putIfAbsent(temuanId, () => {})[slot] = 'File foto tidak ada lagi di HP. Ambil ulang.';
-      return false;
-    }
-    try {
-      await _api('uploadFotoTemuanInspeksi', {'temuanId': temuanId, 'slot': slot, ...FotoLapangan.isiKirim(bytes)});
-      _tertunda[temuanId]?.remove(slot);
-      _galatFoto[temuanId]?.remove(slot);
-      unawaited(FotoLapangan.hapus(path)); // sudah di Drive, salinan HP tidak diperlukan
-      return true;
-    } on ApiException catch (e) {
-      _tertunda.putIfAbsent(temuanId, () => {})[slot] = path;
-      _galatFoto.putIfAbsent(temuanId, () => {})[slot] =
-          e.kode.startsWith('HTTP_') || e.kode == KodeError.serverSibuk ? 'Belum terkirim (sinyal). Ketuk untuk kirim ulang.' : pesanInsJar(e.kode);
-      return false;
-    } catch (_) {
-      _tertunda.putIfAbsent(temuanId, () => {})[slot] = path;
-      _galatFoto.putIfAbsent(temuanId, () => {})[slot] = 'Belum terkirim (sinyal). Ketuk untuk kirim ulang.';
-      return false;
-    }
   }
 
   /// Tombol + (tab Input): form temuan. Tanggal temuan = hari ini.
@@ -301,54 +304,59 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     }
     final tanggal = Wib.tanggal(DateTime.now());
     final idBaris = _uuid.v4(); // sekali per form: simpan ulang sesudah gangguan sinyal = duplikat, bukan baris kembar
-    var fotoGagal = 0;
     final hasil = await bukaFormHartek(
       context,
       judulApp: 'Temuan Inspeksi',
       judul: 'Temuan inspeksi',
-      keterangan: '${tanggalHartek(tanggal)} · ${_sesi.nama}\nTersimpan langsung ke server (butuh sinyal).',
+      keterangan: '${tanggalHartek(tanggal)} · ${_sesi.nama}\nTersimpan di HP, dikirim otomatis ke server.',
       tombol: 'Simpan temuan',
-      catatanBawah: catatanFormOnline,
       // v1.0.5: segmen hanya tampil untuk object Jaringan
       daftar: (n) => isianTemuan(_sesi, m,
-          kode: 'Admin ${tanggalHartek(tanggal)}', folderFoto: 'temuan_admin', nilai: n, pilihGardu: true), // v1.0.11: + gardu
+          kode: 'Admin ${tanggalHartek(tanggal)}', folderFoto: AntreanTemuanAdmin.folderFoto, nilai: n, pilihGardu: true), // v1.0.11: + gardu
+      // v1.0.29: simpan = tulis HP + antre, tanpa menunggu server
       simpan: (n) async {
         final p = pisahTemuan(n, m, admin: true);
-        final r = await _api('simpanTemuanInspeksi', {...p.data, 'tanggal': tanggal, 'idBaris': idBaris});
-        final id = _teks(r['temuanId']).isEmpty ? idBaris : _teks(r['temuanId']);
-        for (final e in p.foto.entries) {
-          if (!await _kirimFoto(id, e.key, e.value)) fotoGagal++;
-        }
-        return {'temuanId': id, 'kodeTemuan': _teks(r['kodeTemuan']), 'tampil': p.tampil};
+        return {'data': p.data, 'tampil': p.tampil, 'foto': p.foto};
       },
     );
     if (!mounted || hasil == null) return;
-    // daftar offline langsung memuat temuan baru (tanpa menunggu unduh ulang)
-    final isi = _offline ?? {'dari': tanggal, 'sampai': tanggal, 'diambil': '', 'temuan': const []};
-    final baru = SimpananTemuanOffline.sisipkan(isi, {
+    final node = <String, dynamic>{
       ...Map<String, dynamic>.from(hasil['tampil'] as Map),
-      'temuanId': hasil['temuanId'],
-      'kodeTemuan': hasil['kodeTemuan'],
+      'temuanId': idBaris,
+      'kodeTemuan': '',
       'tanggal': tanggal,
-    });
+    };
+    await _antre.tambahTemuan(_sesi,
+        idBaris: idBaris,
+        data: Map<String, dynamic>.from(hasil['data'] as Map),
+        tampil: node,
+        tanggal: tanggal,
+        foto: Map<String, String>.from(hasil['foto'] as Map));
+    final isi = _offline ?? {'dari': tanggal, 'sampai': tanggal, 'diambil': '', 'temuan': const []};
+    final baru = SimpananTemuanOffline.sisipkan(isi, node);
     await _simpanan.tulis(_sesi.userId, baru);
     if (!mounted) return;
-    setState(() => _offline = baru);
-    _pesan(fotoGagal > 0
-        ? 'Temuan ${_teks(hasil['kodeTemuan'])} tersimpan. $fotoGagal foto belum terkirim, ketuk fotonya di tab Daftar Temuan.'
-        : 'Temuan ${_teks(hasil['kodeTemuan'])} tersimpan.');
+    setState(() {
+      _offline = baru;
+      _jumlahAntre = _hitungAntre();
+    });
+    unawaited(tampilDataTersimpan(context));
     _tab.animateTo(1);
-    unawaited(_unduh(diam: true));
+    unawaited(_antre.kirim(_sesi));
   }
 
+  /// v1.0.29: foto yang masih di antrean kirim (jam = menunggu, merah = ditolak server).
+  Map<String, String> _fotoAntre(Map<String, dynamic>? x) => x == null ? const {} : Map<String, String>.from(x['foto'] as Map? ?? const {});
+
   Map<String, dynamic> _nodeFoto(Map<String, dynamic> t) {
-    final id = _teks(t['temuanId']);
-    final tunda = _tertunda[id] ?? const <String, String>{};
+    final x = _antre.item(_sesi.userId, _teks(t['temuanId']));
+    final tunda = _fotoAntre(x);
+    final galat = _teks(x?['galat']);
     return {
       ...t,
       HartekLokal.fotoLokal: tunda,
-      HartekLokal.fotoSinkron: {for (final s in tunda.keys) s: HartekLokal.gagal},
-      HartekLokal.fotoGalat: _galatFoto[id] ?? const <String, String>{},
+      HartekLokal.fotoSinkron: {for (final s in tunda.keys) s: galat.isEmpty ? HartekLokal.lokal : HartekLokal.gagal},
+      HartekLokal.fotoGalat: {if (galat.isNotEmpty) for (final s in tunda.keys) s: galat},
     };
   }
 
@@ -360,13 +368,19 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   Future<void> _ketukFoto(Map<String, dynamic> t, String slot) async {
     final id = _teks(t['temuanId']);
     final label = InsJarLokal.labelFoto[slot] ?? slot;
-    final tunda = _tertunda[id]?[slot];
+    final x = _antre.item(_sesi.userId, id);
+    final tunda = _fotoAntre(x)[slot];
     if (tunda != null) {
+      final galat = _teks(x?['galat']);
+      if (galat.isEmpty) {
+        await lihatFoto(context, path: tunda, slot: label); // menunggu kirim di latar
+        return;
+      }
       final pilih = await showDialog<String>(
         context: context,
         builder: (c) => AlertDialog(
           title: Text('$label belum terkirim'),
-          content: Text(_galatFoto[id]?[slot] ?? 'Foto belum diterima server.'),
+          content: Text(galat),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, 'BUANG'), child: const Text('Buang foto')),
             TextButton(onPressed: () => Navigator.pop(c, 'LIHAT'), child: const Text('Lihat')),
@@ -378,18 +392,10 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       if (pilih == 'LIHAT') {
         await lihatFoto(context, path: tunda, slot: label);
       } else if (pilih == 'BUANG') {
-        setState(() {
-          _tertunda[id]?.remove(slot);
-          _galatFoto[id]?.remove(slot);
-        });
-        await FotoLapangan.hapus(tunda);
+        await _antre.buang(_sesi, id, slot: slot);
       } else {
-        setState(() => _sibuk = true);
-        final ok = await _kirimFoto(id, slot, tunda);
-        if (!mounted) return;
-        setState(() => _sibuk = false);
-        _pesan(ok ? '$label terkirim.' : (_galatFoto[id]?[slot] ?? 'Foto belum terkirim.'));
-        if (ok) await _unduh(diam: true);
+        await _antre.kirimUlang(_sesi, id);
+        unawaited(_antre.kirim(_sesi));
       }
       return;
     }
@@ -403,15 +409,12 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       final path = await FotoLapangan.ambil(context,
           label: label,
           pratinjau: watermarkTemuan(_sesi, kode: _teks(t['kodeTemuan']), nilai: nilai, slot: slot),
-          folder: 'temuan_admin',
+          folder: AntreanTemuanAdmin.folderFoto,
           bolehGaleri: true);
       if (path == null || !mounted) return;
-      setState(() => _sibuk = true);
-      final ok = await _kirimFoto(id, slot, path);
-      if (!mounted) return;
-      setState(() => _sibuk = false);
-      _pesan(ok ? '$label terkirim.' : (_galatFoto[id]?[slot] ?? 'Foto belum terkirim.'));
-      if (ok) await _unduh(diam: true);
+      // v1.0.29: foto susulan ikut antrean latar
+      await _antre.tambahFoto(_sesi, id, _teks(t['kodeTemuan']), slot, path);
+      unawaited(_antre.kirim(_sesi));
     } on RowError catch (e) {
       if (mounted) _pesan(e.pesan);
     }
@@ -619,20 +622,61 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     );
   }
 
+  /// v1.0.29: temuan ditolak server saat dikirim di latar (bukan sinyal): alasan + Kirim ulang / Buang.
+  Widget? _galatKirim(Map<String, dynamic> t) {
+    final id = _teks(t['temuanId']);
+    final x = _antre.item(_sesi.userId, id);
+    final galat = _teks(x?['galat']);
+    if (x == null || galat.isEmpty || x['data'] is! Map) return null;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(10, 9, 6, 4),
+      decoration: BoxDecoration(color: AppColors.red100, borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.red700),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Belum diterima server. $galat', style: const TextStyle(fontSize: 13, height: 1.35, color: AppColors.red700))),
+        ]),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(onPressed: () => unawaited(_buangTemuan(t)), child: const Text('Buang')),
+          TextButton(
+            onPressed: () async {
+              await _antre.kirimUlang(_sesi, id);
+              unawaited(_antre.kirim(_sesi));
+            },
+            child: const Text('Kirim ulang'),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _buangTemuan(Map<String, dynamic> t) async {
+    final ya = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Buang temuan ini?'),
+        content: const Text('Temuan ini belum diterima server dan akan dihapus dari HP beserta fotonya.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Buang')),
+        ],
+      ),
+    );
+    if (ya != true || !mounted) return;
+    await _antre.buang(_sesi, _teks(t['temuanId']));
+    if (mounted) Navigator.maybePop(context); // daftar temuan dibangun dari data saat dibuka
+  }
+
   /// v1.0.19: kartu satu temuan (foto server, status WO), dipakai halaman daftar temuan terpisah.
+  /// v1.0.29: desain baru (KartuDaftarTemuan).
   Widget _kartuTemuan(Map<String, dynamic> t) {
     final wo = _statusWo(t);
-    return KartuTemuan(
+    final galat = _galatKirim(t);
+    return KartuDaftarTemuan(
       t: t,
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: _teks(t['sumber']) == 'ADMIN' ? AppColors.brand100 : AppColors.neutral100,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(timInspeksiTemuan(t), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
-      ),
-      fotoBawah: FotoRincian(
+      foto: FotoRincian(
         node: _nodeFoto(t),
         slot: InsJarLokal.slotFoto,
         label: const {'TEMUAN': 'Temuan', 'TIANG': 'Tiang'},
@@ -641,14 +685,9 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
         gambarServer: (s) => GambarServerWo(
             key: ValueKey('temuan-${_teks(t['temuanId'])}-$s'), muat: _muatFotoTemuan, data: {'temuanId': _teks(t['temuanId']), 'slot': s}),
       ),
-      bawah: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (_teks(t['tanggal']).isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text('Tanggal inspeksi: ${tanggalHartek(_teks(t['tanggal']))}', style: HartekGaya.sekunder),
-          ),
-        if (wo != null) wo,
-      ]),
+      bawah: galat == null && wo == null
+          ? null
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [if (galat != null) galat, if (wo != null) wo]),
     );
   }
 

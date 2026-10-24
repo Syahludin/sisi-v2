@@ -1020,17 +1020,22 @@ String teksJarak(double km) => km < 1 ? '${(km * 1000).round()} m' : '${km.toStr
 
 /// v0.64.8 (format kvlar 8 Okt 2026): teks WhatsApp satu P0 = FORMAT PENUGASAN KHUSUS. Kosong = "-".
 /// Petugas: "A dan B", tiga orang atau lebih "A, B dan C".
-String teksWaP0(P0Lokal x, {required List<String> petugas}) {
+String teksWaP0(P0Lokal x, {required List<String> petugas}) =>
+    teksWaPenugasanP0(pekerjaan: x.namaTampil, penyulang: x.penyulang, section: x.section, daerah: x.daerah, petugas: petugas);
+
+/// v1.0.31: isi teks WA penugasan (dipakai P0 lokal dan P0 dari WO Tindak Lanjut).
+String teksWaPenugasanP0(
+    {required String pekerjaan, required String penyulang, required String section, required String daerah, required List<String> petugas}) {
   String isi(String v) => v.trim().isEmpty ? '-' : v.trim();
   final p = petugas.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
   final teksPetugas = p.isEmpty ? '-' : p.length == 1 ? p.first : '${p.sublist(0, p.length - 1).join(', ')} dan ${p.last}';
   return [
     '*FORMAT PENUGASAN KHUSUS*',
     '',
-    'Pekerjaan : ${isi(x.namaTampil)}',
-    'Penyulang : ${isi(x.penyulang)}',
-    'Section : ${isi(x.section)}',
-    'Daerah : ${isi(x.daerah)}',
+    'Pekerjaan : ${isi(pekerjaan)}',
+    'Penyulang : ${isi(penyulang)}',
+    'Section : ${isi(section)}',
+    'Daerah : ${isi(daerah)}',
     'Petugas : $teksPetugas',
   ].join('\n');
 }

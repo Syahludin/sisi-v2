@@ -50,7 +50,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
     };
     PemeriksaVersi.aktif = _versi;
     PemeriksaVersi.tokenSesi = () => _sesi?.token; // v1.0.19: update APK langsung dari app
-    KunciUpdate.bukaUpdate = () => unawaited(_versi.cek(manual: true)); // v1.0.22: pita / kartu kunci update
+    KunciUpdate.bukaUpdate = () => unawaited(_versi.tampilkan()); // v1.0.22 pita / form terkunci, v1.0.26 kartu update langsung
     widget.deps.api.onMasterServer = (r) => unawaited(_masterBaru(r)); // v1.0.22
     widget.deps.notif.onPesanDepan = _tampilkanNotif; // v0.83.0
     _muat();

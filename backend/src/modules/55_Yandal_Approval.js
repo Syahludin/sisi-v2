@@ -97,7 +97,7 @@ function tambahHari_(tgl, n) { return new Date(Date.parse(tgl + 'T00:00:00Z') + 
  */
 function cekJedaUkurGardu_(semuaUkur, g, tglP0, ukurId) {
   if (!aturanGarduDuaHari_() || !tglP0) return;
-  var terakhir = tglSel_(g['Tanggal Ukur Terakhir']);
+  var terakhir = tglUkurTerbaruGardu_(g);   // v1.0.23: WBP atau LWBP
   semuaUkur.forEach(function (x) {
     if (String(x.gardu_id) !== String(g.gardu_id) || String(x.ukur_id) === String(ukurId) || String(x.status || 'AKTIF') === 'BATAL') return;
     var t = tglSel_(x.Tanggal);
@@ -160,6 +160,7 @@ function itemApprovalP0_(r, anak) {
     status: st, sistem: ditolakSistemP0_(r), alasanRejected: teksP0_(r['Alasan Rejected']),
     approvedOleh: teksP0_(r['Approved Oleh']), waktuApprove: teksWaktuYandal_(r['Waktu Approve']),
     waktuSebelum: teksWaktuYandal_(r['Waktu Sebelum']), waktuSesudah: teksWaktuYandal_(r['Waktu Sesudah']),
+    waktuPekerjaan: teksWaktuYandal_(r['Waktu Pekerjaan']), waktuDibuat: teksWaktuYandal_(r['Waktu Dibuat']),   // v1.0.31
     durasi: angkaApprovalP0_(r['Durasi (menit)']), jarakClosing: angkaApprovalP0_(r['Jarak Closing P0 (m)']),
     jarakAntar: angkaApprovalP0_(r['Jarak Antar P0 (m)']), koordinat: teksP0_(r.Koordinat), koordinatClosing: teksP0_(r['Koordinat Closing']),
     skorDurasi: angkaApprovalP0_(r['Skor Durasi']), bobot: angkaApprovalP0_(r.Bobot), pengali: angkaApprovalP0_(r.Pengali),
@@ -238,18 +239,60 @@ function getFotoApprovalP0_(sesi, data) {
     if (String(r.p0_id) !== d.p0Id) throw new SisiError_('DATA_TIDAK_DITEMUKAN', d.id);   // anak wajib milik P0 yang diminta
     kolomId = sw ? kolomFotoSwitching_(d.slot).id : kolomFotoGardu_(d.slot).id;
   }
-  var fileId = teksP0_(r[kolomId]);
-  if (!fileId) throw new SisiError_('FOTO_TIDAK_ADA', d.slot);
-  if (d.ukuran !== 'PENUH') {
+  return jawabFotoYandal_(teksP0_(r[kolomId]), d.slot, d.ukuran, (metaP0_(r)[d.slot] || {}).sha256);
+}
+
+/** Isi foto Drive Yandal: KECIL = thumbnail Drive (belum ada = penuh), PENUH = bytes terverifikasi sha256 meta. */
+function jawabFotoYandal_(fileId, slot, ukuran, sha256) {
+  if (!fileId) throw new SisiError_('FOTO_TIDAK_ADA', slot);
+  if (ukuran !== 'PENUH') {
     try {
       var th = DriveApp.getFileById(fileId).getThumbnail();
       var b = th && th.getBytes ? th.getBytes() : null;
       if (b && b.length) return { mime: 'image/jpeg', kecil: true, ukuranByte: b.length, data: Utilities.base64Encode(b) };
     } catch (eT) { /* thumbnail belum ada: kirim penuh */ }
   }
-  var m = metaP0_(r)[d.slot] || {};
-  var v = bytesFotoTerverifikasi_(fileId, m.sha256);
+  var v = bytesFotoTerverifikasi_(fileId, sha256);
   return { mime: 'image/jpeg', kecil: false, ukuranByte: v.bytes.length, sha256: v.sha256, data: Utilities.base64Encode(v.bytes) };
+}
+
+// ---------------- v1.0.31: P0 dari WO Tindak Lanjut untuk HP tim YANDAL ----------------
+
+/**
+ * P0 hasil WO Tindak Lanjut (yan_P0 dengan foto_meta.WO, dicatat saat WO Selesai) di shift sesi, bentuk sama dengan
+ * Approval P0 + temuanId / tlId WO. HP menampilkannya seperti P0 lokal (data, foto, download, kirim WA). Hanya baca.
+ */
+function getP0WoYandal_(sesi, data, platform) {
+  wajibPetugasYandalHp_(sesi, platform);
+  validasi_(data, {});
+  var tb = bacaSheetYandal_(['yan_Shift', 'yan_P0']);
+  var sh = shiftSesiP0_(tb.yan_Shift.rows, sesi, null).r;
+  return {
+    shiftId: String(sh.shift_id),
+    list: tb.yan_P0.rows.filter(function (r) {
+      return String(r.shift_id) === String(sh.shift_id) && String(r.status || 'AKTIF') !== 'BATAL' && metaP0_(r).WO;
+    }).map(function (r) {
+      var o = itemApprovalP0_(r), wo = metaP0_(r).WO || {};
+      o.temuanId = teksP0_(wo.temuanId);
+      o.tlId = teksP0_(wo.tlId);
+      return o;
+    })
+  };
+}
+
+/** Foto yan_P0 (Sebelum / Pekerjaan / Sesudah) P0 dari WO milik tim sesi. */
+function getFotoP0WoYandal_(sesi, data, platform) {
+  wajibPetugasYandalHp_(sesi, platform);
+  var d = validasi_(data, {
+    p0Id: { tipe: 'uuid', wajib: true },
+    slot: { tipe: 'pilihan', wajib: true, pilihan: YAN_SLOT_P0_ },
+    ukuran: { tipe: 'pilihan', pilihan: ['KECIL', 'PENUH'] }
+  });
+  var l = bacaSheetYandal_(['yan_P0']).yan_P0.rows.filter(function (x) { return String(x.p0_id) === d.p0Id; });
+  if (l.length > 1) throw new SisiError_('DATA_GANDA', d.p0Id);
+  var r = l[0];
+  if (!r || String(r.tim_id) !== String(sesi.timId) || !metaP0_(r).WO) throw new SisiError_('DATA_TIDAK_DITEMUKAN', d.p0Id);
+  return jawabFotoYandal_(teksP0_(r[YAN_KOLOM_FOTO_P0_[d.slot].id]), d.slot, d.ukuran, (metaP0_(r)[d.slot] || {}).sha256);
 }
 
 // ---------------- keputusan + koreksi jenis ----------------

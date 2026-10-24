@@ -9,6 +9,8 @@ mobile/env/production.json
 *.keystore
 *.jks
 key.properties
+google-services.json
+*firebase-adminsdk*.json
 local.properties
 .env
 .env.*

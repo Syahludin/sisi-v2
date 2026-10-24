@@ -572,19 +572,30 @@ function terapkanUkurInsDu_(p, periode, sesi, iso) {
   var g = tG.rows.filter(function (x) { return String(x.gardu_id) === String(p.gardu_id); })[0];
   if (!g || teksInsDu_(g['Status Gardu']).toUpperCase() !== 'AKTIF') return 'TIDAK';
   var a = periode.toLowerCase() + '_';
-  var tgl = teksInsDu_(p[a + 'waktu']).slice(0, 10) || tglSel_(p.tanggal);
-  var milikIni = String(g.ukur_id_terakhir || '') === String(p.pengukuran_id);
-  var tglMaster = tglSel_(g['Tanggal Ukur Terakhir']);
+  // v1.0.23: waktu bisa sel tanggal (diubah Sheets), dulu dipotong jadi 'Fri Oct 16'. Blok master sesuai periode
+  // (WBP dan LWBP tidak lagi saling menimpa); LWBP membawa 7 isian cover gardu.
+  var tgl = tglSel_(p[a + 'waktu']) || tglSel_(p.tanggal);
+  var blok = ukurBlokGardu_(g, periode);
+  var milikIni = String(blok.ukur_id_terakhir || '') === String(p.pengukuran_id);
+  var tglMaster = tglSel_(blok['Tanggal Ukur Terakhir']);
   if (!milikIni && tglMaster && tglMaster > tgl) return 'TIDAK';
-  if (milikIni && periode === 'LWBP' && teksInsDu_(g['Waktu Beban']) === 'WBP') return 'TIDAK';   // WBP tidak ditimpa LWBP
   var u = {
-    'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': teksInsDu_(p.kode_pengukuran), 'Waktu Beban': periode,
+    'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': teksInsDu_(p.kode_pengukuran),
     'Arus Maks per Fasa (A)': arusNominalGardu_(p.kapasitas_kva), 'Pembebanan (kVA)': p[a + 'pembebanan_kva'],
     'Persentase Beban (%)': p[a + 'persentase_beban'], 'Kategori Beban': teksInsDu_(p[a + 'kategori_beban']),
-    ukur_id_terakhir: String(p.pengukuran_id), 'Diubah Oleh': sesi.nama || sesi.username, 'Timestamp Update': iso, diubah_oleh: sesi.userId
+    'Sumber Data': 'Inspeksi Gardu', ukur_id_terakhir: String(p.pengukuran_id),
+    'Diubah Oleh': sesi.nama || sesi.username, 'Timestamp Update': iso, diubah_oleh: sesi.userId
   };
   INSDU_NILAI_.forEach(function (n) { u[n.master] = p[a + n.kolom]; });
-  tulisBlok_(tG, [{ r: g, u: u }], [], { bolehId: ['ukur_id_terakhir'] });
+  u = kolomUkurPeriode_(periode, u);
+  if (periode === 'LWBP') {
+    var tglCover = tglSel_(g['Tanggal Cover']);
+    if (!tglCover || tglCover <= tgl) {
+      u['Tanggal Cover'] = tgl;
+      INSDU_COVER_.forEach(function (c) { u[COVER_GARDU_[c.kunci]] = teksInsDu_(p[c.kolom]); });
+    }
+  }
+  tulisBlok_(tG, [{ r: g, u: u }], [], { bolehId: ['ukur_id_terakhir', 'ukur_id_lwbp'] });
   return 'YA';
 }
 

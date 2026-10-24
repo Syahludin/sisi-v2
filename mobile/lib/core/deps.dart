@@ -6,6 +6,7 @@ import '../features/gardu/gardu_repository.dart';
 import '../features/hartek/hartek_store.dart';
 import '../features/insdu/insdu_store.dart';
 import '../features/insjar/insjar_store.dart';
+import '../features/insjar/temuan_admin_antre.dart';
 import '../features/master/master_repository.dart';
 import '../features/row/foto_repository.dart';
 import '../features/row/laporan_repository.dart';
@@ -51,6 +52,7 @@ class Deps {
     required this.insjar,
     required this.insdu,
     required this.wo,
+    required this.temuanAdmin,
     required this.latar,
   });
 
@@ -76,6 +78,7 @@ class Deps {
   final InsJarStore insjar; // v1.0.0: Inspeksi Jaringan di HP + antrean kirim otomatis
   final InsDuStore insdu; // v1.0.12: Inspeksi Gardu di HP + antrean kirim otomatis
   final WoStore wo; // v1.0.16: WO tindak lanjut tim di HP (offline) + antrean kirim otomatis
+  final AntreanTemuanAdmin temuanAdmin; // v1.0.29: temuan inspeksi admin dikirim di latar
   final SinkronLatar latar; // v1.0.12: sinkron tetap jalan saat app di latar belakang
 
   static Future<Deps> siapkan() async {
@@ -112,6 +115,9 @@ class Deps {
     // juga memakai antrean modulnya
     final wo = WoStore(GudangHartekSql(db, tabelDoc: 'wo_lokal', tabelAntre: 'wo_antre'),
         (s, aksi, data) => api.call(aksi, token: s.token, data: data, timeout: Duration(seconds: aksi == 'uploadFotoWo' ? 90 : 60)));
+    // v1.0.29: temuan inspeksi input admin (menu Temuan Inspeksi): simpan di HP, kirim di latar
+    final temuanAdmin = AntreanTemuanAdmin(GudangHartekSql(db), (s, aksi, data) => api.call(aksi, token: s.token, data: data,
+        timeout: Duration(seconds: aksi == 'uploadFotoTemuanInspeksi' ? 90 : 60)));
     final syncCtl = SyncController(
       sync,
       outbox,
@@ -123,6 +129,7 @@ class Deps {
       insjar: insjar,
       insdu: insdu,
       wo: wo,
+      temuanAdmin: temuanAdmin,
       probeOnline: () async {
         await api.call('ping', timeout: const Duration(seconds: 12));
       },
@@ -157,6 +164,7 @@ class Deps {
       insjar: insjar,
       insdu: insdu,
       wo: wo,
+      temuanAdmin: temuanAdmin,
       latar: SinkronLatar(syncCtl),
     );
   }

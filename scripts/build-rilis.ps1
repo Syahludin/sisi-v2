@@ -51,8 +51,35 @@ function Pasang-ManifestLatar([string]$mobile) {
     Write-Host "AndroidManifest.xml: izin + layanan sinkron latar dipasang." -ForegroundColor Cyan
   }
 }
+# v1.0.29: notifikasi push FCM (pengingat login Yandal). Plugin google-services dipasang ke gradle lokal (idempoten) dan
+# hanya aktif kalau android\app\google-services.json ada. Tanpa file itu APK tetap jadi, tetapi notifikasi MATI.
+function Pasang-Firebase([string]$mobile) {
+  $set = Join-Path $mobile "android\settings.gradle.kts"
+  $app = Join-Path $mobile "android\app\build.gradle.kts"
+  if (-not (Test-Path $set) -or -not (Test-Path $app)) { Write-Warning "Gradle Android belum ada, Firebase dilewati."; return }
+  $x = Get-Content $set -Raw
+  if ($x -notmatch 'com\.google\.gms\.google-services') {
+    $x = $x -replace '(id\("com\.android\.application"\) version "[^"]+" apply false)', ('$1' + "`r`n" + '    id("com.google.gms.google-services") version "4.4.4" apply false')
+    Set-Content -Path $set -Value $x -NoNewline -Encoding UTF8
+    Write-Host "settings.gradle.kts: plugin google-services didaftarkan." -ForegroundColor Cyan
+  }
+  $y = Get-Content $app -Raw
+  if ($y -notmatch 'apply\(plugin = "com\.google\.gms\.google-services"\)') {
+    $baris = "`r`n// v0.83.0 / v1.0.29: notifikasi FCM, aktif hanya kalau android/app/google-services.json ada.`r`n" +
+      'if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")' + "`r`n"
+    $re = [regex]'(?s)^(.*?\nplugins \{.*?\n\})'
+    if (-not $re.IsMatch($y)) { Write-Warning "Blok plugins di build.gradle.kts tidak ditemukan, Firebase dilewati."; return }
+    $y = $re.Replace($y, { param($m) $m.Groups[1].Value + $baris }, 1)
+    Set-Content -Path $app -Value $y -NoNewline -Encoding UTF8
+    Write-Host "build.gradle.kts: plugin google-services (bersyarat) dipasang." -ForegroundColor Cyan
+  }
+  if (-not (Test-Path (Join-Path $mobile "android\app\google-services.json"))) {
+    Write-Warning "android\app\google-services.json TIDAK ADA: notifikasi push (pengingat login Yandal) MATI di APK ini. Lihat mobile\README.md bagian FCM."
+  }
+}
 Pasang-ManifestLatar $mobile
 Pasang-MainActivity $root $mobile
+Pasang-Firebase $mobile
 if (-not (Test-Path $keyProps)) { throw "mobile\android\key.properties belum ada. Jalankan scripts\buat-keystore.ps1 dulu." }
 if (-not (Test-Path (Join-Path $mobile $envFile))) { throw "mobile/$envFile belum ada (salin dari $Target.example.json)." }
 $g = Get-Content $gradle -Raw

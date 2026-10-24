@@ -649,6 +649,41 @@ class FotoRepository {
     return (unduh: n, galeri: keGaleriOk);
   }
 
+  /// v1.0.33 (permintaan kvlar 24 Okt 2026): semua foto eksekusi-eksekusi ini ke galeri (album SiSi ROW, nama
+  /// Kode Eksekusi_SLOT), dipakai Download Foto Full satu penyulang dan download per eksekusi. Foto di HP disalin
+  /// langsung (eksekusi belum terkirim tetap bisa); eksekusi yang fotonya belum lengkap di HP diunduh dulu dari server
+  /// (unduhUlang). Tanpa sinyal = foto yang ada di HP saja. `progres(selesai, total eksekusi)`.
+  Future<({int galeri, int gagal})> keGaleriEksekusi(Sesi s, List<({String id, String kode})> eksekusi,
+      {void Function(int selesai, int total)? progres}) async {
+    var galeri = 0, gagal = 0, n = 0;
+    progres?.call(0, eksekusi.length);
+    for (final e in eksekusi) {
+      var foto = await _fotoDiHp(e.id);
+      if (foto.length < slot.length) {
+        try {
+          await unduhUlang(s, e.id);
+          foto = await _fotoDiHp(e.id);
+        } catch (_) {/* tanpa sinyal / belum di server: pakai yang ada di HP */}
+      }
+      for (final f in foto) {
+        try {
+          await keGaleri(f.path, nama: '${e.kode}_${f.slot}');
+          galeri++;
+        } catch (_) {
+          gagal++;
+        }
+      }
+      progres?.call(++n, eksekusi.length);
+    }
+    return (galeri: galeri, gagal: gagal);
+  }
+
+  /// Foto terbaru per slot yang filenya masih ada di HP.
+  Future<List<FotoLokal>> _fotoDiHp(String eksekusiId) async => [
+        for (final f in (await untukEksekusi(eksekusiId)).values)
+          if (await File(f.path).exists()) f,
+      ];
+
   /// Foto GAGAL dicoba lagi pada sync berikutnya.
   Future<void> ulangiGagal(String eksekusiId) =>
       _db.db.update('foto_antre', {'status': 'TERTUNDA', 'alasan': null},

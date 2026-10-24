@@ -72,7 +72,34 @@ class FotoLapangan {
       throw RowError('Watermark gagal dibuat. Ambil ulang foto.');
     }
     if (akhir.length > FotoRepository.maksByte) throw RowError('Foto + watermark lebih dari 2 MB. Ambil ulang.');
-    return _tulis(akhir, folder);
+    final path = await _tulis(akhir, folder);
+    // v1.0.29: GPS + waktu jepret ikut dikirim (WO: koordinat closing P0 Yandal = GPS foto Sesudah)
+    try {
+      await File('$path$_akhiranMeta').writeAsString(jsonEncode({
+        'waktu': waktu.toUtc().toIso8601String(),
+        if (lat != null && lng != null) ...{'lat': lat, 'lng': lng},
+        if (lat != null && lng != null && f.akurasiM != null) 'akurasiM': f.akurasiM,
+      }), flush: true);
+    } catch (_) {/* tanpa meta: server memakai waktu terima, tanpa koordinat foto */}
+    return path;
+  }
+
+  static const _akhiranMeta = '.meta.json';
+
+  /// v1.0.29: isian kirim GPS + waktu jepret foto kamera ({waktu, lat, lng, akurasiM}; kosong = galeri / foto lama).
+  static Future<Map<String, dynamic>> metaKirim(String path) async {
+    try {
+      final f = File('$path$_akhiranMeta');
+      if (!await f.exists()) return const {};
+      final m = jsonDecode(await f.readAsString());
+      if (m is! Map) return const {};
+      return {
+        for (final k in const ['waktu', 'lat', 'lng', 'akurasiM'])
+          if (m[k] != null) k: m[k],
+      };
+    } catch (_) {
+      return const {};
+    }
   }
 
   static Future<String> _tulis(Uint8List isi, String folder, {String awalan = ''}) async {
@@ -119,9 +146,11 @@ class FotoLapangan {
 
   static Future<void> hapus(String? path) async {
     if (path == null || path.isEmpty) return;
-    try {
-      final f = File(path);
-      if (await f.exists()) await f.delete();
-    } catch (_) {/* biarkan */}
+    for (final x in [path, '$path$_akhiranMeta']) {
+      try {
+        final f = File(x);
+        if (await f.exists()) await f.delete();
+      } catch (_) {/* biarkan */}
+    }
   }
 }

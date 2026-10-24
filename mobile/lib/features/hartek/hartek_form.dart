@@ -53,12 +53,28 @@ class IsianHartek {
     this.ambilFoto,
     this.gpsSaja = false,
     this.infoDari,
+    this.tambah = false,
+    this.lipat = false,
+    this.sub,
   });
   final String kunci, label;
   final bool wajib, angka, multi, koordinat, bulat, segmen, centang, pilihBanyak, bacaSaja;
 
   /// v1.0.16: koordinat hanya dari tombol GPS perangkat (tidak bisa diketik), mis. WO Yandal = petugas di lapangan.
   final bool gpsSaja;
+
+  /// v1.0.23: bukan isian, tombol "+ [label]" (mis. Tambah pekerjaan / Tambah material). Diketuk = nilai [kunci] (hitungan)
+  /// naik satu, daftar isian dibangun ulang dengan baris baru. [grup] '' = tombol berdiri sendiri di luar kartu.
+  /// [kunci] wajib diawali [awalanTambah]: hitungan tetap tersimpan walau tombolnya sedang tidak tampil.
+  final bool tambah;
+  static const awalanTambah = '_tambah';
+
+  /// v1.0.26: isian pertama sebuah [grup]: kartu grup bisa dibuka / ditutup (aksen merek, mis. kartu pekerjaan).
+  final bool lipat;
+
+  /// v1.0.26: judul kartu kecil DI DALAM kartu grup (aksen kuning, bisa dibuka / ditutup, mis. satu material). Isian
+  /// berurutan dengan [sub] sama masuk kartu kecil yang sama.
+  final String? sub;
 
   /// v1.0.16: chip keterangan di bawah isian, dihitung dari isian form saat ini (null = tidak tampil).
   final InfoIsianHartek? Function(Map<String, String> nilai)? infoDari;
@@ -88,6 +104,7 @@ class IsianHartek {
   List<String>? opsi(Map<String, String> nilai) => foto ? null : (pilihanDari?.call(nilai) ?? pilihan);
 
   String? cek(String? raw, Map<String, String> nilai) {
+    if (tambah) return null;
     final s = (raw ?? '').trim();
     if (foto) return s.isEmpty && wajib ? '$label wajib diambil' : null;
     if (s.isEmpty) return wajib ? '$label wajib diisi' : null;
@@ -213,6 +230,9 @@ class _FormHartekPageState extends State<FormHartekPage> {
   double? _akurasiLive;
   int _detikGps = 0;
 
+  /// v1.0.26: kartu lipat (kunci isian pertamanya) yang sedang ditutup.
+  final _tertutup = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -230,6 +250,17 @@ class _FormHartekPageState extends State<FormHartekPage> {
     }
     final k = widget.fokus;
     if (k != null && k.isNotEmpty) _tunjuk(k);
+    // v1.0.28 (permintaan kvlar 23 Okt 2026): koordinat gpsSaja (WO Yandal) langsung diambil dari GPS HP saat form
+    // dibuka, tidak bisa diketik; tombol GPS tetap ada untuk mengulang bila sinyal GPS gagal.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final i in widget.daftar(_nilai)) {
+        if (i.gpsSaja && !i.bacaSaja && (_nilai[i.kunci] ?? '').trim().isEmpty) {
+          unawaited(_ambilGps(i));
+          return;
+        }
+      }
+    });
   }
 
   @override
@@ -292,6 +323,9 @@ class _FormHartekPageState extends State<FormHartekPage> {
       final terlihat = widget.daftar(_nilai);
       final keys = terlihat.map((i) => i.kunci).toSet();
       for (final key in _nilai.keys.toList()) {
+        // v1.0.24: hitungan tombol tambah tidak ikut dibersihkan (tombol tersembunyi selama baris barunya masih kosong;
+        // dulu hitungan terhapus dan baris pekerjaan ke-2 langsung hilang lagi)
+        if (key.startsWith(IsianHartek.awalanTambah)) continue;
         if (key.startsWith('_akurasi_')) {
           final target = key.substring('_akurasi_'.length);
           if (!keys.contains(target)) {
@@ -467,6 +501,7 @@ class _FormHartekPageState extends State<FormHartekPage> {
     setState(() {
       _errors = errors;
       _pesan = null;
+      if (errors.isNotEmpty) _tertutup.clear(); // v1.0.26: isian yang salah tidak tersembunyi di kartu tertutup
     });
     if (errors.isNotEmpty) {
       _tunjuk(errors.keys.first);
@@ -628,7 +663,7 @@ class _FormHartekPageState extends State<FormHartekPage> {
     return [for (final x in i.opsi(_nilai) ?? const <String>[]) if (ada.contains(x)) x].join(' & ');
   }
 
-  Widget _ubinSegmen(IsianHartek i, String o, bool pilih, bool beku) {
+  Widget _ubinSegmen(IsianHartek i, String o, bool pilih, bool beku, {bool salah = false}) {
     final centang = i.centang || i.pilihBanyak;
     final ikon = centang ? (pilih ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded) : JenisPg.dari(o).ikon;
     final bentuk = BorderRadius.circular(16);
@@ -641,7 +676,7 @@ class _FormHartekPageState extends State<FormHartekPage> {
         color: pilih ? AppColors.brand50 : AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: bentuk,
-          side: BorderSide(color: pilih ? HartekGaya.merek : HartekGaya.garis, width: pilih ? 1.6 : 1),
+          side: BorderSide(color: pilih ? HartekGaya.merek : salah ? AppColors.red600 : HartekGaya.garis, width: pilih || salah ? 1.6 : 1),
         ),
         child: InkWell(
           key: ValueKey('pilih-${i.kunci}-$o'),
@@ -685,14 +720,19 @@ class _FormHartekPageState extends State<FormHartekPage> {
               for (var n = 0; n < options.length; n++) ...[
                 if (n > 0) const SizedBox(width: 10),
                 Expanded(
-                    child: _ubinSegmen(i, options[n], i.pilihBanyak ? nilaiCentang(value).contains(options[n]) : value == options[n], beku)),
+                    child: _ubinSegmen(i, options[n], i.pilihBanyak ? nilaiCentang(value).contains(options[n]) : value == options[n], beku,
+                        salah: _errors[i.kunci] != null)), // v1.0.31: wajib belum dipilih = ubin merah
               ],
             ]),
           ),
           if (_errors[i.kunci] != null)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 4),
-              child: Text(_errors[i.kunci]!, style: const TextStyle(fontSize: 13, color: AppColors.red700)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.error_outline_rounded, size: 15, color: AppColors.red700),
+                const SizedBox(width: 6),
+                Expanded(child: Text(_errors[i.kunci]!, style: const TextStyle(fontSize: 13, color: AppColors.red700))),
+              ]),
             ),
         ]),
       );
@@ -769,14 +809,32 @@ class _FormHartekPageState extends State<FormHartekPage> {
         textInputAction: i.multi ? TextInputAction.newline : TextInputAction.next,
         minLines: i.multi ? 3 : 1,
         maxLines: i.multi ? 5 : 1,
-        decoration: _dekor(i, suffix: i.koordinat ? _tombolGps(i) : null, hint: i.gpsSaja ? 'Ketuk tombol GPS' : null),
+        decoration: _dekor(i, suffix: i.koordinat ? _tombolGps(i) : null, hint: i.gpsSaja ? 'Diambil otomatis dari GPS HP' : null),
         onChanged: (v) => _ubah(i.kunci, v),
         onSubmitted: (_) => FocusScope.of(context).nextFocus(),
       ),
     );
   }
 
+  /// v1.0.23: tombol "+ label" (isian [IsianHartek.tambah]).
+  Widget _tombolTambah(IsianHartek i) => Padding(
+        key: _anchors.putIfAbsent(i.kunci, () => GlobalKey()),
+        padding: const EdgeInsets.only(bottom: 16),
+        child: OutlinedButton.icon(
+          onPressed: _sibuk ? null : () => _ubah(i.kunci, '${(int.tryParse(_nilai[i.kunci] ?? '') ?? 0) + 1}'),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(i.label),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(46),
+            foregroundColor: HartekGaya.merek,
+            side: const BorderSide(color: HartekGaya.merek),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+
   Widget _field(IsianHartek i) {
+    if (i.tambah) return _tombolTambah(i);
     final options = i.opsi(_nilai);
     final infoGps = _infoGps != null && _infoGpsKunci == i.kunci;
     final jalanGps = _gpsKey == i.kunci;
@@ -790,7 +848,8 @@ class _FormHartekPageState extends State<FormHartekPage> {
             TextSpan(text: i.label, children: [
               if (i.wajib) const TextSpan(text: ' *', style: TextStyle(color: AppColors.red600)),
             ]),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: HartekGaya.tinta),
+            // v1.0.31: label ikut merah selama isiannya salah / wajib belum diisi
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _errors[i.kunci] != null ? AppColors.red700 : HartekGaya.tinta),
           ),
         ),
         _kontrol(i),
@@ -874,33 +933,63 @@ class _FormHartekPageState extends State<FormHartekPage> {
         ]),
       );
 
-  /// Kelompokkan isian per [IsianHartek.grup] jadi kartu; isian dengan [IsianHartek.baris] sama jadi satu baris.
-  List<Widget> _seksi(List<IsianHartek> fields) {
-    final hasil = <Widget>[];
-    String? judul;
-    var isi = <Widget>[];
-    void tutup() {
-      if (isi.isEmpty) return;
-      hasil.add(_kartuSeksi(judul, isi));
-      isi = <Widget>[];
-    }
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu yang bisa dibuka / ditutup. [sub] = kartu kecil di dalam kartu grup
+  /// (material, aksen kuning); selain itu kartu grup (pekerjaan, aksen merek). Judul selalu tampil, ketuk = buka / tutup.
+  Widget _kartuLipat({required String kunci, required String judul, required List<Widget> isi, required bool sub}) {
+    final aksen = sub ? AppColors.accent700 : HartekGaya.merek;
+    final buka = !_tertutup.contains(kunci);
+    return Container(
+      margin: EdgeInsets.only(bottom: sub ? 14 : 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: sub ? AppColors.accent100.withValues(alpha: .35) : AppColors.surface,
+        borderRadius: BorderRadius.circular(sub ? 14 : HartekGaya.radius),
+        border: Border.all(color: aksen.withValues(alpha: sub ? .35 : .40), width: sub ? 1 : 1.3),
+        boxShadow: sub ? null : [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Material(
+          color: aksen.withValues(alpha: sub ? .10 : .08),
+          child: InkWell(
+            onTap: () => setState(() => buka ? _tertutup.add(kunci) : _tertutup.remove(kunci)),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(sub ? 12 : 16, sub ? 9 : 12, 8, sub ? 9 : 12),
+              child: Row(children: [
+                Container(width: 4, height: sub ? 16 : 20, decoration: BoxDecoration(color: aksen, borderRadius: BorderRadius.circular(4))),
+                const SizedBox(width: 8),
+                Icon(sub ? Icons.inventory_2_outlined : Icons.handyman_rounded, size: sub ? 17 : 19, color: aksen),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(judul,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: sub
+                          ? const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta)
+                          : HartekGaya.judulSeksi),
+                ),
+                Icon(buka ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: aksen),
+              ]),
+            ),
+          ),
+        ),
+        if (buka) Padding(padding: EdgeInsets.fromLTRB(sub ? 12 : 16, 14, sub ? 12 : 16, sub ? 0 : 2), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: isi)),
+      ]),
+    );
+  }
 
+  /// Isian berurutan -> widget; isian dengan [IsianHartek.baris] sama jadi satu baris.
+  List<Widget> _susun(List<IsianHartek> fields) {
+    final hasil = <Widget>[];
     var i = 0;
     while (i < fields.length) {
       final f = fields[i];
-      if (f.grup != null && f.grup != judul) {
-        tutup();
-        judul = f.grup;
-      }
       if (f.baris != null) {
         final sebaris = <IsianHartek>[];
-        while (i < fields.length &&
-            fields[i].baris == f.baris &&
-            (fields[i].grup == null || fields[i].grup == judul)) {
+        while (i < fields.length && fields[i].baris == f.baris) {
           sebaris.add(fields[i]);
           i++;
         }
-        isi.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        hasil.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (var n = 0; n < sebaris.length; n++) ...[
             if (n > 0) const SizedBox(width: 12),
             Expanded(child: _field(sebaris[n])),
@@ -908,8 +997,60 @@ class _FormHartekPageState extends State<FormHartekPage> {
         ]));
         continue;
       }
-      isi.add(_field(f));
+      hasil.add(_field(f));
       i++;
+    }
+    return hasil;
+  }
+
+  /// Kelompokkan isian per [IsianHartek.grup] jadi kartu; isian dengan [IsianHartek.baris] sama jadi satu baris.
+  /// v1.0.26: grup [IsianHartek.lipat] = kartu bisa dibuka / ditutup; isian ber-[IsianHartek.sub] = kartu kecil di dalamnya.
+  List<Widget> _seksi(List<IsianHartek> fields) {
+    final hasil = <Widget>[];
+    String? judul;
+    String? kunciLipat; // kunci isian pertama grup lipat (null = kartu biasa)
+    var isi = <Widget>[];
+    void tutup() {
+      if (isi.isNotEmpty) {
+        hasil.add(kunciLipat != null && judul != null
+            ? _kartuLipat(kunci: kunciLipat, judul: judul, isi: isi, sub: false)
+            : _kartuSeksi(judul, isi));
+      }
+      isi = <Widget>[];
+    }
+
+    var i = 0;
+    while (i < fields.length) {
+      final f = fields[i];
+      // v1.0.23: tombol tambah ber-grup '' = berdiri sendiri di antara kartu
+      if (f.tambah && f.grup == '') {
+        tutup();
+        judul = null;
+        kunciLipat = null;
+        hasil.add(_tombolTambah(f));
+        i++;
+        continue;
+      }
+      if (f.grup != null && f.grup != judul) {
+        tutup();
+        judul = f.grup;
+        kunciLipat = f.lipat ? f.kunci : null;
+      }
+      final sub = f.sub;
+      final kelompok = <IsianHartek>[];
+      while (i < fields.length &&
+          (fields[i].grup == null || fields[i].grup == judul) &&
+          !(fields[i].tambah && fields[i].grup == '') &&
+          (sub != null ? fields[i].sub == sub : (fields[i].sub == null && (f.baris == null || fields[i].baris == f.baris)))) {
+        kelompok.add(fields[i]);
+        i++;
+        if (sub == null && f.baris == null) break;
+      }
+      if (sub != null) {
+        isi.add(_kartuLipat(kunci: f.kunci, judul: sub, isi: _susun(kelompok), sub: true));
+      } else {
+        isi.addAll(_susun(kelompok));
+      }
     }
     tutup();
     return hasil;

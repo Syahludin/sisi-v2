@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../features/hartek/hartek_store.dart';
 import '../features/insdu/insdu_store.dart';
 import '../features/insjar/insjar_store.dart';
+import '../features/insjar/temuan_admin_antre.dart';
 import '../features/row/foto_repository.dart';
 import '../features/row/laporan_repository.dart';
 import '../features/row/row_outbox.dart';
@@ -26,6 +27,7 @@ class SyncController extends ChangeNotifier {
       InsJarStore? insjar,
       InsDuStore? insdu,
       WoStore? wo,
+      AntreanTemuanAdmin? temuanAdmin,
       Future<void> Function()? probeOnline})
       : _p0 = p0,
         _installId = installId,
@@ -33,6 +35,7 @@ class SyncController extends ChangeNotifier {
         _insjar = insjar,
         _insdu = insdu,
         _wo = wo,
+        _temuanAdmin = temuanAdmin,
         _probeOnline = probeOnline;
 
   final SyncService _sync;
@@ -45,6 +48,7 @@ class SyncController extends ChangeNotifier {
   final InsJarStore? _insjar; // v1.0.0: Inspeksi Jaringan lokal + kirim otomatis
   final InsDuStore? _insdu; // v1.0.12: Inspeksi Gardu lokal + kirim otomatis
   final WoStore? _wo; // v1.0.16: WO tindak lanjut tim offline + kirim otomatis
+  final AntreanTemuanAdmin? _temuanAdmin; // v1.0.29: temuan inspeksi admin, kirim di latar (tanpa hitungan / pesan)
   final Future<void> Function()? _probeOnline; // v1.0.3: cek koneksi tanpa menunggu ada data antrean
 
   /// v0.95.0: sinkron diminta saat sync lain berjalan (mis. data Hartek baru disimpan) = jalan lagi sesudahnya.
@@ -231,6 +235,8 @@ class SyncController extends ChangeNotifier {
       return;
     }
     unawaited(_sinkronWo(s)); // v1.0.16
+    final ta = _temuanAdmin;
+    if (ta != null && s.bisaUbah(AntreanTemuanAdmin.menu)) unawaited(ta.kirim(s)); // v1.0.29: penjaga jalan-ganda sendiri
     if (_jalan) {
       if (s.petugasHartek || s.petugasInsJar || s.petugasInsGardu) _lagi = true;
       return;

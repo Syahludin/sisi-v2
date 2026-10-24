@@ -77,12 +77,14 @@ class _PemakaianEngineScreenState extends State<PemakaianEngineScreen> {
                 if (_galat != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_galat!, style: const TextStyle(color: AppColors.red700))),
                 const SizedBox(height: 14),
                 _KartuAppsScript(d),
+                if (d.fcm != null) ...[const SizedBox(height: 14), _KartuFirebase(d.fcm!)],
                 const SizedBox(height: 14),
                 _KartuCloudRun(d.cloudRun),
                 const SizedBox(height: 12),
                 const Text(
                     'Apps Script: perkiraan dari catatan SiSi (Google tidak menampilkan sisa kuota). Lewat 80% admin dapat notifikasi dan '
-                    'salin foto migrasi berhenti otomatis. Cloud Run: data Cloud Monitoring, kuota gratis dihitung per akun billing '
+                    'salin foto migrasi berhenti otomatis. Firebase: kirim notifikasi gratis, batasnya jatah harian SiSi dari kuota '
+                    'UrlFetch (Script Property BATAS_FCM_HARI). Cloud Run: data Cloud Monitoring, kuota gratis dihitung per akun billing '
                     '(semua layanan digabung), diperbarui tiap 10 menit.',
                     style: TextStyle(fontSize: 10.5, color: AppColors.neutral400)),
               ]),
@@ -226,6 +228,33 @@ class _KartuAppsScript extends StatelessWidget {
             ]),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _KartuFirebase extends StatelessWidget {
+  const _KartuFirebase(this.f);
+  final FcmPakai f;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Kartu(
+      ikon: Icons.notifications_active_outlined,
+      judul: 'Firebase (notifikasi)',
+      sub: 'Bulan ini ${angkaId(f.bulan)} pesan',
+      tingkat: f.tingkat,
+      children: [
+        BatangPakai(f.baris),
+        if (f.ditolak > 0)
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.block_rounded, size: 16, color: AppColors.red700),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text('Firebase menolak ${angkaId(f.ditolak)} notifikasi hari ini karena batas kiriman. Kurangi notifikasi atau tunggu besok.',
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.red700, fontWeight: FontWeight.w600)),
+            ),
+          ]),
       ],
     );
   }

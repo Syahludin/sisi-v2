@@ -203,6 +203,17 @@ List<List<Map<String, dynamic>>> materialPerPekerjaanWo(Map<String, dynamic> rin
 }
 
 /// v1.0.16: jumlah baris isian bertingkat yang tampil: baris terisi + satu baris kosong berikutnya (maks [maks]).
+/// v1.0.23 (permintaan kvlar 23 Okt 2026): jumlah baris [awalan]_i yang tampil = baris terakhir yang terisi, minimal
+/// [awal] + berapa kali tombol tambah [kunciTambah] diketuk (baris baru TIDAK muncul sendiri), maks [maks].
+int barisDitambahWo(Map<String, String> n, String awalan, int maks, {required String kunciTambah, int awal = 0}) {
+  var akhir = 0;
+  for (var i = 1; i <= maks; i++) {
+    if ((n['${awalan}_$i'] ?? '').trim().isNotEmpty) akhir = i;
+  }
+  final tambah = awal + (int.tryParse(n[kunciTambah] ?? '') ?? 0);
+  return (akhir > tambah ? akhir : tambah).clamp(0, maks);
+}
+
 int barisTampilWo(Map<String, String> n, String awalan, int maks) {
   var akhir = 0;
   for (var i = 1; i <= maks; i++) {
@@ -321,6 +332,10 @@ String pesanWo(String kode) {
       return 'Tim tujuan tidak aktif atau bukan tim ROW / Hartek / Yandal.';
     case 'FOTO_BELUM_LENGKAP':
       return 'Foto pekerjaan belum lengkap. Lengkapi semua foto wajib.';
+    case 'FOTO_SEBELUM_BELUM_ADA': // v1.0.26
+      return 'Pekerjaan bisa diubah sesudah foto Sebelum diterima server.';
+    case 'FOTO_SESUDAH_SUDAH_ADA': // v1.0.26
+      return 'Foto Sesudah sudah ada, pekerjaan tidak bisa diubah lagi. Hapus lalu catat ulang bila perlu.';
     case 'SECTION_TIDAK_COCOK':
       return 'Section bukan bagian penyulang temuan ini.';
     case 'SECTION_TERKUNCI': // v1.0.17

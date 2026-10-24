@@ -395,36 +395,55 @@ class RincianHartek extends StatelessWidget {
   // v0.95.0 (permintaan kvlar 14 Okt 2026): rincian lebih mudah dibaca. Lokasi = judul berikon (bukan teks tautan),
   // rincian pekerjaan bernomor, material berlabel di bawah pekerjaannya, jumlah rata kanan.
 
-  Widget _materialRincian(Map<String, dynamic> m) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+  // v1.0.28 (permintaan kvlar 23 Okt 2026): pola WO Tindak Lanjut Inspeksi. Tiap pekerjaan = kartu sendiri dengan
+  // kepala berwarna jenis; di dalamnya tiap material = kartu kuning sendiri.
+
+  Widget _materialRincian(Map<String, dynamic> m) => KotakAksen(
+        aksen: AppColors.accent700,
+        latar: AppColors.accent100.withValues(alpha: .55),
+        radius: 10,
+        lebarAksen: 3,
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.fromLTRB(9, 8, 10, 8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Icon(Icons.inventory_2_outlined, size: 16, color: AppColors.accent700),
+            ),
+            const SizedBox(width: 7),
             Expanded(
+              flex: 3,
               child: Text(teksHartek(m['material']),
-                  style: const TextStyle(fontSize: 14.5, height: 1.3, color: HartekGaya.tinta)),
+                  style: const TextStyle(fontSize: 14, height: 1.3, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
             ),
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(right: 4, top: 2),
               child: IkonCloudHartek(node: m, ukuran: 14),
             ),
-            Text('${teksHartek(m['jumlah'])} ${teksHartek(m['satuan'])}'.trim(),
-                style: const TextStyle(
-                    fontSize: 14.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
+            // jumlah boleh turun baris di layar sempit (tidak overflow)
+            Flexible(
+              flex: 2,
+              child: Text('${teksHartek(m['jumlah'])} ${teksHartek(m['satuan'])}'.trim(),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.accent700, fontFeatures: HartekGaya.tabular)),
+            ),
           ]),
           if (m[HartekLokal.sinkron] == HartekLokal.gagal) _tanda(m, teksHartek(m['idBaris'])),
         ]),
       );
 
   Widget _nomor(int n, JenisPg j) => Container(
-        width: 26,
-        height: 26,
+        width: 30,
+        height: 30,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: j.latar, shape: BoxShape.circle),
-        child: Text('$n', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: j.warna)),
+        decoration: BoxDecoration(color: j.warna, borderRadius: BorderRadius.circular(10)),
+        child: Text('$n', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
       );
 
-  /// Satu rincian pekerjaan: nomor + nama + hasil (dengan background melingkar warna jenis), lalu blok MATERIAL miliknya.
+  /// Satu rincian pekerjaan: kartu dengan kepala berwarna jenis (nomor + nama + hasil), lalu kartu-kartu material miliknya.
   Widget _pekerjaanRincian(Map<String, dynamic> pg, Map<String, dynamic> pk, int no, JenisPg j) {
     final mat = mapsHartek(pk['material']);
     final gr = mapsHartek(pk['grounding']).length, pm = mapsHartek(pk['pemerataan']).length;
@@ -433,108 +452,111 @@ class RincianHartek extends StatelessWidget {
       if (gr > 0) '$gr grounding',
       if (pm > 0) '$pm pemerataan',
     ].join(' · ');
+    final bentuk = BorderRadius.circular(16);
     return Padding(
       key: ValueKey('pekerjaan-${teksHartek(pk['pekerjaanId'])}'),
-      padding: const EdgeInsets.only(top: 10),
-      child: Material(
-        color: AppColors.surface,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: HartekGaya.garis)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          InkWell(
-            onTap: sibuk ? null : () => onBukaPekerjaan(teksHartek(pg['pgId']), teksHartek(pk['pekerjaanId'])),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _nomor(no, j),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(teksHartek(pk['pekerjaan']),
-                        style: const TextStyle(fontSize: 15.5, height: 1.3, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
-                    if (hasil.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(color: j.latar, borderRadius: BorderRadius.circular(999)),
-                          child: Text(hasil,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: j.warna,
-                                  fontFeatures: HartekGaya.tabular)),
-                        ),
+      padding: const EdgeInsets.only(top: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: bentuk,
+          boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Material(
+          color: AppColors.surface,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: bentuk, side: BorderSide(color: j.warna.withValues(alpha: .28))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Material(
+              color: j.warna.withValues(alpha: .08),
+              child: InkWell(
+                onTap: sibuk ? null : () => onBukaPekerjaan(teksHartek(pg['pgId']), teksHartek(pk['pekerjaanId'])),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _nomor(no, j),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(teksHartek(pk['pekerjaan']),
+                            style: const TextStyle(fontSize: 15, height: 1.3, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                        if (hasil.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
+                              child: Text(hasil,
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: j.warna, fontFeatures: HartekGaya.tabular)),
+                            ),
+                          ),
+                        ],
+                        if (lain.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(lain, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
+                        ],
+                        _tanda(pk, teksHartek(pk['pekerjaanId'])),
+                        _tandaUbah(pk),
+                      ]),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: IkonCloudHartek(node: pk, ukuran: 15),
+                    ),
+                    // v0.97.0 / v0.97.4: ubah pekerjaan dan jumlah yang sudah diisi
+                    if (onUbahPekerjaan != null)
+                      IconButton(
+                        key: ValueKey('ubah-pekerjaan-${teksHartek(pk['pekerjaanId'])}'),
+                        tooltip: 'Ubah pekerjaan',
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: sibuk ? null : () => onUbahPekerjaan!(pg, pk),
+                        icon: Icon(Icons.edit_outlined, size: 18, color: j.warna),
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.neutral400),
                       ),
-                    ],
-                    if (lain.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(lain, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
-                    ],
-                    _tanda(pk, teksHartek(pk['pekerjaanId'])),
-                    _tandaUbah(pk),
                   ]),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: IkonCloudHartek(node: pk, ukuran: 15),
-                ),
-                // v0.97.0 / v0.97.4: ubah pekerjaan dan jumlah yang sudah diisi
-                if (onUbahPekerjaan != null)
-                  IconButton(
-                    key: ValueKey('ubah-pekerjaan-${teksHartek(pk['pekerjaanId'])}'),
-                    tooltip: 'Ubah pekerjaan',
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: sibuk ? null : () => onUbahPekerjaan!(pg, pk),
-                    icon: const Icon(Icons.edit_outlined, size: 17, color: HartekGaya.redup),
-                  )
-                else
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(mat.isEmpty ? 'MATERIAL' : 'MATERIAL · ${mat.length}',
+                    style: const TextStyle(fontSize: 11.5, letterSpacing: .6, fontWeight: FontWeight.w800, color: AppColors.accent700)),
+                if (mat.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.neutral400),
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Text('Belum ada material', style: TextStyle(fontSize: 13.5, color: HartekGaya.redup)),
+                  ),
+                for (final m in mat) _materialRincian(m),
+                if (boleh)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: TextButton.icon(
+                        key: ValueKey('tambah-material-${teksHartek(pk['pekerjaanId'])}'),
+                        onPressed: sibuk ? null : () => onTambahMaterial(pk),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.accent700,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Material'),
+                      ),
+                    ),
                   ),
               ]),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(34, 8, 12, 4),
-            decoration: const BoxDecoration(
-              color: AppColors.neutral50,
-              border: Border(top: BorderSide(color: HartekGaya.garis)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(mat.isEmpty ? 'MATERIAL' : 'MATERIAL · ${mat.length}',
-                  style: const TextStyle(fontSize: 11.5, letterSpacing: .6, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
-              if (mat.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Text('Belum ada material', style: TextStyle(fontSize: 13.5, color: HartekGaya.redup)),
-                ),
-              for (var n = 0; n < mat.length; n++) ...[
-                if (n > 0) const Divider(height: 1, color: HartekGaya.garis),
-                _materialRincian(mat[n]),
-              ],
-              if (boleh)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    key: ValueKey('tambah-material-${teksHartek(pk['pekerjaanId'])}'),
-                    onPressed: sibuk ? null : () => onTambahMaterial(pk),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      visualDensity: VisualDensity.compact,
-                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                    ),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Material'),
-                  ),
-                ),
-            ]),
-          ),
-        ]),
+          ]),
+        ),
       ),
     );
   }

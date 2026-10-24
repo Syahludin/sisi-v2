@@ -82,6 +82,30 @@ class HeaderInsJar extends StatelessWidget {
   }
 }
 
+/// v1.0.28 (permintaan kvlar 23 Okt 2026): kartu header tetap di atas layar (tidak ikut tergulir); hanya [isi]
+/// (biasanya RefreshSisi + ListView) yang bergulir di bawahnya. [lebarMaks] = batas lebar header, samakan dengan isi.
+class HalamanHeaderTetap extends StatelessWidget {
+  const HalamanHeaderTetap({
+    super.key,
+    required this.header,
+    required this.isi,
+    this.padding = const EdgeInsets.fromLTRB(16, 10, 16, 0),
+    this.lebarMaks,
+  });
+  final Widget header, isi;
+  final EdgeInsetsGeometry padding;
+  final double? lebarMaks;
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: padding,
+          child: lebarMaks == null ? header : Center(child: ConstrainedBox(constraints: BoxConstraints(maxWidth: lebarMaks!), child: header)),
+        ),
+        Expanded(child: isi),
+      ]);
+}
+
 /// Tombol bulat di header (putih transparan).
 /// v1.0.21: [sibuk] = logo SiSi bergerak (refresh SiSi) menggantikan ikon selama proses berjalan.
 /// v1.0.22: tombol refresh header (logo SiSi, bergerak hanya saat diketuk; [sibuk] = loading halaman, tombol diam).

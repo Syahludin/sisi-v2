@@ -115,11 +115,12 @@ class HartekLokal {
   static Map<String, String> _petaTeks(Object? v) =>
       v is Map ? {for (final e in v.entries) '${e.key}': _t(e.value)} : <String, String>{};
 
-  /// Foto lokal di HP per slot.
-  static Map<String, String> fotoDiHp(Map<String, dynamic> n) => _petaTeks(n[fotoLokal]);
+  /// Foto lokal di HP per slot. v1.0.24: path kosong = tidak ada.
+  static Map<String, String> fotoDiHp(Map<String, dynamic> n) => _petaTeks(n[fotoLokal])..removeWhere((_, v) => v.isEmpty);
 
-  /// Link Drive per slot (sudah diterima server).
-  static Map<String, String> fotoDiServer(Map<String, dynamic> n) => _petaTeks(n[fotoServer]);
+  /// Link Drive per slot (sudah diterima server). v1.0.24: link kosong = slot belum diisi (server WO mengirim semua slot,
+  /// yang kosong ''); dulu dianggap sudah di server sehingga foto Pekerjaan / Sesudah tidak bisa diambil lagi.
+  static Map<String, String> fotoDiServer(Map<String, dynamic> n) => _petaTeks(n[fotoServer])..removeWhere((_, v) => v.isEmpty);
 
   /// Status foto slot: null = sudah di server / belum ada, LOKAL = menunggu kirim, GAGAL = ditolak server.
   static String? statusFoto(Map<String, dynamic> n, String slot) {

@@ -245,10 +245,13 @@ class _ArsipTimViewState extends State<ArsipTimView> {
     }
     return Scaffold(
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
-      body: RefreshSisi(
+      body: HalamanHeaderTetap(
+        // v1.0.28: header tetap, isi bergulir
+        header: HeaderInsJar(kicker: 'Arsip Laporan', judul: widget.modul.judul, sub: widget.sesi.timNama, ikon: Icons.inventory_2_outlined),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        isi: RefreshSisi(
         onRefresh: _download,
-        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 12, 16, 120), children: [
-          HeaderInsJar(kicker: 'Arsip Laporan', judul: widget.modul.judul, sub: widget.sesi.timNama, ikon: Icons.inventory_2_outlined),
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 0, 16, 120), children: [
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
@@ -329,6 +332,7 @@ class _ArsipTimViewState extends State<ArsipTimView> {
             ],
           ],
         ]),
+      ),
       ),
     );
   }
@@ -458,14 +462,16 @@ class _DetailArsipTim extends StatelessWidget {
     return Scaffold(
       backgroundColor: HartekGaya.latar,
       body: SafeArea(
-        child: ListView(padding: const EdgeInsets.fromLTRB(16, 10, 16, 24), children: [
-          HeaderInsJar(
+        child: HalamanHeaderTetap(
+          // v1.0.28: header tetap, isi bergulir
+          header: HeaderInsJar(
             kicker: 'Arsip ${modul.judul}',
             judul: tgl == null ? '${laporan['tanggal']}' : DateFormat('d MMMM y', 'id_ID').format(tgl),
             sub: '${h['kodeHeader'] ?? ''}',
             ikon: modul.ikon,
             aksi: [tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context))],
           ),
+          isi: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
           KartuHartek(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Text('Laporan Utama', style: HartekGaya.judulSeksi),
@@ -488,6 +494,7 @@ class _DetailArsipTim extends StatelessWidget {
           const SizedBox(height: 14),
           WaPanel(teks: modul.waTeks(laporan, sesi)),
         ]),
+        ),
       ),
     );
   }

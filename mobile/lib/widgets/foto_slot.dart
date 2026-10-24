@@ -137,8 +137,9 @@ Future<String?> pilihSumberFoto(BuildContext context, String slot,
 
 /// Buka foto layar penuh (bisa dicubit untuk zoom). Foto disimpan di folder privat app, bukan galeri HP.
 /// `namaGaleri` diisi = tombol Simpan ke Galeri tampil (hanya untuk foto yang sudah ber-watermark).
+/// v1.0.24: dibuka di navigator akar supaya menu bawah dashboard tidak menutupi foto.
 Future<void> lihatFoto(BuildContext context, {required String path, required String slot, String? keterangan, String? namaGaleri}) {
-  return Navigator.of(context).push<void>(MaterialPageRoute(
+  return Navigator.of(context, rootNavigator: true).push<void>(MaterialPageRoute(
     fullscreenDialog: true,
     builder: (_) => LihatFotoScreen(
         path: path, judul: 'Foto ${FotoRepository.label[slot] ?? slot}', keterangan: keterangan, namaGaleri: namaGaleri),

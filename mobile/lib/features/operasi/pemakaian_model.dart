@@ -97,9 +97,38 @@ class CloudRunPakai {
   }
 }
 
+/// v1.0.31: notifikasi Firebase (FCM) hari ini vs jatah harian SiSi (bagian kuota UrlFetch Apps Script).
+class FcmPakai {
+  const FcmPakai({required this.baris, required this.gagal, required this.ditolak, required this.bulan});
+
+  /// Notifikasi hari ini vs batas.
+  final BarisPakai baris;
+
+  /// Gagal kirim selain token basi (HP uninstall).
+  final num gagal;
+
+  /// Ditolak Firebase karena batas kiriman (HTTP 429).
+  final num ditolak;
+  final num bulan;
+  TingkatPakai get tingkat => ditolak > 0 ? TingkatPakai.bahaya : baris.tingkat;
+
+  static FcmPakai? dariJson(Object? v) {
+    if (v is! Map) return null;
+    final j = Map<String, dynamic>.from(v);
+    final gagal = _n(j['gagal']);
+    return FcmPakai(
+      baris: BarisPakai(judul: 'Notifikasi hari ini', dipakai: _n(j['kirim']), batas: _n(j['batas']), persen: _n(j['persen']), satuan: 'pesan',
+          catatan: gagal > 0 ? '${angkaId(gagal)} gagal' : ''),
+      gagal: gagal,
+      ditolak: _n(j['ditolak']),
+      bulan: _n(j['bulan']),
+    );
+  }
+}
+
 class RingkasPakai {
   const RingkasPakai({required this.tanggal, required this.paket, required this.status, required this.baris, required this.direm,
-      required this.fungsiTerberat, required this.riwayat, this.cloudRun});
+      required this.fungsiTerberat, required this.riwayat, this.cloudRun, this.fcm});
 
   final String tanggal;
   final String paket;
@@ -110,7 +139,10 @@ class RingkasPakai {
   final List<({String tanggal, num pemicuPersen})> riwayat;
   final CloudRunPakai? cloudRun;
 
-  /// Status gabungan Apps Script + Cloud Run.
+  /// null = backend lama (belum mengirim catatan Firebase).
+  final FcmPakai? fcm;
+
+  /// Status gabungan Apps Script + Cloud Run (status server sudah termasuk Firebase).
   TingkatPakai get statusGabung {
     final c = cloudRun;
     if (c == null || !c.aktif) return status;
@@ -154,6 +186,7 @@ class RingkasPakai {
           (tanggal: '${r['tanggal'] ?? ''}', pemicuPersen: _n(r['pemicuPersen']))
       ],
       cloudRun: CloudRunPakai.dariJson(j['cloudRun']),
+      fcm: FcmPakai.dariJson(j['fcm']),
     );
   }
 }

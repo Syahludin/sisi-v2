@@ -282,3 +282,55 @@ void tampilPesan(BuildContext context, String pesan) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(pesan)));
 }
+
+/// v1.0.31 (permintaan kvlar 24 Okt 2026): kolom wajib yang kosong = tidak bisa disimpan. Validasi Form (kolom salah jadi
+/// merah), lalu gulir ke kolom pertama yang salah. true = semua benar.
+bool validasiForm(GlobalKey<FormState> kunci) {
+  final st = kunci.currentState;
+  if (st == null) return false;
+  final salah = st.validateGranularly();
+  if (salah.isEmpty) return true;
+  gulirKe(salah.first.context);
+  return false;
+}
+
+/// Gulir supaya [c] (kolom / kartu) terlihat, sedikit di bawah tepi atas layar.
+void gulirKe(BuildContext? c) {
+  if (c == null || !c.mounted) return;
+  unawaited(Scrollable.ensureVisible(c, duration: const Duration(milliseconds: 300), alignment: .15));
+}
+
+/// v1.0.31: bingkai merah + pesan untuk isian wajib yang bukan kolom teks (pilihan kotak, foto). [salah] null = polos.
+class BingkaiWajib extends StatelessWidget {
+  const BingkaiWajib({super.key, required this.salah, required this.child});
+  final String? salah;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = salah;
+    if (e == null) return child;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+      decoration: BoxDecoration(
+        color: AppColors.red100.withValues(alpha: .55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.red600, width: 1.4),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        child,
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 2),
+          child: Semantics(
+            liveRegion: true,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.error_outline_rounded, size: 15, color: AppColors.red700),
+              const SizedBox(width: 6),
+              Expanded(child: Text(e, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.red700))),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}

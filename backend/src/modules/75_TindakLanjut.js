@@ -350,7 +350,8 @@ function kirimWoKeTim_(sesi, data, pindahSaja) {
     catatan: { tipe: 'teks', maks: 300, multiBaris: true, maksBaris: 5 },
     revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 }
   });
-  return denganLock_(function () {
+  var kabar = null;   // v1.0.29: notifikasi WO ke HP tim, dikirim sesudah lock dilepas
+  var jawab = denganLock_(function () {
     var tt = tabelTemuanWo_();
     var t = temuanWo_(tt.rows, d.temuanId);
     var s = teksWo_(t.status_wo);
@@ -382,8 +383,11 @@ function kirimWoKeTim_(sesi, data, pindahSaja) {
     hapusCacheLoncengTim_([tim.timId, String(t.tim_tindak_lanjut_id || '')]);   // v1.0.20: lonceng WO tim langsung terbaru
     auditLog_(sesi, pindah ? 'WO_PINDAH' : 'WO_TERUSKAN', teksWo_(t.kode_temuan),
       (pindah ? teksWo_(t.tim_tindak_lanjut) + ' -> ' : '') + tim.nama, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    if (s !== WO_STATUS_.kirim || pindah) kabar = { timId: tim.timId, t: baru };   // ubah catatan saja = tanpa notifikasi
     return { temuanId: String(d.temuanId), revision: rev, pindah: pindah, temuan: woKeHp_(baru, []) };
   }, 20000);
+  if (kabar) notifWoTim_(kabar.timId, kabar.t);
+  return jawab;
 }
 
 /** Tarik WO TERKIRIM kembali ke admin (belum dimulai tim). */
@@ -666,6 +670,28 @@ function simpanPekerjaanWo_(sesi, data, platform) {
     var a = aksesWo_(tabelTemuanWo_().rows, d.temuanId, sesi, rowsGandaWo_());
     wajibBolehKerjaWo_(a);
     var t = a.t;
+    var isi = isiPekerjaanWo_(sesi, d, t);
+    var awalan = teksWo_(t.kode_temuan) + '-TL.';
+    var kode = awalan + pad3_(urutBerikutHartek_(tTl.rows, 'kode_tl', awalan));
+    var id = d.idBaris || uuid_(), sekarang = sekarangIso_();
+    var k = d.koordinat;
+    var baris = sisipAuditInsJar_(Object.assign(isi, {
+      nomor: tTl.rows.length + 1, kode_temuan: teksWo_(t.kode_temuan), kode_tl: kode, tanggal: tanggalHariIniHartek_(),
+      tim: sesi.timNama || '', jenis_tim: sesi.jenisTim, objek_inspeksi: teksWo_(t.objek_inspeksi), penyulang: teksWo_(t.penyulang),
+      no_gardu: teksWo_(t.no_gardu), koordinat: k ? k.teks : '', lat: k ? k.lat : '', lng: k ? k.lng : '', catatan: d.catatan || '',
+      foto_meta: '{}', status: WO_TL_STATUS_.draft, tl_id: id, temuan_id: String(t.temuan_id), tim_id: sesi.timId
+    }), sesi, sekarang);
+    tambahBaris_(tTl, baris);
+    auditLog_(sesi, 'WO_PEKERJAAN_SIMPAN', kode, isi.pekerjaan, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    return { tlId: id, kodeTl: kode, revision: 1, pekerjaan: tlKeHpWo_(baris) };
+  }, 20000);
+}
+
+/**
+ * Kolom isian pekerjaan WO dari [d] (skemaPekerjaanWo_) untuk temuan [t]: ROW (diameter -> jenis, section / tiang
+ * terkunci), HARTEK (rincian pekerjaan + material), YANDAL (jenis P0). Dipakai simpan + ubah (v1.0.26).
+ */
+function isiPekerjaanWo_(sesi, d, t) {
     var isi = { pekerjaan: '', pekerjaan_lainnya: '', jumlah: 1, satuan: '', diameter: '', nomor_tiang: '', jenis_id: '',
                 section: teksWo_(t.section), section_id: teksWo_(t.section_id), rincian: '' };
     if (sesi.jenisTim === 'ROW') {
@@ -693,19 +719,39 @@ function simpanPekerjaanWo_(sesi, data, platform) {
       if (p0Switching_(jy.nama) || p0Gardu_(jy.nama)) throw new SisiError_('PEKERJAAN_TIDAK_DIDUKUNG', jy.nama);
       isi = Object.assign(isi, { pekerjaan: jy.nama, pekerjaan_lainnya: jy.nama === YAN_PEKERJAAN_LAIN_ ? (d.pekerjaanLainnya || '') : '', jenis_id: jy.jenisId });
     }
-    var awalan = teksWo_(t.kode_temuan) + '-TL.';
-    var kode = awalan + pad3_(urutBerikutHartek_(tTl.rows, 'kode_tl', awalan));
-    var id = d.idBaris || uuid_(), sekarang = sekarangIso_();
+    return isi;
+}
+
+/**
+ * v1.0.26 (permintaan kvlar 23 Okt 2026): ubah pekerjaan WO (ROW / Hartek / Yandal) yang masih DRAFT, sesudah foto
+ * Sebelum dan SEBELUM foto Sesudah diambil. Isian sama dengan simpanPekerjaanWo + tlId + revision. Foto tetap.
+ */
+function ubahPekerjaanWo_(sesi, data, platform) {
+  wajibPetugasWo_(sesi, platform);
+  var skema = skemaPekerjaanWo_(sesi.jenisTim);
+  delete skema.idBaris;
+  skema.tlId = { tipe: 'uuid', wajib: true };
+  skema.revision = { tipe: 'angka', wajib: true, bulat: true, min: 0 };
+  var d = validasi_(data, skema);
+  if (sesi.jenisTim === 'HARTEK' && !d.rincian && (!d.jenisId || d.jumlah === undefined)) throw new SisiError_('FIELD_WAJIB', d.jenisId ? 'jumlah' : 'jenisId');
+  return denganLock_(function () {
+    var tTl = tabelTlWo_();
+    var r = tTl.rows.filter(function (x) { return String(x.tl_id) === String(d.tlId); })[0];
+    if (!r) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'pekerjaan');
+    if (String(r.tim_id) !== String(sesi.timId) || String(r.temuan_id) !== String(d.temuanId)) throw new SisiError_('BUKAN_MILIK_TIM', 'pekerjaan');
+    if (teksWo_(r.status) !== WO_TL_STATUS_.draft) throw new SisiError_('WO_SUDAH_SELESAI', teksWo_(r.kode_tl));
+    if (!teksWo_(r[WO_SLOT_.SEBELUM + '_link'])) throw new SisiError_('FOTO_SEBELUM_BELUM_ADA', teksWo_(r.kode_tl));
+    if (teksWo_(r[WO_SLOT_.SESUDAH + '_link'])) throw new SisiError_('FOTO_SESUDAH_SUDAH_ADA', teksWo_(r.kode_tl));
+    var a = aksesWo_(tabelTemuanWo_().rows, d.temuanId, sesi, rowsGandaWo_());
+    wajibBolehKerjaWo_(a);
     var k = d.koordinat;
-    var baris = sisipAuditInsJar_(Object.assign(isi, {
-      nomor: tTl.rows.length + 1, kode_temuan: teksWo_(t.kode_temuan), kode_tl: kode, tanggal: tanggalHariIniHartek_(),
-      tim: sesi.timNama || '', jenis_tim: sesi.jenisTim, objek_inspeksi: teksWo_(t.objek_inspeksi), penyulang: teksWo_(t.penyulang),
-      no_gardu: teksWo_(t.no_gardu), koordinat: k ? k.teks : '', lat: k ? k.lat : '', lng: k ? k.lng : '', catatan: d.catatan || '',
-      foto_meta: '{}', status: WO_TL_STATUS_.draft, tl_id: id, temuan_id: String(t.temuan_id), tim_id: sesi.timId
-    }), sesi, sekarang);
-    tambahBaris_(tTl, baris);
-    auditLog_(sesi, 'WO_PEKERJAAN_SIMPAN', kode, isi.pekerjaan, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
-    return { tlId: id, kodeTl: kode, revision: 1, pekerjaan: tlKeHpWo_(baris) };
+    var isi = Object.assign(isiPekerjaanWo_(sesi, d, a.t), {
+      koordinat: k ? k.teks : '', lat: k ? k.lat : '', lng: k ? k.lng : '', catatan: d.catatan || '',
+      timestamp_update: sekarangIso_(), diubah_oleh: sesi.userId
+    });
+    var rev = ubahBaris_(tTl, 'tl_id', d.tlId, isi, d.revision);
+    auditLog_(sesi, 'WO_PEKERJAAN_UBAH', teksWo_(r.kode_tl), isi.pekerjaan, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    return { tlId: String(d.tlId), kodeTl: teksWo_(r.kode_tl), revision: rev, pekerjaan: tlKeHpWo_(Object.assign({}, r, isi, { revision: rev })) };
   }, 20000);
 }
 
@@ -784,6 +830,31 @@ function pekerjaanDariWo_(id) {
 
 /* ===== Selesai: masuk realisasi tim ===== */
 
+/**
+ * v1.0.28 (permintaan kvlar 23 Okt 2026): foto WO tetap di folder temuan (INSJAR_FOTO_FOLDER_ID / Tindak Lanjut WO)
+ * dan saat masuk realisasi tim disalin ke folder foto tim per pekerjaan, jadi tersimpan di 2 folder. Sheet tim
+ * menunjuk salinan. Akar tim kosong / salin gagal = tetap file folder temuan (Selesai tidak gagal karena salinan).
+ * Kirim ulang tidak membuat salinan kembar (penanda deskripsi file). Hasil { fileId, link, nama }.
+ */
+function salinFotoWoKeTim_(akarId, bagian, tl, slot, nama) {
+  var kol = WO_SLOT_[slot], asli = { fileId: teksWo_(tl[kol + '_file_id']), link: teksWo_(tl[kol + '_link']), nama: '' };
+  if (!akarId || !asli.fileId) return asli;
+  var penanda = 'WO-' + teksWo_(tl.tl_id) + '-' + slot;
+  try {
+    var folder = folderFoto_(akarId, bagian);
+    var file = cariFileFoto_(folder, penanda), baru = !file;
+    if (baru) {
+      file = DriveApp.getFileById(asli.fileId).makeCopy(nama, folder);
+      try { file.setDescription(PENANDA_FOTO_ + penanda); } catch (eD) { /* tanpa penanda */ }
+    }
+    pastikanFotoPrivat_(file, baru);
+    return { fileId: String(file.getId()), link: 'https://drive.google.com/file/d/' + file.getId() + '/view', nama: String(file.getName()) };
+  } catch (e) {
+    console.log('Salin foto WO ke folder tim gagal (' + penanda + '): ' + (e && e.message ? e.message : e));
+    return asli;
+  }
+}
+
 /** ROW: row_Eksekusi (+ row_Realisasi penyulang bila belum ada) + row_Foto di Laporan Utama ROW tim hari ini. */
 function catatRealisasiRowWo_(sesi, t, tls) {
   var c = cfg_();
@@ -839,10 +910,11 @@ function catatRealisasiRowWo_(sesi, t, tls) {
     };
     Object.keys(SLOT_FOTO_).forEach(function (slot) {
       var m = meta[slot] || {};
-      isi[SLOT_FOTO_[slot]] = m.nama || namaFotoRow_(teksWo_(tl.kode_tl), slot, 1);
-      isi[SLOT_FOTO_[slot] + ' URL'] = teksWo_(tl[WO_SLOT_[slot] + '_link']);
+      var sal = salinFotoWoKeTim_(c.ROW_FOTO_FOLDER_ID, pathFotoEksekusi_(isi), tl, slot, namaFotoRow_(kode, slot, 1));   // v1.0.28
+      isi[SLOT_FOTO_[slot]] = sal.nama || m.nama || namaFotoRow_(teksWo_(tl.kode_tl), slot, 1);
+      isi[SLOT_FOTO_[slot] + ' URL'] = sal.link;
       fotoBaru.push({
-        foto_id: uuid_(), eksekusi_id: String(tl.tl_id), slot: slot, drive_file_id: teksWo_(tl[WO_SLOT_[slot] + '_file_id']),
+        foto_id: uuid_(), eksekusi_id: String(tl.tl_id), slot: slot, drive_file_id: sal.fileId,
         sha256: m.sha256 || '', ukuran_byte: m.ukuran || '', mime: 'image/jpeg', sumber_foto: m.sumber || 'KAMERA',
         diambil_pada: m.waktu || '', lat: m.lat === null || m.lat === undefined ? '' : m.lat, lng: m.lng === null || m.lng === undefined ? '' : m.lng,
         akurasi_m: m.akurasi === null || m.akurasi === undefined ? '' : m.akurasi,
@@ -944,6 +1016,13 @@ function catatRealisasiHartekWo_(sesi, t, tls, d) {
       tulisMaterial(b, p.material);
     });
     hasil.push({ tl: tl, kode: kodeTl.join(', '), id: String(tl.tl_id) });
+    // v1.0.28: foto WO juga disalin ke folder foto Hartek pekerjaan itu (pekerjaan Hartek tanpa kolom foto)
+    if (kodeTl.length) {
+      Object.keys(WO_SLOT_).forEach(function (slot) {
+        salinFotoWoKeTim_(cfg_().HARTEK_FOTO_FOLDER_ID, ['Hartek', tglHartek_(pg), String(pg.kode_header || '-'), namaFolderFoto_(kodeTl[0])],
+          tl, slot, namaFotoRow_(kodeTl[0], slot, 1));
+      });
+    }
   });
   if (baru.length) tambahBanyak_(tPk, baru);
   if (baruMt.length) tambahBanyak_(tMt, baruMt);
@@ -992,21 +1071,30 @@ function catatRealisasiYandalWo_(sesi, t, tls) {
     };
     Object.keys(YAN_KOLOM_FOTO_P0_).forEach(function (slot) {
       var k = YAN_KOLOM_FOTO_P0_[slot], m = mf[slot] || {}, ms = msOf(slot);
-      r[k.foto] = m.nama || namaFotoRow_(teksWo_(tl.kode_tl), slot, 1);
-      r[k.link] = teksWo_(tl[WO_SLOT_[slot] + '_link']);
-      r[k.id] = teksWo_(tl[WO_SLOT_[slot] + '_file_id']);
+      var sal = salinFotoWoKeTim_(cfg_().YANDAL_FOTO_FOLDER_ID, pathFotoP0_(r), tl, slot, namaFotoRow_(teksP0_(r['Kode P0']), slot, 1));   // v1.0.28
+      r[k.foto] = sal.nama || m.nama || namaFotoRow_(teksWo_(tl.kode_tl), slot, 1);
+      r[k.link] = sal.link;
+      r[k.id] = sal.fileId;
       r[k.waktu] = ms === null ? '' : waktuWib_(ms, true);
       meta[slot] = { waktu: m.waktu || '', waktuHp: m.waktu || '', sumberWaktu: 'HP', sumber: m.sumber || 'KAMERA',
                      lat: m.lat === undefined ? null : m.lat, lng: m.lng === undefined ? null : m.lng, akurasi: m.akurasi === undefined ? null : m.akurasi,
                      sha256: m.sha256 || '', ukuran: m.ukuran || '' };
     });
-    var sb = mf.SEBELUM || {}, ss = mf.SESUDAH || {};
-    var lat = sb.lat !== null && sb.lat !== undefined ? sb.lat : (t.lat !== '' && t.lat !== undefined ? Number(t.lat) : null);
-    var lng = sb.lng !== null && sb.lng !== undefined ? sb.lng : (t.lng !== '' && t.lng !== undefined ? Number(t.lng) : null);
-    if (lat !== null && lng !== null) { r.Lat = lat; r.Long = lng; r.Koordinat = koordinatTeks_(lat, lng); meta.sumberKoordinat = 'SEBELUM'; }
-    if (ss.lat !== null && ss.lat !== undefined) {
-      r['Lat Closing'] = ss.lat; r['Long Closing'] = ss.lng; r['Koordinat Closing'] = koordinatTeks_(ss.lat, ss.lng);
-      if (lat !== null && titikSah_(lat, lng)) r['Jarak Closing P0 (m)'] = jarakMeter_(lat, lng, ss.lat, ss.lng);
+    // v1.0.29 (permintaan kvlar 24 Okt 2026): koordinat P0 = GPS foto Sebelum, koordinat closing = GPS foto Sesudah (HP
+    // 1.0.29 mengirim GPS jepret). Foto tanpa GPS = koordinat pekerjaan WO (GPS HP saat isi form), lalu koordinat temuan.
+    var titikFoto = function (m) { return m && m.lat !== null && m.lat !== undefined && m.lng !== null && m.lng !== undefined ? { lat: Number(m.lat), lng: Number(m.lng) } : null; };
+    var tPek = tl.lat !== '' && tl.lat !== undefined && tl.lat !== null ? { lat: Number(tl.lat), lng: Number(tl.lng) } : null;
+    var tTem = t.lat !== '' && t.lat !== undefined && t.lat !== null ? { lat: Number(t.lat), lng: Number(t.lng) } : null;
+    var buka = titikFoto(mf.SEBELUM), sBuka = 'SEBELUM';
+    if (!buka) { buka = tPek || tTem; sBuka = tPek ? 'PEKERJAAN_WO' : 'TEMUAN'; }
+    var tutup = titikFoto(mf.SESUDAH), sTutup = 'SESUDAH';
+    if (!tutup) { tutup = tPek; sTutup = 'PEKERJAAN_WO'; }
+    var lat = buka ? buka.lat : null, lng = buka ? buka.lng : null;
+    if (buka) { r.Lat = lat; r.Long = lng; r.Koordinat = koordinatTeks_(lat, lng); meta.sumberKoordinat = sBuka; }
+    if (tutup) {
+      r['Lat Closing'] = tutup.lat; r['Long Closing'] = tutup.lng; r['Koordinat Closing'] = koordinatTeks_(tutup.lat, tutup.lng);
+      meta.sumberKoordinatClosing = sTutup;
+      if (buka && titikSah_(lat, lng)) r['Jarak Closing P0 (m)'] = jarakMeter_(lat, lng, tutup.lat, tutup.lng);
     }
     var menit = mSeb !== null && mSes !== null ? menitP0_(mSes - mSeb) : '';
     r['Durasi (menit)'] = menit;

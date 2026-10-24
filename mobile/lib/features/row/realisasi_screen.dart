@@ -11,6 +11,7 @@ import 'eksekusi_detail_screen.dart';
 import 'form_eksekusi_screen.dart';
 import 'perbaikan_repository.dart';
 import 'row_model.dart';
+import 'unduh_foto_row.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// Daftar eksekusi satu penyulang (desain lama): kartu dengan ikon potong, FAB amber "Input Eksekusi".
@@ -153,6 +154,13 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
                       section: e.m['section'] as String? ?? _sec[e.sectionId] ?? '-',
                       slot: e.fotoLengkap ? 3 : (_slot[e.id] ?? 0),
                       onTap: () => _buka(e),
+                      unduh: TombolUnduhFotoRow(
+                        deps: widget.deps,
+                        sesi: widget.sesi,
+                        label: 'Download foto',
+                        padat: true,
+                        eksekusi: () async => [(id: e.id, kode: e.kode)],
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -172,12 +180,16 @@ class _RealisasiScreenState extends State<RealisasiScreen> {
 }
 
 class _KartuEksekusi extends StatelessWidget {
-  const _KartuEksekusi({required this.e, required this.jenis, required this.section, required this.slot, required this.onTap});
+  const _KartuEksekusi(
+      {required this.e, required this.jenis, required this.section, required this.slot, required this.onTap, required this.unduh});
   final RowEksekusi e;
   final String section;
   final String? jenis;
   final int slot;
   final VoidCallback onTap;
+
+  /// v1.0.33: download foto eksekusi ini ke galeri tanpa membuka detail.
+  final Widget unduh;
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +221,11 @@ class _KartuEksekusi extends StatelessWidget {
               ),
               const Icon(Icons.chevron_right_rounded, color: AppColors.neutral400),
             ]),
+            // v1.0.33: foto di HP, atau eksekusi sudah di server (foto bisa diunduh dari sana)
+            if (e.aktif && (slot > 0 || e.fotoLengkap)) ...[
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerLeft, child: unduh),
+            ],
             if (e.alasan != null) ...[
               const SizedBox(height: 4),
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

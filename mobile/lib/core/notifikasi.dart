@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api_client.dart';
+import 'lonceng.dart';
 import 'notifikasi_aturan.dart';
 import 'sesi.dart';
 
@@ -12,6 +13,8 @@ import 'sesi.dart';
 /// Tanpa google-services.json (Firebase belum disiapkan) = mati diam-diam, app tetap jalan normal.
 /// Notifikasi saat app tertutup / di latar belakang ditampilkan sistem Android. Saat app terbuka diteruskan ke
 /// [onPesanDepan] (banner di dalam app).
+/// v1.0.29: notifikasi diketuk (app di latar / tertutup) = layar tujuannya dibuka lewat lonceng (WO, temuan, P0).
+/// Kanal Android dibuat MainActivity.kt (sisi_pengingat, sisi_wo, sisi_ringkasan).
 class Notifikasi {
   Notifikasi(this._api, {FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
 
@@ -42,11 +45,23 @@ class Notifikasi {
       final s = _sesi;
       if (s != null) _jalankan(() => _daftar(s, t));
     });
+    FirebaseMessaging.onMessageOpenedApp.listen((m) => _ketuk(m.data));
+    unawaited(FirebaseMessaging.instance.getInitialMessage().then((m) {
+      if (m != null) _ketuk(m.data); // app dibuka dari notifikasi saat tertutup
+    }).catchError((Object _) {}));
+  }
+
+  void _ketuk(Map<String, dynamic> data) {
+    final x = itemLoncengDariPush(data);
+    if (x != null) Lonceng.i.bukaNanti(x);
   }
 
   /// Dipanggil tiap sesi berganti / app dibuka lagi. Akun yang tidak menerima notifikasi = tidak mendaftar.
   void untukSesi(Sesi? s) {
+    final lama = _sesi;
     _sesi = s;
+    // v1.0.29: logout akun selain YANDAL = server mematikan token HP ini, jadi login berikutnya wajib daftar ulang
+    if (s == null && lama != null && !lama.petugasYandal) _jalankan(() => _storage.delete(key: _kunci));
     if (!_aktif || s == null || !perluNotifikasi(s)) return;
     _jalankan(() async {
       await FirebaseMessaging.instance.requestPermission();

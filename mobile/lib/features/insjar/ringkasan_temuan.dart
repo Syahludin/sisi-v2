@@ -258,26 +258,38 @@ const Map<StatusTemuan, Color> warnaStatusTemuan = {
 };
 
 /// v1.0.21: jumlah per status dalam satu baris (titik warna + angka + label pendek), status kosong tidak ditulis.
+/// v1.0.29 (permintaan kvlar 24 Okt 2026): tidak di-wrap ke baris kedua; layar sempit = mengecil sendiri.
 class TeksStatusTemuan extends StatelessWidget {
   const TeksStatusTemuan(this.status, {super.key});
   final List<int> status;
 
   @override
-  Widget build(BuildContext context) => Wrap(spacing: 10, runSpacing: 2, children: [
-        for (final s in StatusTemuan.values)
-          if (status[s.index] > 0)
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 7, height: 7, decoration: BoxDecoration(color: warnaStatusTemuan[s], shape: BoxShape.circle)),
-              const SizedBox(width: 4),
-              Text.rich(
-                TextSpan(children: [
-                  TextSpan(text: '${status[s.index]} ', style: const TextStyle(fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
-                  TextSpan(text: s.pendek),
-                ]),
-                style: const TextStyle(fontSize: 11.5, color: HartekGaya.redup, fontFeatures: HartekGaya.tabular),
-              ),
-            ]),
-      ]);
+  Widget build(BuildContext context) {
+    final ada = [for (final s in StatusTemuan.values) if (status[s.index] > 0) s];
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final (i, s) in ada.indexed) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Container(width: 7, height: 7, decoration: BoxDecoration(color: warnaStatusTemuan[s], shape: BoxShape.circle)),
+            const SizedBox(width: 4),
+            Text.rich(
+              TextSpan(children: [
+                TextSpan(text: '${status[s.index]} ', style: const TextStyle(fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                TextSpan(text: s.pendek),
+              ]),
+              maxLines: 1,
+              softWrap: false,
+              style: const TextStyle(fontSize: 11.5, color: HartekGaya.redup, fontFeatures: HartekGaya.tabular),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
 /// v1.0.21 (permintaan kvlar 23 Okt 2026): ringkasan status penanganan temuan yang sedang tampil (ikut filter):
@@ -359,33 +371,137 @@ class _KartuSection extends StatelessWidget {
   final String penyulang;
   final RingkasSection s;
 
+  // v1.0.29 (permintaan kvlar 24 Okt 2026): kepala section berlatar merek muda (ikon, nama, jumlah jenis, angka besar).
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(top: 8),
-        decoration: BoxDecoration(color: AppColors.neutral50, borderRadius: BorderRadius.circular(14), border: Border.all(color: HartekGaya.garis)),
+        margin: const EdgeInsets.only(top: 10),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.brand700.withValues(alpha: .18)),
+        ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          InkWell(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-            onTap: () => _buka(context, RingkasanSectionScreen(data: data, penyulang: penyulang, section: s.section)),
+          Material(
+            color: AppColors.brand100.withValues(alpha: .6),
+            child: InkWell(
+              onTap: () => _buka(context, RingkasanSectionScreen(data: data, penyulang: penyulang, section: s.section)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+                child: Row(children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(gradient: SisiMotif.gradien, borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.linear_scale_rounded, size: 18, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(s.section, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                      const SizedBox(height: 2),
+                      TeksStatusTemuan(s.status),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  _AngkaPil(s.jumlah),
+                  const Icon(Icons.chevron_right_rounded, size: 20, color: HartekGaya.merek),
+                ]),
+              ),
+            ),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(8, 4, 8, 8), child: _RincianJenisSection(data: data, penyulang: penyulang, s: s)),
+        ]),
+      );
+}
+
+/// Angka jumlah temuan dalam pil putih (kepala kartu section).
+class _AngkaPil extends StatelessWidget {
+  const _AngkaPil(this.n);
+  final int n;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
+        child: Text('$n', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: HartekGaya.merek, fontFeatures: HartekGaya.tabular)),
+      );
+}
+
+/// v1.0.29 (permintaan kvlar 24 Okt 2026): satu jenis temuan di halaman section = kartu sendiri. Angka besar di kotak
+/// gradien, nama jenis, persen dari section, bar status, jumlah per status. Ketuk = daftar temuan jenis itu.
+class _KartuJenisTemuan extends StatelessWidget {
+  const _KartuJenisTemuan({required this.j, required this.total, required this.maks, required this.onTap});
+  final RingkasJenis j;
+  final int total, maks;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final persen = total == 0 ? 0 : (j.jumlah * 100 / total).round();
+    return Semantics(
+      button: true,
+      label: '${j.jenis}: ${j.jumlah} temuan, $persen persen dari section.',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: AppColors.navy900.withValues(alpha: .06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: HartekGaya.garis)),
+          child: InkWell(
+            onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 8, 4),
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
               child: Row(children: [
-                const Icon(Icons.linear_scale_rounded, size: 18, color: HartekGaya.merek),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(s.section, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
-                    TeksStatusTemuan(s.status),
+                Container(
+                  width: 54,
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(gradient: SisiMotif.gradien, borderRadius: BorderRadius.circular(15)),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('${j.jumlah}',
+                        style: const TextStyle(fontSize: 20, height: 1, fontWeight: FontWeight.w900, color: Colors.white, fontFeatures: HartekGaya.tabular)),
+                    const SizedBox(height: 2),
+                    const Text('temuan', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: HartekGaya.putih85)),
                   ]),
                 ),
-                Text('${s.jumlah}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
-                const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.neutral400),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: Text(j.jenis,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14.5, height: 1.3, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('$persen%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: HartekGaya.redup, fontFeatures: HartekGaya.tabular)),
+                    ]),
+                    const SizedBox(height: 8),
+                    _Bar(lebar: maks == 0 ? 0 : j.jumlah / maks, tinggi: 8, status: j.status),
+                    const SizedBox(height: 6),
+                    TeksStatusTemuan(j.status),
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(color: AppColors.brand100, shape: BoxShape.circle),
+                  child: const Icon(Icons.chevron_right_rounded, size: 20, color: HartekGaya.merek),
+                ),
               ]),
             ),
           ),
-          Padding(padding: const EdgeInsets.fromLTRB(8, 0, 8, 8), child: _RincianJenisSection(data: data, penyulang: penyulang, s: s)),
-        ]),
-      );
+        ),
+      ),
+    );
+  }
 }
 
 /// Satu penyulang yang bisa dibuka / ditutup, berisi section-section-nya (urutan db_Jaringan).
@@ -492,7 +608,7 @@ class _RingkasanTemuanScreenState extends State<RingkasanTemuanScreen> {
           SegmentedButton<ModeRingkasTemuan>(showSelectedIcon: false, segments: _segmen, selected: {_mode}, onSelectionChanged: (v) => setState(() => _mode = v.first)),
           const SizedBox(height: 14),
           if (_mode == ModeRingkasTemuan.jenis) ...[
-            const JudulSeksiSisi('Jumlah per jenis temuan', keterangan: 'ketuk = daftar temuan'),
+            const JudulSeksiSisi('Jumlah per jenis temuan'), // v1.0.29: keterangan "ketuk = daftar temuan" dihapus
             KartuHartek(
               padding: const EdgeInsets.all(6),
               child: Column(children: [
@@ -538,10 +654,17 @@ class RingkasanSectionScreen extends StatelessWidget {
             ikon: Icons.linear_scale_rounded,
             aksi: [tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context))],
           ),
-          if (isi.isNotEmpty) ...[RingkasStatusTemuan(status: s.status), const SizedBox(height: 12)],
-          const JudulSeksiSisi('Jenis temuan', keterangan: 'ketuk = daftar temuan'),
-          KartuHartek(padding: const EdgeInsets.all(8), child: _RincianJenisSection(data: data, penyulang: penyulang, s: s)),
-          const SizedBox(height: 12),
+          if (isi.isNotEmpty) ...[RingkasStatusTemuan(status: s.status), const SizedBox(height: 14)],
+          JudulSeksiSisi('Jenis temuan', keterangan: '${s.jenis.length} jenis'),
+          // v1.0.29: tiap jenis temuan = kartu sendiri
+          for (final j in s.jenis)
+            _KartuJenisTemuan(
+              j: j,
+              total: isi.length,
+              maks: s.jenis.isEmpty ? 1 : s.jenis.first.jumlah,
+              onTap: () => bukaDaftarTemuan(context, data, judul: j.jenis, sub: '$penyulang · $section', penyulang: penyulang, section: section, jenis: j.jenis),
+            ),
+          const SizedBox(height: 4),
           FilledButton.icon(
             onPressed: isi.isEmpty
                 ? null
@@ -550,6 +673,119 @@ class RingkasanSectionScreen extends StatelessWidget {
             label: Text('Lihat ${isi.length} temuan section ini'),
           ),
         ]),
+      ),
+    );
+  }
+}
+
+/// v1.0.29 (permintaan kvlar 24 Okt 2026): kartu satu temuan di halaman daftar temuan (desain ulang). Kepala berwarna status
+/// penanganan (ikon, kode, jenis, pil status), lalu baris info berikon (lokasi, tiang / gardu, tanggal, tim inspeksi),
+/// deskripsi dalam kotak, [foto] (FotoRincian), [bawah] (status WO / galat kirim) dari layar induk.
+class KartuDaftarTemuan extends StatelessWidget {
+  const KartuDaftarTemuan({super.key, required this.t, this.foto, this.bawah});
+  final Map<String, dynamic> t;
+  final Widget? foto, bawah;
+
+  @override
+  Widget build(BuildContext context) {
+    String v(String k) => '${t[k] ?? ''}'.trim();
+    final st = statusTemuan(t);
+    final warna = warnaStatusTemuan[st]!;
+    final kode = v('kodeTemuan');
+    final lokasi = [v('penyulang'), v('section')].where((x) => x.isNotEmpty).join(' · ');
+    final titik = [
+      if (v('nomorTiang').isNotEmpty) 'Tiang ${v('nomorTiang')}',
+      if (v('noGardu').isNotEmpty) 'Gardu ${v('noGardu')}',
+      if (v('segmen').isNotEmpty) v('segmen'),
+    ].join(' · ');
+    Widget info(IconData ikon, String teks) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.only(top: 1), child: Icon(ikon, size: 16, color: HartekGaya.merek)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(teks, style: const TextStyle(fontSize: 13.5, height: 1.35, color: HartekGaya.tinta))),
+          ]),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: AppColors.navy900.withValues(alpha: .06), blurRadius: 14, offset: const Offset(0, 5))],
+      ),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: warna.withValues(alpha: .30))),
+        child: KotakAksen(
+          aksen: warna,
+          latar: Colors.white,
+          radius: 0,
+          lebarAksen: 5,
+          padding: EdgeInsets.zero,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              color: warna.withValues(alpha: .07),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [AppColors.accent400, AppColors.accent600], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(Icons.report_gmailerrorred_rounded, size: 21, color: AppColors.brand950),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(kode.isEmpty ? 'Belum ada kode temuan' : kode,
+                        style: HartekGaya.kode.copyWith(fontSize: 12, fontStyle: kode.isEmpty ? FontStyle.italic : null)),
+                    const SizedBox(height: 2),
+                    Text(v('jenisTemuan').isEmpty ? 'Temuan' : v('jenisTemuan'),
+                        style: const TextStyle(fontSize: 15.5, height: 1.3, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(color: warna.withValues(alpha: .14), borderRadius: BorderRadius.circular(999)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 7, height: 7, decoration: BoxDecoration(color: warna, shape: BoxShape.circle)),
+                    const SizedBox(width: 5),
+                    Text(st.pendek[0].toUpperCase() + st.pendek.substring(1),
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: warna)),
+                  ]),
+                ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (lokasi.isNotEmpty) info(Icons.cable_rounded, lokasi),
+                if (titik.isNotEmpty) info(Icons.place_outlined, titik),
+                if (v('tanggal').isNotEmpty) info(Icons.event_rounded, 'Inspeksi ${tanggalHartek(v('tanggal'))}'),
+                info(Icons.groups_rounded, 'Tim inspeksi: ${timInspeksiTemuan(t)}'),
+                if (v('deskripsi').isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+                    decoration: BoxDecoration(color: AppColors.neutral50, borderRadius: BorderRadius.circular(12), border: Border.all(color: HartekGaya.garis)),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.format_quote_rounded, size: 16, color: HartekGaya.redup),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(v('deskripsi'),
+                            maxLines: 4, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, height: 1.4, color: HartekGaya.redup)),
+                      ),
+                    ]),
+                  ),
+                if (foto != null) foto!,
+                if (bawah != null) bawah!,
+              ]),
+            ),
+          ]),
+        ),
       ),
     );
   }

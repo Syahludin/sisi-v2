@@ -979,20 +979,23 @@ class _InsJarScreenState extends State<InsJarScreen> {
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
-        child: RefreshSisi(
+        child: HalamanHeaderTetap(
+          // v1.0.28: header tetap, isi bergulir
+          header: _headerHalaman(),
+          lebarMaks: 680,
+          isi: RefreshSisi(
           onRefresh: () async {
             if (!_sibuk && _halaman == HalamanInsJar.utama) await _segarkan();
           },
           child: ListView(
             controller: _scroll,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
             children: [
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 680),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    _headerHalaman(),
                     if (_doc == null && _akses)
                       const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: SisiLoader()))
                     else
@@ -1002,6 +1005,7 @@ class _InsJarScreenState extends State<InsJarScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

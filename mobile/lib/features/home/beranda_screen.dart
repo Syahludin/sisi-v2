@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/animasi_masuk.dart';
 import '../../widgets/sisi_motif.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../kalender/kalender_tim_screen.dart';
@@ -18,17 +20,40 @@ import '../../widgets/refresh_sisi.dart';
 /// v1.0.18 (permintaan kvlar 22 Okt 2026): gaya "Jaringan SiSi" + kalender satu bulan (pekerjaan tim, WO, jadwal padam)
 /// supaya setiap petugas melihat rencana pekerjaan dan jadwal padam hari itu langsung dari Beranda.
 class BerandaScreen extends StatefulWidget {
-  const BerandaScreen({super.key, required this.deps, required this.sesi, required this.keLaporan});
+  const BerandaScreen({super.key, required this.deps, required this.sesi, required this.keLaporan, this.masuk});
   final Deps deps;
   final Sesi sesi;
   final VoidCallback keLaporan;
+
+  /// v1.0.27: naik setiap tab Beranda dibuka lagi (animasi masuk diulang).
+  final ValueListenable<int>? masuk;
 
   @override
   State<BerandaScreen> createState() => _BerandaScreenState();
 }
 
-class _BerandaScreenState extends State<BerandaScreen> {
+class _BerandaScreenState extends State<BerandaScreen> with SingleTickerProviderStateMixin {
   final _kalender = GlobalKey<PanelKalenderTimState>();
+
+  /// v1.0.27 (permintaan kvlar 23 Okt 2026): kartu utama, shift, Rank Yandal, kalender, akses cepat muncul sebagai pop up
+  /// bertingkat setiap Beranda dibuka (sesudah kartu Selamat Datang login, dan setiap kembali ke tab Beranda).
+  late final AnimationController _masuk = AnimationController(vsync: this, duration: durasiMasukSisi);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.masuk?.addListener(_ulangMasuk);
+    _masuk.forward();
+  }
+
+  @override
+  void dispose() {
+    widget.masuk?.removeListener(_ulangMasuk);
+    _masuk.dispose();
+    super.dispose();
+  }
+
+  void _ulangMasuk() => _masuk.forward(from: 0);
 
   Deps get deps => widget.deps;
   Sesi get sesi => widget.sesi;
@@ -52,46 +77,60 @@ class _BerandaScreenState extends State<BerandaScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
             children: [
-              _Hero(sesi: sesi),
+              PopMasuk(animasi: _masuk, urut: 0, child: _Hero(sesi: sesi)),
               const SizedBox(height: 16),
-              if (sesi.petugasYandal) ...[KartuShiftYandal(sesi: sesi), const SizedBox(height: 16)], // v0.63.0
+              if (sesi.petugasYandal) ...[PopMasuk(animasi: _masuk, urut: 1, child: KartuShiftYandal(sesi: sesi)), const SizedBox(height: 16)], // v0.63.0
               // v0.63.5: Rank Yandal bulan berjalan (akun YANDAL + admin)
-              if (sesi.petugasYandal || sesi.modeAdmin) ...[KartuRankYandal(deps: deps, sesi: sesi), const SizedBox(height: 16)],
+              if (sesi.petugasYandal || sesi.modeAdmin) ...[
+                PopMasuk(animasi: _masuk, urut: 2, child: KartuRankYandal(deps: deps, sesi: sesi)),
+                const SizedBox(height: 16),
+              ],
               // data KONFLIK / DITOLAK tidak terkirim sendiri: petugas tetap harus melihat dan memilih tindakan
               if (ctl.perluTindakan > 0) ...[_PerluTindakan(deps: deps, sesi: sesi, jumlah: ctl.perluTindakan), const SizedBox(height: 6)],
               const SizedBox(height: 16),
-              JudulSeksiSisi('Kalender', keterangan: sesi.role == 'PETUGAS' ? 'pekerjaan & jadwal padam' : 'jadwal padam'),
-              Container(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.neutral200),
-                  boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 4))],
-                ),
-                child: PanelKalenderTim(key: _kalender, deps: deps, sesi: sesi, ringkas: true),
+              PopMasuk(
+                animasi: _masuk,
+                urut: 3,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  JudulSeksiSisi('Kalender', keterangan: sesi.role == 'PETUGAS' ? 'pekerjaan & jadwal padam' : 'jadwal padam'),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.neutral200),
+                      boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 4))],
+                    ),
+                    child: PanelKalenderTim(key: _kalender, deps: deps, sesi: sesi, ringkas: true),
+                  ),
+                ]),
               ),
               const SizedBox(height: 22),
-              const JudulSeksiSisi('Akses cepat', keterangan: 'sesuai role'),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.25,
-                children: [
-                  if (sesi.modeAdmin)
-                    _AksesCepat(ikon: Icons.dashboard_customize_outlined, judul: 'Operasi', sub: 'Laporan per tim & modul teknik', onTap: widget.keLaporan)
-                  else if (sesi.petugasYandal)
-                    _AksesCepat(ikon: Icons.badge_outlined, judul: 'Shift Yandal', sub: 'Shift ini, Arsip P0, History Gardu', onTap: widget.keLaporan)
-                  else if (sesi.petugasHartek)
-                    _AksesCepat(ikon: Icons.edit_note_rounded, judul: 'Hartek', sub: 'Laporan Utama, pekerjaan, material, foto', onTap: widget.keLaporan)
-                  else if (sesi.petugasInsJar) // v1.0.0
-                    _AksesCepat(ikon: Icons.travel_explore_rounded, judul: 'Inspeksi Jaringan', sub: 'Penyulang utama, temuan, foto', onTap: widget.keLaporan)
-                  else if (sesi.aksiMenu('ROW_EKSEKUSI') != null)
-                    _AksesCepat(ikon: Icons.forest_outlined, judul: 'Laporan ROW', sub: 'Header, penyulang, eksekusi', onTap: widget.keLaporan),
-                ],
+              PopMasuk(animasi: _masuk, urut: 4, child: const JudulSeksiSisi('Akses cepat', keterangan: 'sesuai role')),
+              PopMasuk(
+                animasi: _masuk,
+                urut: 5,
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.25,
+                  children: [
+                    if (sesi.modeAdmin)
+                      _AksesCepat(ikon: Icons.dashboard_customize_outlined, judul: 'Operasi', sub: 'Laporan per tim & modul teknik', onTap: widget.keLaporan)
+                    else if (sesi.petugasYandal)
+                      _AksesCepat(ikon: Icons.badge_outlined, judul: 'Shift Yandal', sub: 'Shift ini, Arsip P0, History Gardu', onTap: widget.keLaporan)
+                    else if (sesi.petugasHartek)
+                      _AksesCepat(
+                          ikon: Icons.handyman_rounded, judul: 'Laporan Hartek', sub: 'Laporan Utama, pekerjaan, material, foto', onTap: widget.keLaporan)
+                    else if (sesi.petugasInsJar) // v1.0.0
+                      _AksesCepat(ikon: Icons.travel_explore_rounded, judul: 'Inspeksi Jaringan', sub: 'Penyulang utama, temuan, foto', onTap: widget.keLaporan)
+                    else if (sesi.aksiMenu('ROW_EKSEKUSI') != null)
+                      _AksesCepat(ikon: Icons.forest_outlined, judul: 'Laporan ROW', sub: 'Header, penyulang, eksekusi', onTap: widget.keLaporan),
+                  ],
+                ),
               ),
             ],
           ),
@@ -147,8 +186,7 @@ class _Hero extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: .14)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Semangat Pagii!!',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.accent400, letterSpacing: .2)),
+            const Text('Semangat Pagii!!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.accent400, letterSpacing: .2)),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 6, children: [
               yel('Safety Yess ✅', const Color(0xFF22C55E)),

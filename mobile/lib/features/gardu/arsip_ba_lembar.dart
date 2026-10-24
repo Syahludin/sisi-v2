@@ -61,9 +61,9 @@ Future<void> tampilArsipBa(BuildContext context, {required Deps deps, required S
     final lokal = path;
     final judul = '${b.nama.isEmpty ? 'BA' : b.nama} · ${ttd ? 'BA TTD' : 'PDF'} (arsip v1)';
     if (lokal.endsWith('.pdf')) {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: lokal, judul: judul, namaFile: p.basename(lokal))));
+      await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => PdfBaScreen(path: lokal, judul: judul, namaFile: p.basename(lokal))));
     } else {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: lokal, judul: judul, keterangan: b.nomor)));
+      await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => LihatFotoScreen(path: lokal, judul: judul, keterangan: b.nomor)));
     }
   }
 

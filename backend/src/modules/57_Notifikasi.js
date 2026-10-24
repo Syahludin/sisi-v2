@@ -12,6 +12,16 @@
  *  - Riwayat kirim di yan_Pengingat (juga mencegah kirim dobel). Tim yang sudah login tidak diingatkan lagi.
  *
  * Kunci service account Firebase di Script Property FCM_SERVICE_ACCOUNT (JSON utuh, tidak pernah dicetak).
+ *
+ * v1.0.29 (permintaan kvlar 24 Okt 2026): notifikasi ditampilkan Android (pesan notification FCM), app tidak perlu
+ * berjalan. Push hanya pemberi tahu; daftar lengkap tetap di lonceng app (83_Lonceng).
+ *  - Kanal Android (dibuat app, MainActivity.kt): sisi_pengingat (login Yandal), sisi_wo (WO baru), sisi_ringkasan
+ *    (ringkasan admin, tanpa bunyi). Data { jenis, menu, temuanId, tanggal } = layar tujuan saat notifikasi diketuk.
+ *  - WO baru / dipindah ke tim: langsung ke SEMUA HP aktif akun tim itu (kirimWoKeTim_), satu notifikasi per WO.
+ *  - Admin: ringkasan temuan petugas (tiap 15 menit, bila ada yang baru) dan P0 masuk (tiap 60 menit) dari pemicu
+ *    5 menit yang sama. Tag tetap = notifikasi lama di HP diganti, tidak menumpuk.
+ *  - Penerima juga akun PETUGAS bermenu OPS_WO_TIM. Logout akun selain YANDAL = token HP itu dimatikan (HP Yandal yang
+ *    logout tetap menerima pengingat login shift berikutnya).
  */
 var AUTH_NOTIF_HEADER_ = ['install_id', 'user_id', 'fcm_token', 'platform', 'didaftar_pada', 'diperbarui_pada', 'aktif',
                           'terakhir_kirim', 'pesan'];
@@ -23,10 +33,18 @@ var PENGINGAT_GAGAL_MAKS_ = 3;          // kiriman GAGAL berturut-turut per tim 
 var PENGINGAT_RIWAYAT_BARIS_ = 400;     // baris terakhir yan_Pengingat yang dibaca untuk cegah dobel
 var NOTIF_SEGAR_MS_ = 24 * 3600e3;      // daftar ulang token yang sama = tulis lagi paling cepat sehari sekali
 var FCM_SCOPE_ = 'https://www.googleapis.com/auth/firebase.messaging';
+var KANAL_NOTIF_ = { pengingat: 'sisi_pengingat', wo: 'sisi_wo', ringkasan: 'sisi_ringkasan' };   // v1.0.29
+var RINGKAS_NOTIF_MENIT_ = { TEMUAN: 15, P0: 60 };   // v1.0.29: jeda ringkasan admin
 var FCM_TOKEN_URL_ = 'https://oauth2.googleapis.com/token';
 
-/** Akun yang menerima notifikasi: tim YANDAL (pengingat login) dan ADMIN / SUPER (peringatan belum login). */
-function penerimaNotif_(sesi) { return petugasYandal_(sesi) || sesi.role === 'ADMIN' || sesi.role === 'SUPER'; }
+/**
+ * Akun yang menerima notifikasi: tim YANDAL (pengingat login), ADMIN / SUPER (belum login, ringkasan temuan / P0), dan
+ * v1.0.29 tim tindak lanjut (PETUGAS bermenu OPS_WO_TIM: WO baru).
+ */
+function penerimaNotif_(sesi) {
+  return petugasYandal_(sesi) || sesi.role === 'ADMIN' || sesi.role === 'SUPER' ||
+    (sesi.role === 'PETUGAS' && adaMenuLonceng_(sesi, 'OPS_WO_TIM'));
+}
 
 function tabelNotif_() { return cekHeaderSkema_(tabel_('AUTH_SHEET_ID', 'auth_Notif'), 'AUTH_SHEET_ID', 'auth_Notif'); }
 
@@ -108,7 +126,8 @@ function aksesGoogle_(akun, scope, baru) {
 function aksesFcm_(akun, baru) { return aksesGoogle_(akun, FCM_SCOPE_, baru); }
 
 /**
- * Kirim banyak pesan sekaligus (fetchAll). daftar = [{ token, judul, isi, data, ttlDetik }].
+ * Kirim banyak pesan sekaligus (fetchAll). daftar = [{ token, judul, isi, data, ttlDetik, kanal, tag, prioritas }].
+ * v1.0.29: kanal = KANAL_NOTIF_ (bawaan pengingat), tag sama = mengganti notifikasi lama di HP, prioritas NORMAL / HIGH.
  * Hasil (urutan sama): [{ ok, tidakTerdaftar, pesan }]. Token tidak terdaftar (app di-uninstall) = tidakTerdaftar.
  */
 function kirimFcm_(akun, daftar) {
@@ -123,20 +142,28 @@ function kirimFcm_(akun, daftar) {
         headers: { Authorization: 'Bearer ' + akses },
         payload: JSON.stringify({ message: {
           token: m.token, notification: { title: m.judul, body: m.isi }, data: data,
-          android: { priority: 'HIGH', ttl: (m.ttlDetik || 1800) + 's', notification: { default_sound: true, notification_priority: 'PRIORITY_HIGH' } }
+          android: { priority: m.prioritas || 'HIGH', ttl: (m.ttlDetik || 1800) + 's', notification: Object.assign({
+            default_sound: true, notification_priority: m.prioritas === 'NORMAL' ? 'PRIORITY_DEFAULT' : 'PRIORITY_HIGH',
+            channel_id: m.kanal || KANAL_NOTIF_.pengingat }, m.tag ? { tag: String(m.tag) } : {}) }
         } })
       };
     });
   };
   var res = ambilUrlSemua_(minta(aksesFcm_(akun, false)), 'fcm');
   if (res.some(function (x) { return x.getResponseCode() === 401; })) res = ambilUrlSemua_(minta(aksesFcm_(akun, true)), 'fcm');   // token akses basi
-  return res.map(function (x) {
+  var hasil = res.map(function (x) {
     var kode = x.getResponseCode(), teks = String(x.getContentText() || '');
-    if (kode === 200) return { ok: true, tidakTerdaftar: false, pesan: '' };
+    if (kode === 200) return { ok: true, tidakTerdaftar: false, ditolak: false, pesan: '' };
     var tidak = kode === 404 || /UNREGISTERED|registration token|not a valid FCM/i.test(teks);
     var m = /"status"\s*:\s*"([A-Z_]+)"/.exec(teks);
-    return { ok: false, tidakTerdaftar: tidak, pesan: 'HTTP ' + kode + (m ? ' ' + m[1] : '') };
+    return { ok: false, tidakTerdaftar: tidak, ditolak: kode === 429 || /RESOURCE_EXHAUSTED|QUOTA_EXCEEDED/.test(teks),
+             pesan: 'HTTP ' + kode + (m ? ' ' + m[1] : '') };
   });
+  // v1.0.31: catatan Firebase untuk Pemakaian Engine. Gagal = selain token basi (HP uninstall), ditolak = batas kiriman (429).
+  var gagal = 0, tolak = 0;
+  hasil.forEach(function (h) { if (!h.ok && !h.tidakTerdaftar) gagal++; if (h.ditolak) tolak++; });
+  catatPakai_({ fcm_kirim: daftar.length, fcm_gagal: gagal, fcm_tolak: tolak }, { fcm_kirim: daftar.length, fcm_gagal: gagal });
+  return hasil;
 }
 
 // ---------------- rencana pengingat (murni, dites di Node) ----------------
@@ -234,6 +261,156 @@ function pesanPengingatAdmin_(daftar, sh, menit) {
   };
 }
 
+// ---------------- v1.0.29: penerima + kirim umum ----------------
+
+/** Token aktif auth_Notif milik akun yang lolos [cocok](user db_Users), satu per token. Hasil [{ userId, installId, token }]. */
+function penerimaNotifUser_(cocok) {
+  var users = {};
+  tabel_('MASTER_SHEET_ID', 'db_Users').rows.forEach(function (u) { if (u.user_id && isAktif_(u.aktif) && cocok(u)) users[String(u.user_id)] = true; });
+  var lihat = {}, hasil = [];
+  tabelNotif_().rows.forEach(function (n) {
+    var tok = teksSel_(n.fcm_token);
+    if (!isAktif_(n.aktif) || !tok || lihat[tok] || !users[String(n.user_id)]) return;
+    lihat[tok] = true;
+    hasil.push({ userId: String(n.user_id), installId: teksSel_(n.install_id), token: tok });
+  });
+  return hasil;
+}
+
+/** Semua HP aktif akun PETUGAS tim [timId] (WO: tidak hanya HP terakhir login). */
+function penerimaTimNotif_(timId) {
+  return penerimaNotifUser_(function (u) { return String(u.role).trim() === 'PETUGAS' && String(u.tim_id) === String(timId); });
+}
+
+/** HP aktif akun ADMIN / SUPER yang punya salah satu [menu]. */
+function penerimaAdminNotif_(menu) {
+  var aturan = aturanAkses_(), jenis = {};
+  tabel_('MASTER_SHEET_ID', 'db_Tim').rows.forEach(function (t) { jenis[String(t.tim_id)] = String(t.jenis || '').trim(); });
+  return penerimaNotifUser_(function (u) {
+    var r = String(u.role).trim();
+    if (r !== 'ADMIN' && r !== 'SUPER') return false;
+    return menu.some(function (m) { return !!aksesUntuk_(r, jenis[String(u.tim_id)] || '', m, aturan); });
+  });
+}
+
+/** Status token sesudah kirim (WAJIB di dalam denganLock_): berhasil = terakhir_kirim, tidak terdaftar = dimatikan. */
+function tandaiTokenNotif_(kirim, hasil, waktu) {
+  var tN = tabelNotif_(), perIns = {}, ubah = [];
+  tN.rows.forEach(function (n) { perIns[teksSel_(n.install_id)] = n; });
+  kirim.forEach(function (k, i) {
+    var n = perIns[k.installId], h = hasil[i];
+    if (!n || !h) return;
+    if (h.ok) ubah.push({ r: n, u: { terakhir_kirim: waktu, pesan: '' } });
+    else if (h.tidakTerdaftar) ubah.push({ r: n, u: { aktif: false, pesan: 'TIDAK_TERDAFTAR ' + h.pesan, diperbarui_pada: waktu } });
+  });
+  tulisBlok_(tN, ubah, []);
+}
+
+/** Kirim [pesan] ke [penerima] lalu catat status token. Hasil jumlah terkirim. Galat FCM tidak dilempar. */
+function kirimPushPenerima_(akun, penerima, pesan) {
+  if (!penerima.length) return 0;
+  var kirim = penerima.map(function (p) { return Object.assign({}, pesan, { token: p.token, installId: p.installId }); });
+  var hasil;
+  try { hasil = kirimFcm_(akun, kirim); } catch (e) {
+    console.log('Kirim notifikasi ' + String((pesan.data || {}).jenis || '') + ' gagal: ' + String(e.kode || e.message || e).slice(0, 80));
+    return 0;
+  }
+  var waktu = sekarangIso_();
+  denganLock_(function () { tandaiTokenNotif_(kirim, hasil, waktu); });
+  return hasil.filter(function (h) { return h.ok; }).length;
+}
+
+/** Isi notifikasi WO baru untuk tim (murni). */
+function pesanWoNotif_(t) {
+  var lokasi = [t.penyulang, t.section, t.no_gardu ? 'Gardu ' + t.no_gardu : ''].map(function (v) { return teksSel_(v); }).filter(String).join(' · ');
+  return {
+    judul: 'WO baru: ' + (teksSel_(t.jenis_temuan) || 'Temuan'),
+    isi: [teksSel_(t.kode_temuan), lokasi, teksSel_(t.catatan_admin)].filter(String).join('\n'),
+    data: { jenis: 'WO', menu: 'OPS_WO_TIM', temuanId: String(t.temuan_id) },
+    kanal: KANAL_NOTIF_.wo, tag: 'wo-' + String(t.temuan_id), ttlDetik: 86400
+  };
+}
+
+/** v1.0.29: WO dikirim / dipindah ke tim [timId] = notifikasi ke semua HP tim. Tidak pernah menggagalkan penerusan. */
+function notifWoTim_(timId, t) {
+  try {
+    var akun = akunFcm_();
+    if (!akun) return 0;
+    return kirimPushPenerima_(akun, penerimaTimNotif_(timId), pesanWoNotif_(t));
+  } catch (e) {
+    console.log('Notifikasi WO ' + teksSel_(t.kode_temuan) + ' dilewati: ' + String(e.kode || e.message || e).slice(0, 80));
+    return 0;
+  }
+}
+
+/** Isi ringkasan admin (murni). */
+function pesanRingkasTemuan_(baru, hariIni, jenis, tanggal) {
+  return {
+    judul: baru + ' temuan inspeksi baru',
+    isi: 'Hari ini ' + hariIni + ' temuan dari petugas' + (jenis.length ? '. Terbaru: ' + jenis.join(', ') : '') + '.',
+    data: { jenis: 'TEMUAN', menu: 'OPS_INPUT_TEMUAN' }, kanal: KANAL_NOTIF_.ringkasan, tag: 'temuan-' + tanggal,
+    prioritas: 'NORMAL', ttlDetik: 3600
+  };
+}
+
+function pesanRingkasP0_(baru, menunggu, tanggal) {
+  return {
+    judul: baru + ' P0 masuk dalam 1 jam terakhir',
+    isi: menunggu + ' P0 menunggu verifikasi.',
+    data: { jenis: 'P0', menu: 'OPS_VERIFIKASI_P0', tanggal: tanggal }, kanal: KANAL_NOTIF_.ringkasan, tag: 'p0-ringkasan',
+    prioritas: 'NORMAL', ttlDetik: 3600
+  };
+}
+
+/**
+ * v1.0.29: ringkasan admin dari pemicu 5 menit. Tiap jenis dihitung paling sering tiap RINGKAS_NOTIF_MENIT_ (Script
+ * Property NOTIF_RINGKAS_<JENIS> = waktu hitung terakhir; pertama kali hanya mencatat waktu). Tidak ada yang baru = diam.
+ */
+function notifRingkasanAdmin_(akun, sekarangMs) {
+  var p = PropertiesService.getScriptProperties(), hasil = {};
+  var hariIni = tglJakarta_(new Date(sekarangMs)), iso = new Date(sekarangMs).toISOString();
+  var hitung = {
+    TEMUAN: function (sejak) {
+      var rows = tabelInsJar_(INSJAR_SHEET_.TEMUAN).rows.filter(function (t) { return t.temuan_id && String(t.sumber) !== 'ADMIN'; });
+      var baru = rows.filter(function (t) { return (msWaktu_(t.timestamp) || 0) > sejak; });
+      if (!baru.length) return null;
+      var jenis = [];
+      baru.slice().reverse().forEach(function (t) { var j = teksSel_(t.jenis_temuan); if (j && jenis.indexOf(j) === -1 && jenis.length < 3) jenis.push(j); });
+      return { pesan: pesanRingkasTemuan_(baru.length, rows.filter(function (t) { return tglInsJar_(t) === hariIni; }).length, jenis, hariIni),
+               menu: ['OPS_INPUT_TEMUAN', 'OPS_PENERUSAN_WO'] };
+    },
+    P0: function (sejak) {
+      if (!cfg_().YANDAL_SHEET_ID) return null;
+      var baru = bacaSheetYandal_(['yan_P0']).yan_P0.rows.filter(function (r) {
+        return r.p0_id && String(r.status || 'AKTIF') !== 'BATAL' && (msWaktu_(r.Timestamp) || 0) > sejak;
+      });
+      if (!baru.length) return null;
+      return { pesan: pesanRingkasP0_(baru.length, itemP0Lonceng_(batasLonceng_()).length, hariIni), menu: ['OPS_VERIFIKASI_P0'] };
+    }
+  };
+  Object.keys(RINGKAS_NOTIF_MENIT_).forEach(function (jenis) {
+    var kunci = 'NOTIF_RINGKAS_' + jenis, lalu = msWaktu_(p.getProperty(kunci));
+    if (lalu && sekarangMs - lalu < RINGKAS_NOTIF_MENIT_[jenis] * 60e3) return;
+    p.setProperty(kunci, iso);
+    if (!lalu) return;   // pertama kali: mulai menghitung dari sekarang (temuan / P0 lama tidak dikabarkan)
+    var r = bagianKalender_(function () { return [hitung[jenis](lalu)]; })[0];
+    if (!r) return;
+    hasil[jenis] = kirimPushPenerima_(akun, penerimaAdminNotif_(r.menu), r.pesan);
+  });
+  return hasil;
+}
+
+/** v1.0.29: logout akun selain YANDAL = token HP itu dimatikan (WAJIB di dalam denganLock_). Sheet belum ada = dilewati. */
+function matikanNotifInstall_(installId) {
+  if (!installId) return;
+  bagianKalender_(function () {
+    var t = tabelNotif_(), iso = sekarangIso_();
+    tulisBlok_(t, t.rows.filter(function (n) { return teksSel_(n.install_id) === installId && isAktif_(n.aktif); })
+      .map(function (n) { return { r: n, u: { aktif: false, pesan: 'LOGOUT', diperbarui_pada: iso } }; }), []);
+    return [];
+  });
+}
+
 // ---------------- pemicu ----------------
 
 /** Baris terakhir yan_Pengingat (cegah dobel). Sheet belum ada = []. */
@@ -257,12 +434,20 @@ function ADMIN_pengingatYandal(e) {
   return jalanPemicu_('ADMIN_pengingatYandal', e, pengingatYandalInti_);   // v0.84.0: waktu jalan dicatat + rem kuota
 }
 
-/** v0.84.0: isi ADMIN_pengingatYandal (dibungkus jalanPemicu_). */
+/** v0.84.0: isi ADMIN_pengingatYandal (dibungkus jalanPemicu_). v1.0.29: + ringkasan admin (temuan / P0). */
 function pengingatYandalInti_() {
+  var akun = akunFcm_();
+  if (!akun) { console.warn('FCM_SERVICE_ACCOUNT kosong / rusak: notifikasi (pengingat login Yandal, ringkasan admin) tidak bisa dikirim.'); return; }
+  pengingatLoginYandal_(akun);
+  try { notifRingkasanAdmin_(akun, sekarangMsYandal_()); } catch (e) {
+    console.error('Ringkasan notifikasi admin gagal: ' + String(e.kode || e.message || e).slice(0, 120));
+  }
+}
+
+/** Pengingat login Yandal + peringatan admin (v0.83.0). */
+function pengingatLoginYandal_(akun) {
   var c = cfg_();
   if (!c.YANDAL_SHEET_ID) { console.log('YANDAL_SHEET_ID kosong, pengingat dilewati.'); return; }
-  var akun = akunFcm_();
-  if (!akun) { console.warn('FCM_SERVICE_ACCOUNT kosong / rusak: pengingat login Yandal tidak bisa dikirim.'); return; }
   var p = PropertiesService.getScriptProperties(), sekarang = sekarangMsYandal_();
   var tRiwayat = headerSheetYandal_('yan_Pengingat');
   var r = rencanaPengingat_({
@@ -283,7 +468,7 @@ function pengingatYandalInti_() {
   r.yandal.forEach(function (x) {
     if (!x.hp) { catat(x.tim, 'YANDAL', x.menit, '-', 'TANPA_HP', null); return; }
     var m = pesanPengingatYandal_(x.tim, sh, x.menit);
-    kirim.push({ token: x.hp.token, judul: m.judul, isi: m.isi, ttlDetik: 1800, installId: x.hp.installId,
+    kirim.push({ token: x.hp.token, judul: m.judul, isi: m.isi, ttlDetik: 1800, installId: x.hp.installId, kanal: KANAL_NOTIF_.pengingat,
                  data: { jenis: 'PENGINGAT_LOGIN', tanggal: sh.tanggal, shift: sh.no },
                  baris: [catat(x.tim, 'YANDAL', x.menit, x.hp.terakhir ? 'HP terakhir login' : 'HP terdaftar terakhir', '', x.hp)] });
   });
@@ -291,7 +476,7 @@ function pengingatYandalInti_() {
     var ma = pesanPengingatAdmin_(r.admin, sh, r.menit);
     var bA = r.admin.map(function (x) { return catat(x.tim, 'ADMIN', r.menit, r.penerimaAdmin.length + ' HP admin', r.penerimaAdmin.length ? '' : 'TANPA_HP_ADMIN', null); });
     r.penerimaAdmin.forEach(function (a, i) {
-      kirim.push({ token: a.token, judul: ma.judul, isi: ma.isi, ttlDetik: 3600, installId: a.installId,
+      kirim.push({ token: a.token, judul: ma.judul, isi: ma.isi, ttlDetik: 3600, installId: a.installId, kanal: KANAL_NOTIF_.pengingat,
                    data: { jenis: 'BELUM_LOGIN_YANDAL', tanggal: sh.tanggal, shift: sh.no }, baris: i === 0 ? bA : [], admin: true });
     });
   }
@@ -314,15 +499,7 @@ function pengingatYandalInti_() {
     var t = headerSheetYandal_('yan_Pengingat'), no = t.sheet.getLastRow();
     baris.forEach(function (b, i) { b.No = no + i; });
     tambahBanyak_(t, baris);
-    var tN = tabelNotif_(), perIns = {}, ubah = [];
-    tN.rows.forEach(function (n) { perIns[teksSel_(n.install_id)] = n; });
-    kirim.forEach(function (k, i) {
-      var n = perIns[k.installId], h = hasil[i];
-      if (!n || !h) return;
-      if (h.ok) ubah.push({ r: n, u: { terakhir_kirim: waktu, pesan: '' } });
-      else if (h.tidakTerdaftar) ubah.push({ r: n, u: { aktif: false, pesan: 'TIDAK_TERDAFTAR ' + h.pesan, diperbarui_pada: waktu } });
-    });
-    tulisBlok_(tN, ubah, []);
+    tandaiTokenNotif_(kirim, hasil, waktu);   // v1.0.29: sama dengan kiriman WO / ringkasan
   });
   console.log('PENGINGAT YANDAL shift ' + sh.no + ' ' + sh.tanggal + ' menit ' + r.menit + ': ' +
     baris.map(function (b) { return b.Jenis + ' ' + b.Tim + ' = ' + b.Hasil; }).join(' | '));

@@ -21,35 +21,12 @@ class KunciUpdate {
   static bool bolehAksi(String action) =>
       action.startsWith('get') || const {'ping', 'login', 'logout', 'cekSesi', 'mulaiShiftYandal', 'daftarNotif', 'tandaiNotifikasi'}.contains(action);
 
-  /// Terkunci = kartu pemberitahuan tampil dan hasil true (pemanggil berhenti, tidak membuka input).
+  /// Terkunci = kartu update tampil (v1.0.26: kartu yang sama dengan cek versi) dan hasil true (pemanggil berhenti,
+  /// tidak membuka input).
   static bool tolak(BuildContext context) {
     if (!aktif.value) return false;
-    tampilkan(context);
+    bukaUpdate?.call();
     return true;
-  }
-
-  static void tampilkan(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      builder: (d) => AlertDialog(
-        icon: const Icon(Icons.system_update_rounded, size: 40, color: AppColors.red700),
-        title: const Text('Update Aplikasi', textAlign: TextAlign.center),
-        content: const Text('$pesan.\n\nInput dan sinkron data dimatikan sampai aplikasi terupdate. Data yang belum terkirim tetap aman di HP.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Tutup')),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.pop(d);
-              bukaUpdate?.call();
-            },
-            icon: const Icon(Icons.system_update_rounded),
-            label: const Text('Update Sekarang'),
-          ),
-        ],
-      ),
-    );
   }
 }
 

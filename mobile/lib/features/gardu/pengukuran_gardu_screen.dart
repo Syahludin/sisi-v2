@@ -8,6 +8,7 @@ import '../../core/deps.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/animasi_masuk.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'gardu_model.dart';
 import 'gardu_widgets.dart';
@@ -385,7 +386,7 @@ class _Ringkasan extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$total', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.navy900, height: 1)),
+            AngkaNaik(total, gaya: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.navy900, height: 1)), // v1.0.27
             Text(tidakAktif ? 'gardu tidak aktif' : 'gardu aktif',
                 style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.neutral500)),
           ]),
@@ -404,13 +405,20 @@ class _Ringkasan extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (total > 0)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              height: 10,
-              child: Row(children: [
-                for (final k in ada) Expanded(flex: jumlah[k] ?? 0, child: Container(color: k.warna)),
-              ]),
+          // v1.0.27: bar kategori tumbuh dari kiri bersamaan dengan cincin + angka
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: durasiMasukSisi,
+            curve: Curves.easeOutCubic,
+            builder: (_, v, bar) => Align(alignment: Alignment.centerLeft, widthFactor: 1, child: FractionallySizedBox(widthFactor: v, child: bar)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                height: 10,
+                child: Row(children: [
+                  for (final k in ada) Expanded(flex: jumlah[k] ?? 0, child: Container(color: k.warna)),
+                ]),
+              ),
             ),
           ),
         const SizedBox(height: 12),
@@ -476,7 +484,7 @@ class _KotakKategori extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
-                  child: Text('$jumlah', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: kategori.warna, height: 1.1)),
+                  child: AngkaNaik(jumlah, gaya: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: kategori.warna, height: 1.1)),
                 ),
                 if (terpilih) Icon(Icons.check_circle_rounded, size: 15, color: kategori.warna),
               ]),

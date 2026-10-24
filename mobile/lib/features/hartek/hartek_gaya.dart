@@ -88,6 +88,38 @@ class KartuHartek extends StatelessWidget {
   }
 }
 
+/// Kotak beraksen kiri (bilah warna [aksen]) berlatar [latar] dengan sudut membulat. Dipakai kartu pekerjaan /
+/// material di rincian Hartek dan WO Tindak Lanjut (v1.0.26, dibagi v1.0.28).
+class KotakAksen extends StatelessWidget {
+  const KotakAksen({
+    super.key,
+    required this.aksen,
+    required this.latar,
+    required this.child,
+    this.radius = 12,
+    this.padding = const EdgeInsets.fromLTRB(8, 6, 8, 6),
+    this.lebarAksen = 4,
+    this.margin = EdgeInsets.zero,
+  });
+  final Color aksen, latar;
+  final double radius, lebarAksen;
+  final EdgeInsetsGeometry padding, margin;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(radius)),
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(width: lebarAksen, color: aksen),
+            Expanded(child: Padding(padding: padding, child: child)),
+          ]),
+        ),
+      );
+}
+
 /// Kotak ikon berwarna lembut untuk jenis lokasi.
 class KotakIkon extends StatelessWidget {
   const KotakIkon(this.jenis, {super.key, this.ukuran = 46});

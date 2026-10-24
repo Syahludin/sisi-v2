@@ -12,6 +12,9 @@
  *                        Beban (EW), Persentase (EY).
  *      lama lebih baru -> db_Gardu: Tanggal Ukur Terakhir + 10 angka (grup WBP kalau terisi, selain itu LWBP),
  *                        hasil dihitung ulang (Pembebanan, Persentase, Kategori) seperti pengukuran HP.
+ *  v1.0.23 (permintaan kvlar 23 Okt 2026): db_Gardu punya blok WBP (kolom lama) dan LWBP. Tanggal db = yang terbaru
+ *    dari keduanya. Lama lebih baru = grup WBP DAN LWBP yang terisi masuk ke bloknya masing-masing (tanggal sama).
+ *    db lebih baru = blok yang bertanggal terbaru ditulis ke grupnya masing-masing.
  *  - Gardu di db_Gardu yang belum ada di sheet lama (BA Pengoperasian v2) = baris baru di bawah gardu terakhir
  *    ber-prefix sama, formula baris acuan ikut disalin. Gardu yang hanya ada di sheet lama = dilaporkan saja.
  *  - 1. DATA TRAFO dan INPUT TBL hanya MENERIMA (identitas + baris gardu baru, posisi kolom v1), tidak dibaca
@@ -144,39 +147,62 @@ function identitasKeSheet_(b, ubah, i, g, peta) {
   return diubah;
 }
 
-/** 10 angka pengukuran db_Gardu (YAN_NILAI_GARDU_ kolom) -> grup WBP / LWBP sheet lama + tanggal + hasil. */
+/**
+ * Blok pengukuran db_Gardu yang bertanggal terbaru -> sel sheet lama: [[kolom, nilai]] (murni). Tanggal (U), grup WBP /
+ * LWBP sesuai bloknya, Arus Maks, lalu Beban + Persentase dari blok WBP (kalau tidak bertanggal terbaru: dari LWBP).
+ */
+function selUkurSinkron_(g) {
+  var S = SINKRON_GARDU_, tgl = tglUkurTerbaruGardu_(g), sel = [], hasil = null;
+  if (!tgl) return sel;
+  sel.push([S.kolTgl, tglKeSel_(tgl)]);
+  ['WBP', 'LWBP'].forEach(function (p) {
+    var blok = ukurBlokGardu_(g, p);
+    if (tglSel_(blok['Tanggal Ukur Terakhir']) !== tgl) return;
+    Object.keys(S.grup[p]).forEach(function (k) { sel.push([S.grup[p][k], blok[k]]); });
+    hasil = hasil || blok;
+  });
+  sel.push([S.kolArus, g['Arus Maks per Fasa (A)']]);
+  if (hasil) sel.push([S.kolBeban, hasil['Pembebanan (kVA)']], [S.kolPersen, hasil['Persentase Beban (%)']]);
+  return sel;
+}
+
+/** Pengukuran db_Gardu (blok WBP / LWBP terbaru) -> grup sheet lama + tanggal + hasil. */
 function ukurKeSheet_(b, ubah, i, g) {
-  var S = SINKRON_GARDU_, waktu = teksGarduLama_(g['Waktu Beban']).toUpperCase() === 'LWBP' ? 'LWBP' : 'WBP', n = 0;
-  var set = function (kol, v) { if (!kosongSinkron_(v) && !samaNilaiSinkron_(b.tampil[i][kol - 1], v, 'angka') && ubahSelSinkron_(b, ubah, i, kol, v)) n++; };
-  if (ubahSelSinkron_(b, ubah, i, S.kolTgl, tglKeSel_(tglSelBa_(g['Tanggal Ukur Terakhir'])))) n++;
-  Object.keys(S.grup[waktu]).forEach(function (k) { set(S.grup[waktu][k], g[k]); });
-  set(S.kolArus, g['Arus Maks per Fasa (A)']);
-  set(S.kolBeban, g['Pembebanan (kVA)']);
-  set(S.kolPersen, g['Persentase Beban (%)']);
+  var S = SINKRON_GARDU_, n = 0;
+  selUkurSinkron_(g).forEach(function (x) {
+    if (x[0] === S.kolTgl) { if (ubahSelSinkron_(b, ubah, i, x[0], x[1])) n++; return; }
+    if (!kosongSinkron_(x[1]) && !samaNilaiSinkron_(b.tampil[i][x[0] - 1], x[1], 'angka') && ubahSelSinkron_(b, ubah, i, x[0], x[1])) n++;
+  });
   return n;
 }
 
-/** Pengukuran sheet lama -> kolom db_Gardu (grup WBP kalau ada beban, selain itu LWBP). */
+/**
+ * Pengukuran sheet lama -> kolom db_Gardu. v1.0.23: grup WBP dan LWBP yang berisi beban masuk ke bloknya masing-masing
+ * (tanggal sama, hasil dihitung ulang per grup). Tanpa angka per fasa = hasil tertulis di sheet lama ke blok WBP.
+ */
 function ukurDariSheet_(b, i, g, tgl) {
-  var S = SINKRON_GARDU_, tampil = b.tampil[i];
+  var S = SINKRON_GARDU_, tampil = b.tampil[i], u = {}, ada = false;
   var ambil = function (grup) {
-    var o = {}, ada = false;
-    Object.keys(S.grup[grup]).forEach(function (k) { var v = angkaGarduLama_(tampil[S.grup[grup][k] - 1]); o[k] = v; if (v !== '' && /^Beban/.test(k)) ada = true; });
-    return ada ? o : null;
+    var o = {}, isi = false;
+    Object.keys(S.grup[grup]).forEach(function (k) { var v = angkaGarduLama_(tampil[S.grup[grup][k] - 1]); o[k] = v; if (v !== '' && /^Beban/.test(k)) isi = true; });
+    return isi ? o : null;
   };
-  var waktu = 'WBP', nilai = ambil('WBP');
-  if (!nilai) { waktu = 'LWBP'; nilai = ambil('LWBP'); }
-  var u = { 'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': 'SHEET LAMA', ukur_id_terakhir: '' };
-  if (nilai) {
-    Object.assign(u, nilai, { 'Waktu Beban': waktu });
+  ['WBP', 'LWBP'].forEach(function (p) {
+    var nilai = ambil(p);
+    if (!nilai) return;
     var n = {};
     YAN_NILAI_GARDU_.forEach(function (x) { n[x.kunci] = nilai[x.kolom] === '' ? 0 : nilai[x.kolom]; });
     var h = hasilUkurGardu_(n, g['Kapasitas (kVA)']);
-    Object.assign(u, { 'Arus Maks per Fasa (A)': h.arusMaks, 'Pembebanan (kVA)': h.kva, 'Persentase Beban (%)': h.persen, 'Kategori Beban': h.kategori });
-  } else {
+    Object.assign(u, kolomUkurPeriode_(p, Object.assign({}, nilai, { 'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': 'SHEET LAMA', ukur_id_terakhir: '',
+      'Pembebanan (kVA)': h.kva, 'Persentase Beban (%)': h.persen, 'Kategori Beban': h.kategori })));
+    u['Arus Maks per Fasa (A)'] = h.arusMaks;
+    ada = true;
+  });
+  if (!ada) {
     // tanpa angka per fasa: pakai hasil yang tertulis di sheet lama (sama migrasi v0.68.0)
     var persen = angkaGarduLama_(tampil[S.kolPersen - 1]);
-    Object.assign(u, { 'Arus Maks per Fasa (A)': angkaGarduLama_(tampil[S.kolArus - 1]) || arusNominalGardu_(g['Kapasitas (kVA)']),
+    Object.assign(u, { 'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': 'SHEET LAMA', ukur_id_terakhir: '', 'Waktu Beban': 'WBP',
+      'Arus Maks per Fasa (A)': angkaGarduLama_(tampil[S.kolArus - 1]) || arusNominalGardu_(g['Kapasitas (kVA)']),
       'Pembebanan (kVA)': angkaGarduLama_(tampil[S.kolBeban - 1]), 'Persentase Beban (%)': persen, 'Kategori Beban': kategoriBeban_(persen) });
   }
   return u;
@@ -211,13 +237,9 @@ function sisipGarduSinkron_(b, baru, peta, kolGardu, denganUkur) {   // denganUk
     if (denganUkur) tulis[SINKRON_GARDU_.kolUlp - 1] = teksGarduLama_(b.tampil[x.acuan][SINKRON_GARDU_.kolUlp - 1]) || cfg_().ULP_NAMA || '';
     tulis[kolGardu - 1] = x.no.nomor;
     peta.forEach(function (p) { if (!kosongSinkron_(x.g[p[0]])) tulis[p[1] - 1] = x.g[p[0]]; });
-    if (denganUkur && tglSelBa_(x.g['Tanggal Ukur Terakhir'])) {
-      var S = SINKRON_GARDU_, waktu = teksGarduLama_(x.g['Waktu Beban']).toUpperCase() === 'LWBP' ? 'LWBP' : 'WBP';
-      tulis[S.kolTgl - 1] = tglKeSel_(tglSelBa_(x.g['Tanggal Ukur Terakhir']));
-      Object.keys(S.grup[waktu]).forEach(function (k) { if (!kosongSinkron_(x.g[k])) tulis[S.grup[waktu][k] - 1] = x.g[k]; });
-      [[S.kolArus, 'Arus Maks per Fasa (A)'], [S.kolBeban, 'Pembebanan (kVA)'], [S.kolPersen, 'Persentase Beban (%)']].forEach(function (p) {
-        if (!kosongSinkron_(x.g[p[1]])) tulis[p[0] - 1] = x.g[p[1]];
-      });
+    if (denganUkur) {
+      // v1.0.23: blok WBP / LWBP terbaru ke grupnya
+      selUkurSinkron_(x.g).forEach(function (s) { if (!kosongSinkron_(s[1])) tulis[s[0] - 1] = s[1]; });
     }
     // nilai hanya di sel tanpa formula acuan; formula disalin relatif (R1C1)
     var r = b.sh.getRange(barisBaru, 1, 1, b.lebar);
@@ -265,7 +287,7 @@ function sinkronGarduLama_(tulis) {
     var kolId = identitasKeSheet_(b, ubah, i, g, S.identitas);
     if (kolId.length) m.identitas++;
     kolId.forEach(function (k) { m.perKolom[k] = (m.perKolom[k] || 0) + 1; });
-    var tDb = tglSelBa_(g['Tanggal Ukur Terakhir']), tLama = tanggalLama_(b.nilai[i][S.kolTgl - 1], b.tampil[i][S.kolTgl - 1]);
+    var tDb = tglUkurTerbaruGardu_(g), tLama = tanggalLama_(b.nilai[i][S.kolTgl - 1], b.tampil[i][S.kolTgl - 1]);
     if (tDb && (!tLama || tDb > tLama)) { if (ukurKeSheet_(b, ubah, i, g)) m.ukurKeLama++; }
     else if (tLama && (!tDb || tLama > tDb)) { keDb.push({ g: g, u: ukurDariSheet_(b, i, g, tLama), tLama: tLama }); }
   });
@@ -281,11 +303,11 @@ function sinkronGarduLama_(tulis) {
         keDb.forEach(function (x) {
           var g2 = t2.rows.filter(function (r) { return String(r.gardu_id) === String(x.g.gardu_id); })[0];
           if (!g2) return;
-          var tKini = tglSelBa_(g2['Tanggal Ukur Terakhir']);
+          var tKini = tglUkurTerbaruGardu_(g2);
           if (tKini && tKini >= x.tLama) return;   // diukur dari HP sementara sinkron berjalan
           isi.push({ r: g2, u: Object.assign({}, x.u, { 'Diubah Oleh': S.oleh, 'Timestamp Update': sekarang, diubah_oleh: S.oleh }) });
         });
-        if (isi.length) tulisBlok_(t2, isi, [], { bolehId: ['ukur_id_terakhir'] });
+        if (isi.length) tulisBlok_(t2, isi, [], { bolehId: ['ukur_id_terakhir', 'ukur_id_lwbp'] });
         hasil.db.diubah = isi.length;
       });
     }

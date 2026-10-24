@@ -217,7 +217,14 @@ Sekali saja (satu project Firebase untuk staging + production):
 6. Backend: Project settings > Service accounts > Generate new private key. Isi JSON utuh ke Script Property `FCM_SERVICE_ACCOUNT`
    (staging dan production boleh JSON yang sama).
 
-Tanpa `google-services.json` app tetap jalan, notifikasi saja yang mati. Saat login pertama HP minta izin notifikasi: wajib **Izinkan**
+Tanpa `google-services.json` app tetap jalan, notifikasi saja yang mati. v1.0.29: langkah 3 dan 4 dipasang otomatis oleh
+`scripts\build-rilis.ps1` (gradle lokal), dan skrip memberi PERINGATAN kalau `android/app/google-services.json` belum ada.
+
+v1.0.30: penerima = HP tim YANDAL (pengingat login), HP admin (belum login, ringkasan temuan petugas tiap 15 menit, ringkasan
+P0 masuk tiap 60 menit, tanpa bunyi), dan semua HP tim tindak lanjut (WO baru, langsung). Kanal Android: Pengingat login
+Yandal, WO tindak lanjut, Ringkasan admin (bisa dimatikan sendiri-sendiri di Pengaturan Android). Ketuk notifikasi = layar
+tujuannya. Logout akun selain Yandal = HP itu berhenti menerima notifikasi akun tersebut. Pastikan SiSi tidak di-Force stop
+dan penghemat baterai / autostart (Xiaomi, Oppo, Vivo) mengizinkan SiSi, supaya notifikasi tetap masuk saat app ditutup. Saat login pertama HP minta izin notifikasi: wajib **Izinkan**
 di HP tim Yandal dan HP admin. Notifikasi saat app terbuka tampil sebagai banner di bawah layar.
 
 ## Pemakaian Engine / Cloud Run (v0.85.0)

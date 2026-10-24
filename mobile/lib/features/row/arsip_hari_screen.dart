@@ -431,7 +431,7 @@ class _FotoArsipState extends State<_FotoArsip> {
     final path = _path;
     if (path == null) return;
     final label = FotoRepository.label[widget.slotFoto] ?? widget.slotFoto;
-    Navigator.of(context).push(MaterialPageRoute<void>(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
       builder: (_) => LihatFotoScreen(
         path: path,
         judul: 'Foto $label',

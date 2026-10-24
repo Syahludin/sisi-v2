@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/lonceng.dart';
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
 import '../../core/sesi.dart';
@@ -11,7 +10,6 @@ import '../../widgets/popup_berhasil.dart';
 import '../../widgets/status_sinkron.dart';
 import '../../widgets/kartu_laporan_tim.dart';
 import '../../widgets/sisi_motif.dart';
-import '../../widgets/sisi_widgets.dart' show TombolSegarkan;
 import '../../widgets/wa_panel.dart';
 import '../gardu/gardu_model.dart';
 import '../../widgets/foto_slot.dart' show lihatFoto;
@@ -26,6 +24,7 @@ import 'hartek_lokal.dart';
 import 'hartek_repository.dart';
 import 'hartek_rincian.dart';
 import 'hartek_store.dart';
+import '../insjar/insjar_header.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
@@ -1084,44 +1083,8 @@ class _HartekScreenState extends State<HartekScreen> {
           icon: const Icon(Icons.history_rounded, size: 18),
           label: Text('$_tanggalLain data hari sebelumnya tidak terkirim · Buang'),
         ),
-      // v1.0.20: lokasi (penyulang / gardu) langsung di halaman laporan, berisi pekerjaan + material (pola ROW)
-      const SizedBox(height: 18),
-      JudulSeksiSisi('Lokasi pekerjaan',
-          keterangan: '${_objek.length} lokasi · $_jumlahPekerjaan pekerjaan',
-          aksi: _boleh
-              ? TextButton.icon(
-                  onPressed: _sibuk ? null : () => _tambahPg(),
-                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-                  label: const Text('Lokasi'),
-                )
-              : null),
-      if (_objek.isEmpty)
-        const KosongHartek(
-            ikon: Icons.place_outlined, judul: 'Belum ada lokasi', petunjuk: 'Ketuk Lokasi (atau + di kartu) untuk mencatat jaringan, gardu, atau non-teknik.')
-      else
-        RincianHartek(
-          perLokasi: true,
-          objek: _objek,
-          kodeHeader: _teks(h['kodeHeader']),
-          terbuka: const <String>{},
-          lokasiTertutup: _lokasiTertutup,
-          boleh: _boleh,
-          sibuk: _sibuk,
-          onBukaTutup: (_) {},
-          onBukaTutupLokasi: (pgId) => setState(() {
-            if (!_lokasiTertutup.remove(pgId)) _lokasiTertutup.add(pgId);
-          }),
-          onBukaLokasi: (pgId) => _bukaDetail(pgId),
-          onBukaPekerjaan: (pgId, pkId) => _bukaDetail(pgId, pkId),
-          onTambahLokasi: () => _tambahPg(),
-          onTambahPekerjaan: _tambahPekerjaan,
-          onTambahMaterial: _tambahMaterial,
-          onCobaUlang: (id) => _cobaUlang(id),
-          onBuang: (id) => _buang(id),
-          onUbahPekerjaan: _boleh ? _ubahPekerjaan : null,
-          onCobaUlangUbah: (id) => unawaited(_store.cobaUlangUbahPekerjaan(_sesi, id).then((_) => _kirimLatar())),
-          onBuangUbah: (id) => unawaited(_store.buangUbahPekerjaan(_sesi, id)),
-        ),
+      // v1.0.23 (permintaan kvlar 23 Okt 2026): rincian lokasi / pekerjaan tidak lagi di halaman utama, cukup di dalam
+      // kartu laporan (ringkasan jenis pekerjaan membuka rincian), sama dengan Inspeksi Jaringan / Gardu v1.0.21.
     ];
   }
 
@@ -1591,26 +1554,37 @@ class _HartekScreenState extends State<HartekScreen> {
                 ? 'Rincian pekerjaan'
                 : 'Hartek';
     final sub = [widget.sesi.timNama, if (_tanggal.isNotEmpty) tanggalHartek(_tanggal)].where((s) => s.isNotEmpty).join(' · ');
+    // v1.0.28 (permintaan kvlar 23 Okt 2026): header kartu Jaringan SiSi (siluet jaringan) seperti modul lain, tetap di
+    // atas layar; halaman utama = menu Laporan Hartek.
+    final header = HeaderInsJar(
+      kicker: 'Laporan Hartek',
+      judul: bertingkat ? judul : (widget.sesi.timNama.isEmpty ? 'Hartek' : widget.sesi.timNama),
+      sub: bertingkat ? sub : (_tanggal.isEmpty ? '' : tanggalHartek(_tanggal)),
+      ikon: widget.pekerjaanId != null
+          ? Icons.construction_rounded
+          : widget.pgId != null
+              ? Icons.place_outlined
+              : widget.rincian
+                  ? Icons.list_alt_rounded
+                  : Icons.handyman_rounded,
+      lonceng: !bertingkat, // v1.0.19
+      aksi: [
+        tombolSegarkanHeader(_segarkan, tip: 'Segarkan laporan', sibuk: _segar || _sibuk), // v1.0.22
+        if (bertingkat) ...[
+          const SizedBox(width: 6),
+          tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
+        ],
+      ],
+    );
     return Scaffold(
       backgroundColor: bertingkat ? HartekGaya.latar : Colors.transparent, // v1.0.19: tab utama = latar bg-sisi
-      appBar: AppBar(
-        backgroundColor: bertingkat ? HartekGaya.latar : Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: bertingkat,
-        titleSpacing: bertingkat ? 0 : 20,
-        iconTheme: const IconThemeData(color: HartekGaya.tinta),
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(judul, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
-          if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
-        ]),
-        actions: [
-          if (!bertingkat) const LoncengNotifikasi(warna: HartekGaya.tinta), // v1.0.19
-          TombolSegarkan(sibuk: _segar || _sibuk, onPressed: _segarkan, tooltip: 'Segarkan laporan', warna: HartekGaya.tinta), // v1.0.22
-          const SizedBox(width: 6),
-        ],
-      ),
-      body: _doc == null && _akses
+      body: SafeArea(
+        bottom: false,
+        child: HalamanHeaderTetap(
+          header: header,
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+          lebarMaks: 680,
+          isi: _doc == null && _akses
           ? const Center(child: SisiLoader())
           : RefreshSisi(
               onRefresh: () async {
@@ -1618,7 +1592,7 @@ class _HartekScreenState extends State<HartekScreen> {
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(20, 8, 20, bertingkat ? 32 : 120),
+                padding: EdgeInsets.fromLTRB(20, 0, 20, bertingkat ? 32 : 120),
                 children: [
                   Center(
                     child: ConstrainedBox(
@@ -1629,6 +1603,8 @@ class _HartekScreenState extends State<HartekScreen> {
                 ],
               ),
             ),
+        ),
+      ),
     );
   }
 }

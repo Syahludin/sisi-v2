@@ -290,7 +290,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
           gpsSaja: _yandal, // v1.0.16: Yandal = GPS HP saja
           grup: 'Lokasi',
           contoh: '-3.012345, 106.512345',
-          bantuan: _yandal ? 'Ketuk tombol GPS di lokasi pekerjaan.' : null),
+          bantuan: _yandal ? 'Diambil otomatis dari GPS HP di lokasi pekerjaan, tidak bisa diketik.' : null), // v1.0.28
       const IsianHartek('catatan', 'Catatan', multi: true, maks: 300, bantuan: 'Opsional, maksimal 5 baris.'),
     ];
     switch (_jenisTim) {
@@ -346,16 +346,22 @@ class _WoTimScreenState extends State<WoTimScreen> {
   /// v1.0.17 (permintaan kvlar 22 Okt 2026): material tidak lagi di kolom terpisah. Tiap pekerjaan punya kartu sendiri
   /// berisi pekerjaan + jumlah, lalu material yang dipakai PEKERJAAN ITU (jumlah, satuan, kepemilikan dari
   /// db_Kepemilikan_Material). Pembaca laporan tahu pasti material dipakai untuk pekerjaan apa.
+  /// v1.0.23 (permintaan kvlar 23 Okt 2026): pekerjaan + materialnya dalam SATU kartu. Kolom material (jumlah, satuan,
+  /// kepemilikan) baru muncul sesudah tombol + Tambah material diketuk; pekerjaan berikutnya sesudah + Tambah pekerjaan
+  /// (pekerjaan pertama langsung tampil).
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): tiap pekerjaan kartu sendiri (aksen merek, bisa dibuka / ditutup), tiap
+  /// material kartu kecil di dalamnya (aksen kuning, bisa dibuka / ditutup).
   List<IsianHartek> _isianHartek(Map<String, dynamic> t, Map<String, String> n) {
     final jh = _jenisHartek(t), mt = _materialHartek, milik = _kepemilikan;
-    final nPk = barisTampilWo(n, 'pekerjaan', _maksPekerjaan);
+    final nPk = barisDitambahWo(n, 'pekerjaan', _maksPekerjaan, kunciTambah: '_tambahPekerjaan', awal: 1);
     bool isi(String k) => (n[k] ?? '').trim().isNotEmpty;
-    String namaPk(int i) => teksWo(jh[(n['pekerjaan_$i'] ?? '').trim()]?['nama']);
+    String nama(Map<String, Map<String, dynamic>> m, String k) => teksWo(m[(n[k] ?? '').trim()]?['nama']);
     return [
       for (var i = 1; i <= nPk; i++) ...[
-        IsianHartek('pekerjaan_$i', i == 1 ? 'Pekerjaan' : 'Pekerjaan ke-$i (opsional)',
+        IsianHartek('pekerjaan_$i', i == 1 ? 'Jenis pekerjaan (lokasi ${jenisPgTemuan(t)})' : 'Jenis pekerjaan',
             wajib: i == 1,
-            grup: i == 1 ? 'Pekerjaan Hartek · lokasi ${jenisPgTemuan(t)}' : 'Pekerjaan ke-$i',
+            grup: ['Pekerjaan $i', if (nama(jh, 'pekerjaan_$i').isNotEmpty) nama(jh, 'pekerjaan_$i')].join(' · '),
+            lipat: true,
             pilihan: jh.keys.toList(),
             labelPilihan: (id) => teksWo(jh[id]?['nama']),
             isiLain: (id) => {'satuan_$i': teksWo(jh[id]?['satuan'])},
@@ -363,27 +369,39 @@ class _WoTimScreenState extends State<WoTimScreen> {
         if (isi('pekerjaan_$i')) ...[
           IsianHartek('jumlah_$i', 'Jumlah', wajib: true, angka: true, max: 999999, baris: 'pk$i'),
           IsianHartek('satuan_$i', 'Satuan', bacaSaja: true, baris: 'pk$i', contoh: 'Otomatis'),
-          for (var j = 1; j <= barisTampilWo(n, 'material_$i', _maksMaterial); j++) ...[
-            IsianHartek(kunciMaterialWo('material', i, j), j == 1 ? 'Material dipakai (opsional)' : 'Material ke-$j',
-                grup: j == 1 ? 'Material untuk ${namaPk(i).isEmpty ? 'pekerjaan ke-$i' : namaPk(i)}' : null,
+          for (var j = 1; j <= barisDitambahWo(n, 'material_$i', _maksMaterial, kunciTambah: '_tambahMaterial_$i'); j++) ...[
+            IsianHartek(kunciMaterialWo('material', i, j), 'Nama material',
+                sub: _subMaterial(n, mt, i, j),
                 pilihan: mt.keys.toList(),
                 labelPilihan: (id) => teksWo(mt[id]?['nama']),
                 isiLain: (id) => {kunciMaterialWo('satuanMaterial', i, j): teksWo(mt[id]?['satuan'])},
                 turunan: [kunciMaterialWo('jumlahMaterial', i, j), kunciMaterialWo('kepemilikan', i, j)],
                 bantuan: j == 1 && mt.isEmpty ? 'Belum ada material aktif di master (db_Material).' : null),
             if (isi(kunciMaterialWo('material', i, j))) ...[
-              IsianHartek(kunciMaterialWo('jumlahMaterial', i, j), 'Jumlah', wajib: true, angka: true, max: 999999, baris: 'mt${i}_$j'),
-              IsianHartek(kunciMaterialWo('satuanMaterial', i, j), 'Satuan', bacaSaja: true, baris: 'mt${i}_$j', contoh: 'Otomatis'),
+              IsianHartek(kunciMaterialWo('jumlahMaterial', i, j), 'Jumlah',
+                  wajib: true, angka: true, max: 999999, baris: 'mt${i}_$j', sub: _subMaterial(n, mt, i, j)),
+              IsianHartek(kunciMaterialWo('satuanMaterial', i, j), 'Satuan',
+                  bacaSaja: true, baris: 'mt${i}_$j', contoh: 'Otomatis', sub: _subMaterial(n, mt, i, j)),
               // v1.0.18: kepemilikan dari db_Kepemilikan_Material (tanpa isian bebas)
               IsianHartek(kunciMaterialWo('kepemilikan', i, j), 'Kepemilikan',
+                  sub: _subMaterial(n, mt, i, j),
                   wajib: true,
                   pilihan: milik,
                   bantuan: milik.isEmpty ? 'Belum ada kepemilikan aktif di db_Kepemilikan_Material. Hubungi admin.' : null),
             ],
           ],
+          if (barisDitambahWo(n, 'material_$i', _maksMaterial, kunciTambah: '_tambahMaterial_$i') < _maksMaterial)
+            IsianHartek('_tambahMaterial_$i', 'Tambah material', tambah: true),
         ],
       ],
+      if (nPk < _maksPekerjaan && isi('pekerjaan_$nPk')) const IsianHartek('_tambahPekerjaan', 'Tambah pekerjaan', tambah: true, grup: ''),
     ];
+  }
+
+  /// Judul kartu kecil material (sama untuk semua isian material itu supaya satu kartu).
+  String _subMaterial(Map<String, String> n, Map<String, Map<String, dynamic>> mt, int i, int j) {
+    final nm = teksWo(mt[(n[kunciMaterialWo('material', i, j)] ?? '').trim()]?['nama']);
+    return ['Material $j', if (nm.isNotEmpty) nm].join(' · ');
   }
 
   Map<String, String> _cekPekerjaan(Map<String, String> n) {
@@ -483,7 +501,92 @@ class _WoTimScreenState extends State<WoTimScreen> {
           for (final s in slotFotoWo)
             if ((n['foto_$s'] ?? '').trim().isNotEmpty) s: n['foto_$s']!.trim(),
         };
-        await _store.simpanPekerjaan(_sesi, t, tlId, data, tampil, foto);
+        await _store.simpanPekerjaan(_sesi, t, tlId, data, tampil, foto, isian: _isianSimpan(n));
+        return const {'lokal': true};
+      },
+    );
+    if (hasil == null || !mounted) return;
+    unawaited(tampilDataTersimpan(context));
+    _kirimLatar();
+  }
+
+  /// v1.0.26: isian form yang disimpan untuk Ubah pekerjaan (foto dikelola di kartu, tidak ikut).
+  static Map<String, String> _isianSimpan(Map<String, String> n) => {
+        for (final e in n.entries)
+          if (!e.key.startsWith('foto_')) e.key: e.value,
+      };
+
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): pekerjaan boleh diubah selama DRAFT, foto Sebelum sudah ada, foto Sesudah
+  /// belum (server juga mengecek: FOTO_SEBELUM_BELUM_ADA / FOTO_SESUDAH_SUDAH_ADA).
+  bool _bisaUbah(Map<String, dynamic> t, Map<String, dynamic> p) {
+    if (!_bisaKerja(t) || teksWo(p['status']) != 'DRAFT') return false;
+    final hp = HartekLokal.fotoDiHp(p), srv = HartekLokal.fotoDiServer(p);
+    return (hp['SEBELUM'] != null || srv['SEBELUM'] != null) && hp['SESUDAH'] == null && srv['SESUDAH'] == null;
+  }
+
+  static String _angkaIsian(Object? v) {
+    final x = num.tryParse(teksWo(v));
+    return x == null ? '' : (x == x.roundToDouble() ? '${x.toInt()}' : '$x'.replaceAll('.', ','));
+  }
+
+  /// Isian awal form Ubah: isian HP terakhir (belum / baru diterima server) atau dari data server.
+  Map<String, String> _awalUbah(Map<String, dynamic> t, Map<String, dynamic> p) {
+    final hp = petaWo(p['_isian']);
+    if (hp.isNotEmpty) return {for (final e in hp.entries) if (!e.key.startsWith('foto_')) e.key: teksWo(e.value)};
+    final n = <String, String>{'koordinat': teksWo(p['koordinat']), 'catatan': teksWo(p['catatan'])};
+    switch (_jenisTim) {
+      case 'ROW':
+        n['diameter'] = _angkaIsian(p['diameter']);
+        n['sectionId'] = teksWo(p['sectionId']);
+        n['nomorTiang'] = teksWo(p['nomorTiang']);
+        final sec = _sectionTemuan(t);
+        if (sec != null) {
+          n['sectionId'] = sec;
+          n['sectionTampil'] = teksWo(t['section']);
+        }
+      case 'HARTEK':
+        final rinci = petaWo(p['rincian']);
+        final pk = daftarWo(rinci['pekerjaan']), mt = materialPerPekerjaanWo(rinci);
+        for (var i = 0; i < pk.length; i++) {
+          n['pekerjaan_${i + 1}'] = teksWo(pk[i]['jenisId']);
+          n['jumlah_${i + 1}'] = _angkaIsian(pk[i]['jumlah']);
+          n['satuan_${i + 1}'] = teksWo(pk[i]['satuan']);
+          final m = i < mt.length ? mt[i] : const <Map<String, dynamic>>[];
+          for (var j = 0; j < m.length; j++) {
+            n[kunciMaterialWo('material', i + 1, j + 1)] = teksWo(m[j]['materialId']);
+            n[kunciMaterialWo('jumlahMaterial', i + 1, j + 1)] = _angkaIsian(m[j]['jumlah']);
+            n[kunciMaterialWo('satuanMaterial', i + 1, j + 1)] = teksWo(m[j]['satuan']);
+            n[kunciMaterialWo('kepemilikan', i + 1, j + 1)] = teksWo(m[j]['kepemilikan']);
+          }
+        }
+        if (pk.isEmpty) {
+          n['pekerjaan_1'] = teksWo(p['jenisId']);
+          n['jumlah_1'] = _angkaIsian(p['jumlah']);
+          n['satuan_1'] = teksWo(p['satuan']);
+        }
+      default:
+        n['namaPekerjaan'] = teksWo(p['pekerjaan']);
+        n['pekerjaanLainnya'] = teksWo(p['pekerjaanLainnya']);
+    }
+    n.removeWhere((k, v) => v.isEmpty);
+    return n;
+  }
+
+  Future<void> _ubahPekerjaan(Map<String, dynamic> t, Map<String, dynamic> p) async {
+    if (!_bisaUbah(t, p)) return;
+    final hasil = await bukaFormHartek(
+      context,
+      judulApp: _yandal ? 'TO P0' : 'WO Tindak Lanjut',
+      judul: 'Ubah pekerjaan',
+      keterangan: '${teksWo(p['kodeTl']).isEmpty ? teksWo(t['kodeTemuan']) : teksWo(p['kodeTl'])} · ${teksWo(t['jenisTemuan'])}\n'
+          'Foto tidak berubah; foto Pekerjaan / Sesudah diambil dari kartu pekerjaan.',
+      tombol: 'Simpan perubahan',
+      awal: _awalUbah(t, p),
+      daftar: (n) => _isianPekerjaan(t, n).where((i) => !i.foto).toList(),
+      cekTambahan: _cekPekerjaan,
+      simpan: (n) async {
+        final (data, tampil) = _dataPekerjaan(t, n);
+        await _store.ubahPekerjaan(_sesi, t, p, data, tampil, _isianSimpan(n));
         return const {'lokal': true};
       },
     );
@@ -501,7 +604,21 @@ class _WoTimScreenState extends State<WoTimScreen> {
     _kirimLatar();
   }
 
+  /// v1.0.28 (permintaan kvlar 23 Okt 2026): foto / kamera sedang dibuka; ketukan berulang selama jeda diabaikan
+  /// (dulu foto bisa terbuka berkali-kali).
+  bool _fotoDibuka = false;
+
   Future<void> _ketukFoto(Map<String, dynamic> t, Map<String, dynamic> p, String slot) async {
+    if (_fotoDibuka) return;
+    _fotoDibuka = true;
+    try {
+      await _bukaFoto(t, p, slot);
+    } finally {
+      _fotoDibuka = false;
+    }
+  }
+
+  Future<void> _bukaFoto(Map<String, dynamic> t, Map<String, dynamic> p, String slot) async {
     final id = teksWo(t['temuanId']), tlId = teksWo(p['tlId']);
     final label = labelFotoWo[slot] ?? slot;
     final hp = HartekLokal.fotoDiHp(p)[slot];
@@ -594,8 +711,6 @@ class _WoTimScreenState extends State<WoTimScreen> {
       if (!ya || !mounted) return;
     }
     await _store.selesai(_sesi, t, isi);
-    // v1.0.17 (sinkron atomik): bukan pemberitahuan sukses; Selesai baru tampil sesudah server menerima semua data
-    if (mounted) _pesan('WO masuk proses sinkron. Status Selesai muncul sesudah semua pekerjaan & foto diterima server.');
     // Laporan Utama / P0 di HP dikirim juga supaya server mengenal laporan hari ini
     unawaited(widget.deps.syncCtl.sinkron());
   }
@@ -729,18 +844,11 @@ class _WoTimScreenState extends State<WoTimScreen> {
       return _kotak(AppColors.red700, AppColors.red100, Icons.error_outline_rounded, 'Selesai belum diterima server', teksWo(sel['galat']),
           aksi: [FilledButton(onPressed: () => unawaited(_cobaUlang(t)), child: const Text('Kirim ulang'))]);
     }
-    if (teksWo(sel['status']) == HartekLokal.lokal) {
-      // v1.0.17 (sinkron atomik): rincian sisa antrean, Selesai baru sah sesudah semua diterima server
-      final sisa = sisaSinkronWo(t);
-      final rinci = [
-        if (sisa.pekerjaan > 0) '${sisa.pekerjaan} pekerjaan',
-        if (sisa.foto > 0) '${sisa.foto} foto',
-      ].join(' · ');
-      return _kotak(AppColors.accent700, AppColors.accent100, Icons.sync_rounded, 'Sedang Proses Sinkron',
-          teksWo(sel['galat']).isNotEmpty
-              ? teksWo(sel['galat'])
-              : '${rinci.isEmpty ? 'Selesai' : '$rinci + Selesai'} menunggu diterima server. Status Selesai dan realisasi muncul '
-                  'sesudah SEMUA data diterima bersamaan.');
+    // v1.0.27 (permintaan kvlar 23 Okt 2026): kartu "Sedang Proses Sinkron" dihapus (sinkron otomatis di latar). Hanya
+    // tampil bila Selesai tertahan karena ada data WO ini yang ditolak server (petugas perlu bertindak).
+    if (teksWo(sel['status']) == HartekLokal.lokal && teksWo(sel['galat']).isNotEmpty) {
+      return _kotak(AppColors.red700, AppColors.red100, Icons.error_outline_rounded, 'Selesai tertahan', teksWo(sel['galat']),
+          aksi: [FilledButton(onPressed: () => unawaited(_cobaUlang(t)), child: const Text('Kirim ulang'))]);
     }
     return null;
   }
@@ -781,7 +889,6 @@ class _WoTimScreenState extends State<WoTimScreen> {
     final (warna, latar, ikon) = _gaya(t);
     final pekerjaan = daftarWo(t['pekerjaanWo']);
     final fp = progresFotoWo(t, _slotWajib);
-    final tunda = (t['_tunda'] as int?) ?? 0;
     final wo = petaWo(t['wo']);
     final aksi = _aksiUtama(t, padat: true);
     final keadaan = _kartuKeadaan(t);
@@ -819,7 +926,6 @@ class _WoTimScreenState extends State<WoTimScreen> {
                     if (fp.wajib > 0)
                       _pil('Foto ${fp.ada}/${fp.wajib}', fp.ada == fp.wajib ? AppColors.success700 : AppColors.accent700,
                           fp.ada == fp.wajib ? AppColors.success100 : AppColors.accent100, ikon: Icons.photo_camera_outlined),
-                    if (tunda > 0) _pil('$tunda proses sinkron', AppColors.accent700, AppColors.accent100, ikon: Icons.sync_rounded),
                     if (t['_klaim'] == true) _pil('Diunggah ulang', AppColors.cyan600, AppColors.cyan100, ikon: Icons.how_to_reg_rounded),
                   ]),
                   if (teksWo(wo['catatanAdmin']).isNotEmpty) ...[
@@ -995,19 +1101,21 @@ class _WoTimScreenState extends State<WoTimScreen> {
     ];
     return Column(children: [
       Expanded(
-        child: RefreshSisi(
-          onRefresh: _segarkan,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-            children: [
-              HeaderInsJar(
+        child: HalamanHeaderTetap(
+          // v1.0.28: header tetap, isi bergulir
+          header: HeaderInsJar(
                 kicker: _yandal ? 'TO P0' : 'WO Tindak Lanjut',
                 judul: teksWo(t['jenisTemuan']).isEmpty ? 'Temuan' : teksWo(t['jenisTemuan']),
                 sub: teksWo(t['kodeTemuan']),
                 ikon: ikon,
                 aksi: [tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(ctx))],
               ),
+          isi: RefreshSisi(
+          onRefresh: _segarkan,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
               KartuHartek(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
@@ -1070,6 +1178,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
             ],
           ),
         ),
+        ),
       ),
       if (aksi != null)
         Container(
@@ -1080,85 +1189,165 @@ class _WoTimScreenState extends State<WoTimScreen> {
     ]);
   }
 
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu rincian pekerjaan baru. Kepala bertint merek (judul, kode, status,
+  /// Ubah / Hapus), tiap pekerjaan Hartek blok beraksen merek dengan material beraksen kuning di dalamnya, info lokasi /
+  /// catatan, lalu foto.
   Widget _blokPekerjaan(Map<String, dynamic> t, Map<String, dynamic> p) {
     final draft = teksWo(p['status']) == 'DRAFT';
     final bisa = _bisaKerja(t) && draft;
     final jml = num.tryParse(teksWo(p['jumlah']));
     final rinci = petaWo(p['rincian']);
     final pkR = daftarWo(rinci['pekerjaan']), mtR = materialPerPekerjaanWo(rinci); // v1.0.17: material per pekerjaan
-    final rincian = [
-      if (p['diameter'] != null && teksWo(p['diameter']).isNotEmpty) 'Ø ${p['diameter']} cm',
-      if (jml != null && _jenisTim != 'ROW' && pkR.length <= 1) '${angkaHartek(jml)} ${teksWo(p['satuan'])}'.trim(),
-      if (teksWo(p['section']).isNotEmpty) teksWo(p['section']),
-      if (teksWo(p['nomorTiang']).isNotEmpty) 'Tiang ${teksWo(p['nomorTiang'])}',
-    ].join(' · ');
+    final chip = [
+      if (p['diameter'] != null && teksWo(p['diameter']).isNotEmpty) ('Ø ${p['diameter']} cm', Icons.straighten_rounded),
+      if (jml != null && _jenisTim != 'HARTEK') ('${angkaHartek(jml)} ${teksWo(p['satuan'])}'.trim(), Icons.tag_rounded),
+      if (teksWo(p['section']).isNotEmpty) (teksWo(p['section']), Icons.route_rounded),
+      if (teksWo(p['nomorTiang']).isNotEmpty) ('Tiang ${teksWo(p['nomorTiang'])}', Icons.cell_tower_rounded),
+    ];
     final kurang = draft ? fotoKurangWo(p, _slotWajib).length : 0;
     final sinkron = teksWo(p[HartekLokal.sinkron]);
+    final gagal = sinkron == HartekLokal.gagal;
     final judul = pkR.length > 1
         ? '${pkR.length} pekerjaan'
         : [teksWo(p['pekerjaan']), if (teksWo(p['pekerjaanLainnya']).isNotEmpty) '(${teksWo(p['pekerjaanLainnya'])})'].join(' ');
+    Widget info(IconData ikon, String teks) => Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(ikon, size: 16, color: HartekGaya.redup),
+            const SizedBox(width: 6),
+            Expanded(child: Text(teks, style: const TextStyle(fontSize: 12.5, height: 1.35, color: HartekGaya.tinta))),
+          ]),
+        );
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 14),
+      margin: const EdgeInsets.only(top: 12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: sinkron == HartekLokal.gagal ? AppColors.red600 : HartekGaya.garis),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: gagal ? AppColors.red600 : HartekGaya.garis, width: gagal ? 1.4 : 1),
+        boxShadow: [BoxShadow(color: AppColors.brand950.withValues(alpha: .06), blurRadius: 14, offset: const Offset(0, 5))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(judul.trim().isEmpty ? 'Pekerjaan' : judul, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta)),
-              if (rincian.isNotEmpty) Text(rincian, style: HartekGaya.sekunder),
-              // v1.0.17: tiap pekerjaan diikuti material yang dipakainya
-              for (var i = 0; i < pkR.length; i++) ...[
-                if (pkR.length > 1)
-                  Text('• ${teksWo(pkR[i]['nama'])} ${angkaHartek(num.tryParse(teksWo(pkR[i]['jumlah'])) ?? 0)} ${teksWo(pkR[i]['satuan'])}'.trim(),
-                      style: const TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
-                for (final x in i < mtR.length ? mtR[i] : const <Map<String, dynamic>>[])
-                  Padding(
-                    padding: EdgeInsets.only(left: pkR.length > 1 ? 14 : 0),
-                    child: Text(
-                        '↳ ${teksWo(x['nama'])} ${angkaHartek(num.tryParse(teksWo(x['jumlah'])) ?? 0)} ${teksWo(x['satuan'])} · ${teksWo(x['kepemilikan'])}',
-                        style: const TextStyle(fontSize: 12.5, height: 1.4, color: HartekGaya.redup)),
-                  ),
-              ],
-              if (teksWo(p['catatan']).isNotEmpty) Text(teksWo(p['catatan']), maxLines: 2, overflow: TextOverflow.ellipsis, style: HartekGaya.sekunder),
-              const SizedBox(height: 4),
-              Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                if (teksWo(p['kodeTl']).isNotEmpty) Text(teksWo(p['kodeTl']), style: HartekGaya.kode),
-                if (!draft && teksWo(p['kodeRealisasiModul']).isNotEmpty) Text('→ ${teksWo(p['kodeRealisasiModul'])}', style: HartekGaya.kode),
-                if (sinkron == HartekLokal.lokal) _pil('Menunggu kirim', AppColors.accent700, AppColors.accent100, ikon: Icons.schedule_rounded),
-                if (sinkron == HartekLokal.gagal) _pil('Ditolak server', AppColors.red700, AppColors.red100, ikon: Icons.error_outline_rounded),
-                if (kurang > 0) _pil('$kurang foto wajib belum ada', AppColors.accent700, AppColors.accent100, ikon: Icons.add_a_photo_outlined),
-              ]),
-              if (sinkron == HartekLokal.gagal && teksWo(p[HartekLokal.galat]).isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(teksWo(p[HartekLokal.galat]), style: const TextStyle(fontSize: 12.5, color: AppColors.red700)),
+        // kepala
+        Container(
+          color: HartekGaya.merek.withValues(alpha: .07),
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: HartekGaya.merek, borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(judul.trim().isEmpty ? 'Pekerjaan' : judul,
+                    maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: HartekGaya.tinta)),
+                Text(
+                  [
+                    if (teksWo(p['kodeTl']).isNotEmpty) teksWo(p['kodeTl']),
+                    if (!draft && teksWo(p['kodeRealisasiModul']).isNotEmpty) '→ ${teksWo(p['kodeRealisasiModul'])}',
+                  ].join('  '),
+                  style: HartekGaya.kode,
                 ),
+              ]),
+            ),
+            if (gagal)
+              IconButton(tooltip: 'Kirim ulang', onPressed: () => unawaited(_cobaUlang(t)), icon: const Icon(Icons.refresh_rounded, color: AppColors.red700)),
+            if (_bisaUbah(t, p))
+              IconButton(
+                tooltip: 'Ubah pekerjaan',
+                onPressed: () => unawaited(_ubahPekerjaan(t, p)),
+                icon: const Icon(Icons.edit_outlined, color: HartekGaya.merek),
+              ),
+            if (bisa)
+              IconButton(
+                tooltip: 'Hapus pekerjaan',
+                onPressed: () => unawaited(_hapusPekerjaan(t, p)),
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.red700),
+              ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (sinkron == HartekLokal.lokal || gagal || kurang > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Wrap(spacing: 8, runSpacing: 6, children: [
+                  if (sinkron == HartekLokal.lokal) _pil('Menunggu kirim', AppColors.accent700, AppColors.accent100, ikon: Icons.schedule_rounded),
+                  if (gagal) _pil('Ditolak server', AppColors.red700, AppColors.red100, ikon: Icons.error_outline_rounded),
+                  if (kurang > 0) _pil('$kurang foto wajib belum ada', AppColors.accent700, AppColors.accent100, ikon: Icons.add_a_photo_outlined),
+                ]),
+              ),
+            if (gagal && teksWo(p[HartekLokal.galat]).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(teksWo(p[HartekLokal.galat]), style: const TextStyle(fontSize: 12.5, color: AppColors.red700)),
+              ),
+            if (chip.isNotEmpty)
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final (teks, ikon) in chip) _pil(teks, HartekGaya.merek, HartekGaya.merek.withValues(alpha: .08), ikon: ikon),
+              ]),
+            // v1.0.17: tiap pekerjaan diikuti material yang dipakainya
+            for (var i = 0; i < pkR.length; i++) _blokRincianHartek(pkR[i], i < mtR.length ? mtR[i] : const []),
+            if (teksWo(p['koordinat']).isNotEmpty) info(Icons.place_outlined, teksWo(p['koordinat'])),
+            if (teksWo(p['catatan']).isNotEmpty) info(Icons.notes_rounded, teksWo(p['catatan'])),
+            const SizedBox(height: 4),
+            FotoRincian(
+              node: p,
+              slot: slotFotoWo,
+              label: labelFotoWo,
+              bolehTambah: bisa,
+              onTap: (s) => unawaited(_ketukFoto(t, p, s)),
+              gambarServer: p['_lokal'] == true && teksWo(p[HartekLokal.sinkron]).isNotEmpty
+                  ? null
+                  : (s) => GambarServerWo(key: ValueKey('wo-foto-${teksWo(p['tlId'])}-$s'), muat: _muatFoto, data: _dataFoto(t, p, s)),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// Satu pekerjaan Hartek (aksen merek) + materialnya (aksen kuning).
+  Widget _blokRincianHartek(Map<String, dynamic> pk, List<Map<String, dynamic>> mt) {
+    String angka(Object? v) => angkaHartek(num.tryParse(teksWo(v)) ?? 0);
+    return KotakAksen(
+      aksen: HartekGaya.merek,
+      latar: HartekGaya.merek.withValues(alpha: .05),
+      radius: 14,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text(teksWo(pk['nama']), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: HartekGaya.tinta))),
+          Text('${angka(pk['jumlah'])} ${teksWo(pk['satuan'])}'.trim(),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: HartekGaya.merek)),
+        ]),
+        for (final x in mt)
+          KotakAksen(
+            aksen: AppColors.accent700,
+            latar: AppColors.accent100.withValues(alpha: .55),
+            radius: 10,
+            lebarAksen: 3,
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            child: Row(children: [
+              const Icon(Icons.inventory_2_outlined, size: 15, color: AppColors.accent700),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(teksWo(x['nama']), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
+              ),
+              Text('${angka(x['jumlah'])} ${teksWo(x['satuan'])}'.trim(),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.accent700)),
+              if (teksWo(x['kepemilikan']).isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text('· ${teksWo(x['kepemilikan'])}', style: const TextStyle(fontSize: 11.5, color: HartekGaya.redup)),
+              ],
             ]),
           ),
-          if (sinkron == HartekLokal.gagal)
-            IconButton(tooltip: 'Kirim ulang', onPressed: () => unawaited(_cobaUlang(t)), icon: const Icon(Icons.refresh_rounded, color: AppColors.red700)),
-          if (bisa)
-            IconButton(
-              tooltip: 'Hapus pekerjaan',
-              onPressed: () => unawaited(_hapusPekerjaan(t, p)),
-              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.red700),
-            ),
-        ]),
-        FotoRincian(
-          node: p,
-          slot: slotFotoWo,
-          label: labelFotoWo,
-          bolehTambah: bisa,
-          onTap: (s) => unawaited(_ketukFoto(t, p, s)),
-          gambarServer: p['_lokal'] == true && teksWo(p[HartekLokal.sinkron]).isNotEmpty
-              ? null
-              : (s) => GambarServerWo(key: ValueKey('wo-foto-${teksWo(p['tlId'])}-$s'), muat: _muatFoto, data: _dataFoto(t, p, s)),
-        ),
       ]),
     );
   }
@@ -1194,20 +1383,15 @@ class _WoTimScreenState extends State<WoTimScreen> {
         int o(Map<String, dynamic> t) => t['_konflik'] != null ? 0 : statusWoDari(t) == StatusWo.dikerjakan ? 1 : 2;
         return o(a) - o(b);
       });
-    final tunda = semua.fold<int>(0, (a, t) => a + ((t['_tunda'] as int?) ?? 0));
     final kabar = daftarWo(_doc?['kabar']);
     final judulTab = _yandal ? 'TO P0' : 'WO Tindak Lanjut';
     return Scaffold(
       backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi
       body: SafeArea(
         bottom: false,
-        child: RefreshSisi(
-          onRefresh: _segarkan,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
-            children: [
-              HeaderInsJar(
+        child: HalamanHeaderTetap(
+          // v1.0.28: header tetap, isi bergulir
+          header: HeaderInsJar(
                 kicker: judulTab,
                 lonceng: true, // v1.0.19
                 judul: _sesi.timNama.isEmpty ? 'WO tim' : _sesi.timNama,
@@ -1215,24 +1399,18 @@ class _WoTimScreenState extends State<WoTimScreen> {
                 ikon: Icons.assignment_turned_in_outlined,
                 aksi: [tombolSegarkanHeader(_segarkan, sibuk: _muat)],
               ),
+          isi: RefreshSisi(
+          onRefresh: _segarkan,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            children: [
               for (final k in kabar) _kabar(k),
               if (_galat != null)
                 _kotak(AppColors.red700, AppColors.red100, Icons.error_outline_rounded, 'WO belum bisa dimuat', _galat!,
                     aksi: [TextButton(onPressed: _segarkan, child: const Text('Coba lagi'))]),
               if (_server['laporanUtamaAda'] == false && n.dikerjakan > 0)
                 _kotak(AppColors.accent700, AppColors.accent100, Icons.info_outline_rounded, 'Laporan Utama belum ada', _teksLaporanUtama()),
-              if (tunda > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Row(children: [
-                    const Icon(Icons.cloud_upload_outlined, size: 18, color: AppColors.accent700),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text('$tunda data WO sedang proses sinkron ke server.',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accent700)),
-                    ),
-                  ]),
-                ),
               const SizedBox(height: 14),
               // v1.0.17: tab Aktif / Selesai baru (kartu gradasi + jumlah), sama untuk WO ROW / Hartek / Yandal
               TabStatusWo(
@@ -1258,6 +1436,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
                 for (final t in tampil) _kartuRingkas(t),
             ],
           ),
+        ),
         ),
       ),
     );

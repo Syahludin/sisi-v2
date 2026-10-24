@@ -33,7 +33,7 @@ Future<FotoBaru?> ambilFotoRow(BuildContext context,
     return null;
   }
   if (pilih == 'KAMERA') {
-    return Navigator.of(context).push<FotoBaru>(
+    return Navigator.of(context, rootNavigator: true).push<FotoBaru>(
       MaterialPageRoute(fullscreenDialog: true, builder: (_) => KameraRowScreen(pratinjau: pratinjau, p0: p0, simpan: simpan)),
     );
   }

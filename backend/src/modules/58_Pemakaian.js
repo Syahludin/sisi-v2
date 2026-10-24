@@ -13,10 +13,13 @@
  *  - RENDAH (salin / cek foto migrasi): berhenti di >= 80% kuota pemicu atau UrlFetch.
  *  - NORMAL (pengingat Yandal, sinkron gardu): berhenti di >= 95%.
  *  - PENTING (rekap Yandal, baris harian laporan, pemantau): tidak pernah direm.
+ * v1.0.31 Firebase (FCM): kirimnya gratis tanpa batas biaya, tetapi tiap pesan = 1 UrlFetch. Jatah notifikasi per hari
+ * (bawaan 20% kuota UrlFetch, override BATAS_FCM_HARI) supaya PDF / sinkron tetap kebagian. Peringatan 80% / 95%, dan langsung
+ * BAHAYA kalau Firebase menolak kiriman (HTTP 429 / RESOURCE_EXHAUSTED).
  * Pemantau tiap jam (ADMIN_pantauPemakaian): tulis ringkasan harian ke log_Pemakaian (SiSi_Auth) + notifikasi admin (FCM)
  * sekali per tingkat (80% / 95%) per hari. HP admin: kartu Pemakaian Server di Pengaturan (endpoint getPemakaian).
  */
-var PAKAI_PAKET_ = { GMAIL: { pemicuMenit: 90, urlFetch: 20000 }, WORKSPACE: { pemicuMenit: 360, urlFetch: 100000 } };
+var PAKAI_PAKET_ = { GMAIL: { pemicuMenit: 90, urlFetch: 20000, fcmHari: 4000 }, WORKSPACE: { pemicuMenit: 360, urlFetch: 100000, fcmHari: 20000 } };
 var PAKAI_PDF_BULAN_ = { request: 2000000, vcpuDetik: 180000 };
 var PAKAI_OVERHEAD_MS_ = 500;   // waktu mulai eksekusi yang tidak terukur dari dalam skrip
 var PAKAI_PRIORITAS_ = {
@@ -79,7 +82,8 @@ function batasPemakaian_() {
     urlFetch: angka('BATAS_URLFETCH', PAKAI_PAKET_[paket].urlFetch),
     pdfRequest: angka('BATAS_PDF_REQUEST_BULAN', PAKAI_PDF_BULAN_.request),
     pdfVcpuDetik: angka('BATAS_PDF_VCPU_DETIK_BULAN', PAKAI_PDF_BULAN_.vcpuDetik),
-    pdfVcpu: angka('PDF_ENGINE_VCPU', 1)
+    pdfVcpu: angka('PDF_ENGINE_VCPU', 1),
+    fcmHari: angka('BATAS_FCM_HARI', PAKAI_PAKET_[paket].fcmHari)
   };
 }
 
@@ -164,15 +168,19 @@ function ringkasPemakaian_(tanggal, hari, bulan, b) {
     var x = hari[t] || {}, p = persenPakai_(x, b);
     return { tanggal: t, pemicuMenit: bulat_((Number(x.pemicu_ms) || 0) / 60000, 1), pemicuPersen: p.pemicu, urlFetch: Number(x.url_n) || 0, urlPersen: p.url };
   });
+  var fcmKirim = Number(h.fcm_kirim) || 0, fcmTolak = Number(h.fcm_tolak) || 0;
+  var fcmPersen = b.fcmHari > 0 ? bulat_(fcmKirim / b.fcmHari * 100, 1) : 0;
   return {
     tanggal: tanggal, paket: b.paket,
-    status: statusPakai_(Math.max(ps.pemicu, ps.url, pdfPersen)),
+    status: statusPakai_(Math.max(ps.pemicu, ps.url, pdfPersen, fcmPersen, fcmTolak ? 95 : 0)),
     pemicu: { menit: bulat_((Number(h.pemicu_ms) || 0) / 60000, 1), batasMenit: b.pemicuMenit, persen: ps.pemicu, jalan: Number(h.pemicu_n) || 0,
               perFungsi: fungsi, direm: h.rem || {} },
     manual: { menit: bulat_((Number(h.manual_ms) || 0) / 60000, 1), jalan: Number(h.manual_n) || 0 },
     urlFetch: { jumlah: Number(h.url_n) || 0, batas: b.urlFetch, persen: ps.url, pdf: Number(h.pdf_n) || 0, fcm: Number(h.fcm_n) || 0 },
     pdfBulan: { bulan: tanggal.slice(0, 7), request: Number(bulan.pdf_n) || 0, batasRequest: b.pdfRequest, vcpuDetik: vcpu,
                 batasVcpuDetik: b.pdfVcpuDetik, persen: pdfPersen },
+    fcm: { kirim: fcmKirim, batas: b.fcmHari || 0, persen: fcmPersen, gagal: Number(h.fcm_gagal) || 0, ditolak: fcmTolak,
+           bulan: Number(bulan.fcm_kirim) || 0, gagalBulan: Number(bulan.fcm_gagal) || 0 },
     riwayat: riwayat
   };
 }
@@ -216,7 +224,9 @@ function barisLogPakai_(tanggal, h, b, iso) {
 /** Tingkat peringatan baru yang belum dikirim hari ini (murni): ['pemicu95', 'url80', ...]. */
 function peringatanBaruPakai_(r, sudah) {
   var baru = [], cloud = r.cloudRun && r.cloudRun.aktif ? r.cloudRun.persenMaks : 0;
-  [['pemicu', r.pemicu.persen], ['url', r.urlFetch.persen], ['pdf', r.pdfBulan.persen], ['cloud', cloud]].forEach(function (x) {
+  var fcm = r.fcm || {};
+  [['pemicu', r.pemicu.persen], ['url', r.urlFetch.persen], ['pdf', r.pdfBulan.persen], ['cloud', cloud], ['fcm', fcm.persen || 0],
+   ['fcmTolak', fcm.ditolak ? 95 : 0]].forEach(function (x) {
     var tingkat = x[1] >= 95 ? 95 : x[1] >= 80 ? 80 : 0;
     if (tingkat && !(sudah || {})[x[0] + tingkat]) baru.push(x[0] + tingkat);
   });
@@ -254,7 +264,9 @@ function pantauPemakaianInti_() {
     var label = { pemicu: 'Waktu pemicu ' + r.pemicu.menit + '/' + r.pemicu.batasMenit + ' menit (' + r.pemicu.persen + '%)',
                   url: 'UrlFetch ' + r.urlFetch.jumlah + '/' + r.urlFetch.batas + ' (' + r.urlFetch.persen + '%)',
                   pdf: 'Engine PDF bulan ini ' + r.pdfBulan.persen + '% dari gratis Cloud Run',
-                  cloud: 'Cloud Run bulan ini ' + (r.cloudRun.persenMaks || 0) + '% dari kuota gratis' };
+                  cloud: 'Cloud Run bulan ini ' + (r.cloudRun.persenMaks || 0) + '% dari kuota gratis',
+                  fcm: 'Notifikasi Firebase ' + r.fcm.kirim + '/' + r.fcm.batas + ' hari ini (' + r.fcm.persen + '%)',
+                  fcmTolak: 'Firebase menolak ' + r.fcm.ditolak + ' notifikasi (batas kiriman)' };
     var isi = baru.map(function (k) { return label[k.replace(/\d+$/, '')]; }).join('; ');
     console.warn('PEMAKAIAN ' + r.status + ': ' + isi);
     kirimPeringatanAdminPakai_(r.status === 'BAHAYA' ? 'Kuota server hampir habis' : 'Pemakaian server tinggi', isi);
@@ -325,6 +337,8 @@ function ADMIN_cekPemakaian() {
   console.log('Jalan manual (tidak memakan kuota pemicu): ' + r.manual.menit + ' menit, ' + r.manual.jalan + ' jalan');
   console.log('UrlFetch hari ini: ' + r.urlFetch.jumlah + ' / ' + r.urlFetch.batas + ' (' + r.urlFetch.persen + '%) | PDF ' + r.urlFetch.pdf + ', FCM ' + r.urlFetch.fcm);
   console.log('Engine PDF ' + r.pdfBulan.bulan + ': ' + r.pdfBulan.request + ' request, ~' + r.pdfBulan.vcpuDetik + ' / ' + r.pdfBulan.batasVcpuDetik + ' vCPU-detik (' + r.pdfBulan.persen + '%)');
+  console.log('Firebase (FCM) hari ini: ' + r.fcm.kirim + ' / ' + r.fcm.batas + ' notifikasi (' + r.fcm.persen + '%), gagal ' + r.fcm.gagal +
+    ', ditolak ' + r.fcm.ditolak + ' | bulan ini ' + r.fcm.bulan + ' (batas: BATAS_FCM_HARI)');
   r.riwayat.forEach(function (h) { console.log('  ' + h.tanggal + ': pemicu ' + h.pemicuMenit + ' menit (' + h.pemicuPersen + '%), UrlFetch ' + h.urlFetch); });
   var cr = pemakaianCloudRun_(true);   // v0.85.0
   if (!cr.aktif) console.log('Cloud Run: ' + cr.pesan);

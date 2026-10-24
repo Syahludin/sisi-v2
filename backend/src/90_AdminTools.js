@@ -292,15 +292,18 @@ function saranPropertiMigrasi_(kunci, ringkas, hariIni) {
   return { status: status, hapus: status === 'HAPUS' ? lain : [], tunda: status === 'HAPUS' ? foto : [] };
 }
 
-/** Dipanggil ADMIN_cekKonfigurasi: jumlah Script Properties + properti migrasi yang sudah boleh dihapus. */
+/**
+ * Dipanggil ADMIN_cekKonfigurasi: jumlah Script Properties + properti migrasi selesai.
+ * v1.0.31: properti migrasi berstatus HAPUS langsung dihapus (kunci foto tetap, hapus manual sesudah migrasi foto selesai).
+ * Masih hampir penuh = penanda jendela ROW (ROW_JENDELA_*) ikut dihapus; sinkron berikutnya membaca dari baris 2 lalu
+ * membuatnya lagi. Di atas 50 tombol Edit di Project Settings hilang.
+ */
 function cekKonfigProperti_(c) {
-  var semua = Object.keys(PropertiesService.getScriptProperties().getProperties()), masalah = 0, hariIni = tglJakarta_(new Date());
+  var props = PropertiesService.getScriptProperties();
+  var semua = Object.keys(props.getProperties()), masalah = 0, hariIni = tglJakarta_(new Date()), dihapus = [];
+  var hapus = function (k) { props.deleteProperty(k); dihapus.push(k); };
   console.log('');
   console.log('[Script Properties] ' + semua.length + ' dari ' + PROPERTI_MAKS_);
-  if (semua.length >= PROPERTI_MAKS_ - 5) {
-    console.warn('  [PERHATIAN] tinggal ' + Math.max(0, PROPERTI_MAKS_ - semua.length) + ' slot. Hapus properti migrasi yang sudah selesai (di bawah).');
-    masalah++;
-  }
   keluargaMigrasi_().forEach(function (k) {
     var kunci = semua.filter(function (x) { return x.indexOf(k.awalan) === 0; }).sort();
     if (!kunci.length) return;
@@ -316,12 +319,26 @@ function cekKonfigProperti_(c) {
     } else if (s.status === 'HARI_INI') {
       console.log('  [INFO] migrasi ' + k.nama + ': ' + ringkas.jumlah + ' baris ditulis hari ini. Cek hasilnya, lalu hapus properti ' + kunci.join(', '));
     } else {
-      console.warn('  [PERHATIAN] migrasi ' + k.nama + ' sudah ada di sheet (' + ringkas.jumlah + ' baris, terakhir ' + (ringkas.terakhir || '-') +
-        '). Hapus Script Property: ' + (s.hapus.join(', ') || '-') +
-        (s.tunda.length ? ' | sesudah migrasi foto selesai: ' + s.tunda.join(', ') : ''));
-      masalah++;
+      s.hapus.forEach(hapus);
+      console.log('  [DIHAPUS] migrasi ' + k.nama + ' sudah ada di sheet (' + ringkas.jumlah + ' baris, terakhir ' + (ringkas.terakhir || '-') +
+        '): ' + (s.hapus.join(', ') || '-'));
+      if (s.tunda.length) {
+        console.warn('  [PERHATIAN] migrasi ' + k.nama + ': hapus manual sesudah migrasi foto selesai: ' + s.tunda.join(', '));
+        masalah++;
+      }
     }
   });
+  if (semua.length - dihapus.length >= PROPERTI_MAKS_ - 5) {
+    var jendela = semua.filter(function (k) { return k.indexOf('ROW_JENDELA_') === 0; });
+    jendela.forEach(hapus);
+    if (jendela.length) console.log('  [DIHAPUS] penanda jendela ROW (dibuat ulang otomatis): ' + jendela.join(', '));
+  }
+  var sisa = semua.length - dihapus.length;
+  if (dihapus.length) console.log('  [INFO] ' + dihapus.length + ' properti dihapus, sekarang ' + sisa + ' dari ' + PROPERTI_MAKS_);
+  if (sisa >= PROPERTI_MAKS_ - 5) {
+    console.warn('  [PERHATIAN] tinggal ' + Math.max(0, PROPERTI_MAKS_ - sisa) + ' slot. Hapus properti yang tidak dipakai lagi.');
+    masalah++;
+  }
   return masalah;
 }
 

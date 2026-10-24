@@ -39,7 +39,12 @@ class DashboardShell extends StatefulWidget {
   State<DashboardShell> createState() => _DashboardShellState();
 }
 
-class _DashboardShellState extends State<DashboardShell> {
+class _DashboardShellState extends State<DashboardShell> with SingleTickerProviderStateMixin {
+  /// v1.0.27 (permintaan kvlar 23 Okt 2026): bar bawah muncul (naik + pudar) SEKALI saat dashboard pertama dibuka;
+  /// [_masukBeranda] naik setiap tab Beranda dibuka lagi (Beranda mengulang animasi pop up kartunya).
+  late final AnimationController _barMasuk = AnimationController(vsync: this, duration: const Duration(milliseconds: 650))..forward();
+  final _masukBeranda = ValueNotifier<int>(0);
+
   late final bool _arsip = TabArsipTim.untuk(widget.sesi); // v1.0.19: tab Arsip sendiri (tim ber-WO)
   late final int _beranda = _arsip ? 2 : 1; // indeks Beranda = tengah bottom bar
   late int _tab = _beranda;
@@ -111,6 +116,8 @@ class _DashboardShellState extends State<DashboardShell> {
   @override
   void dispose() {
     Lonceng.i.berhenti();
+    _barMasuk.dispose();
+    _masukBeranda.dispose();
     super.dispose();
   }
 
@@ -129,12 +136,14 @@ class _DashboardShellState extends State<DashboardShell> {
       case 'P0':
         final p0 = '${x['kunci']}'.startsWith('P0:') ? '${x['kunci']}'.substring(3) : null;
         _keTab(0);
-        unawaited(_navTab(0).currentState?.push(
-            MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: s, tanggalAwal: t('tanggal'), p0Id: p0))));
+        unawaited(_navTab(0)
+            .currentState
+            ?.push(MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: s, tanggalAwal: t('tanggal'), p0Id: p0))));
       case 'TEMUAN':
         _keTab(0);
-        unawaited(_navTab(0).currentState?.push(
-            MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: s, bukaTemuanId: t('temuanId')))));
+        unawaited(_navTab(0)
+            .currentState
+            ?.push(MaterialPageRoute<void>(builder: (_) => InputTemuanInspeksiScreen(deps: widget.deps, sesi: s, bukaTemuanId: t('temuanId')))));
     }
   }
 
@@ -155,7 +164,11 @@ class _DashboardShellState extends State<DashboardShell> {
     await widget.deps.syncCtl.sinkron();
   }
 
-  void _keTab(int i) => setState(() => _tab = i);
+  void _keTab(int i) {
+    final keBeranda = i == _beranda && i != _tab;
+    setState(() => _tab = i);
+    if (keBeranda) _masukBeranda.value++;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,16 +186,14 @@ class _DashboardShellState extends State<DashboardShell> {
                 arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.hartek))
       else if (widget.sesi.petugasInsJar) // v1.0.0: menu OPS_INSJAR_INPUT
         LaporanTimDenganArsip(
-            hariIni: InsJarScreen(deps: widget.deps, sesi: widget.sesi),
-            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insjar))
+            hariIni: InsJarScreen(deps: widget.deps, sesi: widget.sesi), arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insjar))
       else if (widget.sesi.petugasInsDu) // v1.0.11: menu OPS_INSDU_INPUT
         LaporanTimDenganArsip(
-            hariIni: InsDuScreen(deps: widget.deps, sesi: widget.sesi),
-            arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insdu))
+            hariIni: InsDuScreen(deps: widget.deps, sesi: widget.sesi), arsip: ArsipTimView(deps: widget.deps, sesi: widget.sesi, modul: ModulArsipTim.insdu))
       else
         LaporanRowScreen(deps: widget.deps, sesi: widget.sesi, denganArsip: !_arsip),
       if (widget.sesi.petugasWo) WoTimScreen(deps: widget.deps, sesi: widget.sesi), // v1.0.11: tab WO
-      BerandaScreen(deps: widget.deps, sesi: widget.sesi, keLaporan: () => _keTab(0)),
+      BerandaScreen(deps: widget.deps, sesi: widget.sesi, keLaporan: () => _keTab(0), masuk: _masukBeranda),
       if (_arsip) TabArsipTim(deps: widget.deps, sesi: widget.sesi), // v1.0.19
       PengaturanScreen(deps: widget.deps, sesi: widget.sesi, onLogout: () => widget.onSesiBerubah(null)),
     ];
@@ -211,7 +222,19 @@ class _DashboardShellState extends State<DashboardShell> {
             ? const SizedBox.shrink()
             : ValueListenableBuilder<int>(
                 valueListenable: _pengamatTab(_tab.clamp(0, halaman.length - 1)).popup,
-                builder: (context, popup, bar) => popup > 0 ? const SizedBox.shrink() : bar!,
+                builder: (context, popup, bar) => popup > 0
+                    ? const SizedBox.shrink()
+                    : AnimatedBuilder(
+                        animation: _barMasuk,
+                        child: bar,
+                        builder: (context, bar) {
+                          final v = Curves.easeOutBack.transform(_barMasuk.value);
+                          return Opacity(
+                            opacity: Curves.easeOut.transform(_barMasuk.value),
+                            child: Transform.translate(offset: Offset(0, (1 - v) * 90), child: bar),
+                          );
+                        },
+                      ),
                 child: _SisiBottomBar(
                   indeks: _tab.clamp(0, halaman.length - 1),
                   onPilih: _pilihTab,
@@ -220,7 +243,7 @@ class _DashboardShellState extends State<DashboardShell> {
                       : widget.sesi.petugasYandal
                           ? const _ItemNav('Shift', Icons.badge_outlined)
                           : widget.sesi.petugasHartek
-                              ? const _ItemNav('Hartek', Icons.edit_note_rounded)
+                              ? const _ItemNav('Laporan', Icons.handyman_rounded) // v1.0.26: menu Laporan Hartek
                               : widget.sesi.petugasInsJar
                                   ? const _ItemNav('Inspeksi', Icons.travel_explore_rounded)
                                   : widget.sesi.petugasInsDu
@@ -244,8 +267,7 @@ class _ItemNav {
 
 /// Bottom bar lama: tinggi 80, putih, garis navy 3px dengan lekukan, gelembung navy berbingkai cyan.
 class _SisiBottomBar extends StatelessWidget {
-  const _SisiBottomBar(
-      {required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.arsip = false, this.labelWo = 'WO'});
+  const _SisiBottomBar({required this.indeks, required this.onPilih, required this.pertama, this.wo = false, this.arsip = false, this.labelWo = 'WO'});
   final int indeks;
   final ValueChanged<int> onPilih;
   final _ItemNav pertama; // Laporan (PETUGAS) atau Operasi (admin, v0.50)

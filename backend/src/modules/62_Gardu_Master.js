@@ -52,7 +52,7 @@ function angkaHp_(v) {
 function tanggalHp_(v) {
   if (v === '' || v === null || v === undefined) return '';
   var t = tanggalLama_(v, Object.prototype.toString.call(v) === '[object Date]' ? undefined : v);
-  return t || teksGarduLama_(v).slice(0, 10);
+  return t || tglTeksJs_(v) || teksGarduLama_(v).slice(0, 10);   // v1.0.23: 'Fri Oct 16' (String(Date)) ikut terbaca
 }
 
 /** Satu baris db_Gardu -> bentuk ringkas untuk HP (kunci pendek, tanpa kolom audit). */
@@ -76,12 +76,36 @@ function barisGarduHp_(r) {
     arusMaks: arusNominalGardu_(r['Kapasitas (kVA)']) !== '' ? arusNominalGardu_(r['Kapasitas (kVA)']) : angkaHp_(r['Arus Maks per Fasa (A)']), bebanKva: angkaHp_(r['Pembebanan (kVA)']), persen: persen,
     waktuBeban: teksGarduLama_(r['Waktu Beban']), kategori: kategoriBeban_(persen === null ? '' : persen),
     // v1.0.17 (permintaan kvlar 22 Okt 2026): arus per fasa + tegangan pengukuran terakhir untuk rincian Pengukuran Gardu
-    ukur: {
-      bebanR: angkaHp_(r['Beban R (A)']), bebanS: angkaHp_(r['Beban S (A)']), bebanT: angkaHp_(r['Beban T (A)']), bebanN: angkaHp_(r['Beban N (A)']),
-      teganganRS: angkaHp_(r['Tegangan R-S (V)']), teganganRT: angkaHp_(r['Tegangan R-T (V)']), teganganST: angkaHp_(r['Tegangan S-T (V)']),
-      teganganRN: angkaHp_(r['Tegangan R-N (V)']), teganganSN: angkaHp_(r['Tegangan S-N (V)']), teganganTN: angkaHp_(r['Tegangan T-N (V)'])
-    },
+    ukur: ukurAngkaHp_(r),
     sumberUkur: teksGarduLama_(r['Sumber Data']),
+    // v1.0.23: kolom di atas = WBP; pengukuran LWBP (blok sendiri) + 7 isian cover gardu (Inspeksi Gardu)
+    lwbp: ukurLwbpHp_(r),
+    cover: coverGarduHp_(r),
     revision: Number(r.revision) || 0
   };
+}
+
+/** 10 angka pengukuran (nama kolom WBP / lama) -> {bebanR, ..., teganganTN}. */
+function ukurAngkaHp_(u) {
+  var o = {};
+  YAN_NILAI_GARDU_.forEach(function (n) { o[n.kunci] = angkaHp_(u[n.kolom]); });
+  return o;
+}
+
+/** v1.0.23: blok LWBP db_Gardu untuk HP (bentuk sama dengan kolom WBP). null = belum pernah diukur LWBP. */
+function ukurLwbpHp_(r) {
+  var b = ukurBlokGardu_(r, 'LWBP'), tgl = tanggalHp_(b['Tanggal Ukur Terakhir']);
+  if (!tgl) return null;
+  var persen = angkaHp_(b['Persentase Beban (%)']);
+  return { tglUkur: tgl, kodeUkur: teksGarduLama_(b['Kode Ukur Terakhir']), bebanKva: angkaHp_(b['Pembebanan (kVA)']), persen: persen,
+           kategori: kategoriBeban_(persen === null ? '' : persen), ukur: ukurAngkaHp_(b), sumberUkur: teksGarduLama_(b['Sumber Data']) };
+}
+
+/** v1.0.23: cover gardu (Inspeksi Gardu LWBP terbaru). null = belum ada. */
+function coverGarduHp_(r) {
+  var tgl = tanggalHp_(r['Tanggal Cover']);
+  if (!tgl) return null;
+  var o = { tanggal: tgl };
+  Object.keys(COVER_GARDU_).forEach(function (k) { o[k] = teksGarduLama_(r[COVER_GARDU_[k]]); });
+  return o;
 }

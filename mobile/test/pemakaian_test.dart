@@ -59,4 +59,16 @@ void main() {
     final mati = RingkasPakai.dariJson({'cloudRun': {'aktif': false, 'pesan': 'CLOUD_RUN_PROJECT belum diisi'}}).cloudRun!;
     expect([mati.aktif, mati.pesan], [false, 'CLOUD_RUN_PROJECT belum diisi']);
   });
+
+  // v1.0.31: kartu Firebase
+  test('fcm: jatah harian, gagal, ditolak = bahaya, backend lama = null', () {
+    final f = RingkasPakai.dariJson({
+      'fcm': {'kirim': 3300, 'batas': 4000, 'persen': 82.5, 'gagal': 4, 'ditolak': 0, 'bulan': 9000},
+    }).fcm!;
+    expect([f.baris.dipakai, f.baris.batas, f.baris.catatan, f.bulan, f.tingkat], [3300, 4000, '4 gagal', 9000, TingkatPakai.waspada]);
+    expect(f.baris.rasio, closeTo(.825, .001));
+    final tolak = RingkasPakai.dariJson({'fcm': {'kirim': 10, 'batas': 4000, 'persen': .3, 'ditolak': 2}}).fcm!;
+    expect([tolak.tingkat, tolak.baris.catatan], [TingkatPakai.bahaya, '']);
+    expect(RingkasPakai.dariJson({}).fcm, isNull);
+  });
 }

@@ -42,6 +42,8 @@ class Gardu {
     this.ukur = const {},
     this.sumberUkur = '',
     this.kodeUkur = '',
+    this.lwbp,
+    this.cover,
   });
 
   final String id;
@@ -86,11 +88,29 @@ class Gardu {
   final String sumberUkur;
   final String kodeUkur; // v1.0.22: Kode Ukur Terakhir (kartu Pengukuran Terbaru)
 
+  /// v1.0.23: kolom ukur di atas = WBP. Pengukuran LWBP: {tglUkur, kodeUkur, bebanKva, persen, kategori, ukur, sumberUkur}
+  /// dan cover gardu Inspeksi Gardu {tanggal, coverFcoAtas, ...}. null = belum ada.
+  final Map<String, dynamic>? lwbp;
+  final Map<String, dynamic>? cover;
+
+  /// v1.0.23: tanggal ukur terbaru WBP / LWBP (aturan 2 hari, tanggal ukur terakhir di daftar).
+  String get tglUkurTerbaru {
+    final l = '${lwbp?['tglUkur'] ?? ''}';
+    return l.compareTo(tglUkur) > 0 ? l : tglUkur;
+  }
+
   /// v1.0.17: urutan + label kolom arus / tegangan rincian Pengukuran Gardu.
   static const kolomUkurGardu = [
-    ('bebanR', 'Arus R', 'A'), ('bebanS', 'Arus S', 'A'), ('bebanT', 'Arus T', 'A'), ('bebanN', 'Arus N', 'A'),
-    ('teganganRN', 'Tegangan R-N', 'V'), ('teganganSN', 'Tegangan S-N', 'V'), ('teganganTN', 'Tegangan T-N', 'V'),
-    ('teganganRS', 'Tegangan R-S', 'V'), ('teganganRT', 'Tegangan R-T', 'V'), ('teganganST', 'Tegangan S-T', 'V'),
+    ('bebanR', 'Arus R', 'A'),
+    ('bebanS', 'Arus S', 'A'),
+    ('bebanT', 'Arus T', 'A'),
+    ('bebanN', 'Arus N', 'A'),
+    ('teganganRN', 'Tegangan R-N', 'V'),
+    ('teganganSN', 'Tegangan S-N', 'V'),
+    ('teganganTN', 'Tegangan T-N', 'V'),
+    ('teganganRS', 'Tegangan R-S', 'V'),
+    ('teganganRT', 'Tegangan R-T', 'V'),
+    ('teganganST', 'Tegangan S-T', 'V'),
   ];
 
   bool get aktif => status == 'AKTIF';
@@ -145,6 +165,8 @@ class Gardu {
         ukur: ukur,
         sumberUkur: sumberUkur,
         kodeUkur: kodeUkur,
+        lwbp: lwbp,
+        cover: cover,
       );
 
   /// Teks yang dicari kotak pencarian (No Gardu, alamat, penyulang, section, merk).
@@ -194,6 +216,8 @@ class Gardu {
         ukur: j['ukur'] is Map ? {for (final e in (j['ukur'] as Map).entries) '${e.key}': _d(e.value)} : const {},
         sumberUkur: _t(j['sumberUkur']),
         kodeUkur: _t(j['kodeUkur']),
+        lwbp: j['lwbp'] is Map ? Map<String, dynamic>.from(j['lwbp'] as Map) : null,
+        cover: j['cover'] is Map ? Map<String, dynamic>.from(j['cover'] as Map) : null,
       );
 }
 
@@ -254,8 +278,7 @@ class SaringGardu {
   /// false = hanya AKTIF (default); true = hanya TIDAK AKTIF.
   final bool tidakAktif;
 
-  bool get adaSaring =>
-      kata.trim().isNotEmpty || kategori.isNotEmpty || penyulang != null || kva != null || minPersen != null || maxPersen != null;
+  bool get adaSaring => kata.trim().isNotEmpty || kategori.isNotEmpty || penyulang != null || kva != null || minPersen != null || maxPersen != null;
 
   SaringGardu salin({
     String? kata,
@@ -335,7 +358,20 @@ String angkaId(double? v, {int desimal = 1}) {
 List<Gardu> gabungGarduUkurTerbaru(
   List<Gardu> master,
   List<Map<String, dynamic>> terbaru, {
-  List<({String garduId, String noGardu, String tanggal, double? kva, double? bebanKva, double? persen, String? waktuBeban, String? penyulang, String? section, String? alamat})> lokal = const [],
+  List<
+          ({
+            String garduId,
+            String noGardu,
+            String tanggal,
+            double? kva,
+            double? bebanKva,
+            double? persen,
+            String? waktuBeban,
+            String? penyulang,
+            String? section,
+            String? alamat
+          })>
+      lokal = const [],
 }) {
   final petaId = <String, Map<String, dynamic>>{};
   final petaNo = <String, Map<String, dynamic>>{};

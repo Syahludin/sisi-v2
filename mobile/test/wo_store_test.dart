@@ -103,6 +103,10 @@ Map<String, dynamic> _wo(String id, String status, {Map<String, dynamic>? ganda,
           return {'tlId': data['tlId'], 'slot': data['slot'], 'link': 'https://drive/${data['slot']}', 'status': 'OK'};
         case 'selesaiWo':
           return {'temuanId': data['temuanId'], 'revision': 4, 'temuan': _wo('${data['temuanId']}', 'SELESAI')};
+        case 'ubahPekerjaanWo':
+          return {'tlId': data['tlId'], 'revision': (data['revision'] as int) + 1,
+                  'pekerjaan': {'tlId': data['tlId'], 'pekerjaan': 'Rabas / Pangkas', 'status': 'DRAFT', 'revision': (data['revision'] as int) + 1,
+                                'foto': {'SEBELUM': 'https://drive/SEBELUM', 'PEKERJAAN': '', 'SESUDAH': ''}}};
       }
       return const {};
     },
@@ -185,6 +189,36 @@ void main() {
     // Selesai di HP belum "Selesai": label proses sinkron
     expect(statusTampilWo({'wo': {'status': 'DIKERJAKAN'}, '_selesai': {'status': 'LOKAL'}}), 'Proses sinkron');
     expect(statusTampilWo({'wo': {'status': 'SELESAI'}}), 'Selesai');
+  });
+
+  test('v1.0.26 WoStore: ubah pekerjaan belum terkirim = isian antrean diganti di tempat; sudah di server = ubahPekerjaanWo', () async {
+    final x = _konteks();
+    x.srv['wo'] = [_wo('t1', 'DIKERJAKAN')];
+    await x.store.tarik(_sesi);
+    var t = WoLokal.gabung(await x.store.doc(_sesi)).single;
+    await x.store.simpanPekerjaan(_sesi, t, 'tl-1', {'koordinat': '-3.01, 106.51', 'diameter': 30}, {'pekerjaan': 'Tebang Sedang'},
+        {'SEBELUM': '/hp/seb.jpg'}, isian: {'diameter': '30'});
+    t = WoLokal.gabung(await x.store.doc(_sesi)).single;
+    var p = WoLokal.daftar(t['pekerjaanWo']).single;
+    expect(p['_isian'], {'diameter': '30'});
+    await x.store.ubahPekerjaan(_sesi, t, p, {'koordinat': '-3.01, 106.51', 'diameter': 0}, {'pekerjaan': 'Rabas / Pangkas'}, {'diameter': '0'});
+    expect(x.gudang.antre.map((o) => o.aksi).toList(), ['pekerjaan', 'foto'], reason: 'urutan antrean tetap');
+    expect(x.gudang.antre.first.data['diameter'], 0);
+    p = WoLokal.daftar(WoLokal.gabung(await x.store.doc(_sesi)).single['pekerjaanWo']).single;
+    expect([p['pekerjaan'], p['_isian']], ['Rabas / Pangkas', {'diameter': '0'}]);
+    // sudah di server (revision 2): ubah = antrean ubahPekerjaanWo, tampil lebih dulu, revision terbaru dipakai saat kirim
+    x.srv['wo'] = [_wo('t1', 'DIKERJAKAN', pekerjaan: [{'tlId': 'tl-1', 'pekerjaan': 'Rabas / Pangkas', 'status': 'DRAFT', 'revision': 2,
+      'foto': {'SEBELUM': 'https://drive/SEBELUM', 'PEKERJAAN': '', 'SESUDAH': ''}}])];
+    await x.store.kirim(_sesi);
+    t = WoLokal.gabung(await x.store.doc(_sesi)).single;
+    p = WoLokal.daftar(t['pekerjaanWo']).single;
+    await x.store.ubahPekerjaan(_sesi, t, p, {'koordinat': '-3.01, 106.51', 'diameter': 30}, {'pekerjaan': 'Tebang Sedang'}, {'diameter': '30'});
+    p = WoLokal.daftar(WoLokal.gabung(await x.store.doc(_sesi)).single['pekerjaanWo']).single;
+    expect([p['pekerjaan'], p[HartekLokal.sinkron]], ['Tebang Sedang', 'LOKAL']);
+    x.panggil.clear();
+    await x.store.kirim(_sesi);
+    expect(x.panggil.first, 'ubahPekerjaanWo');
+    expect(await x.store.jumlahTertunda(_sesi.userId), 0);
   });
 
   test('v1.0.16 WoStore: mulai + pekerjaan + foto + selesai tanpa sinyal, terkirim berurutan saat online', () async {

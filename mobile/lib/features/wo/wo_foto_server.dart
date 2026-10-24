@@ -83,8 +83,14 @@ class FotoServerWo {
     return file.path;
   }
 
+  /// v1.0.28: penampil foto sedang dibuka / foto penuh sedang diunduh; ketukan berulang diabaikan.
+  static bool _membuka = false;
+
   /// Unduh foto penuh lalu buka penampil foto. Galat = pesan di snackbar.
+  /// v1.0.28 (permintaan kvlar 23 Okt 2026): sekali buka; ketukan lain selama unduh / tampil diabaikan.
   static Future<void> lihat(BuildContext context, MuatFotoWo muat, Map<String, dynamic> data, String label) async {
+    if (_membuka) return;
+    _membuka = true;
     try {
       final path = await penuh(muat, data);
       if (!context.mounted) return;
@@ -93,6 +99,8 @@ class FotoServerWo {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pesanWo(e.kode))));
     } catch (_) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto gagal dimuat. Periksa sinyal.')));
+    } finally {
+      _membuka = false;
     }
   }
 }

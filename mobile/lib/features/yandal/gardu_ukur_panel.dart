@@ -254,11 +254,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
       tampilPesan(context, 'Pilih gardu dulu.');
       return;
     }
-    final salah = P0Repository.cekNilaiGardu(_nilaiIsian);
-    if (salah != null) {
-      tampilPesan(context, salah);
-      return;
-    }
+    if (!_tandai(_cekIsian(foto: true))) return;
     if (g == null || !g.lengkapFotoWajib) {
       tampilPesan(context, 'Lengkapi foto ukur dulu (${g?.jumlahFotoWajib ?? 0} dari ${slotGarduWajib.length}).');
       return;
@@ -292,13 +288,40 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
     }
   }
 
+  // v1.0.31 (permintaan kvlar 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
+  Map<String, String> _salah = const {};
+  final Map<String, GlobalKey> _kunciIsian = {};
+  GlobalKey _k(String k) => _kunciIsian.putIfAbsent(k, () => GlobalKey());
+
+  /// Per nilai ukur (urut tampil): angka (kunci nilai) dan, untuk pengukuran baru, foto wajib ('FOTO:kunci').
+  Map<String, String> _cekIsian({required bool foto}) {
+    final n = _nilaiIsian, a = _aktif;
+    return {
+      for (final v in nilaiGardu) ...{
+        if (n[v.kunci] == null)
+          v.kunci: 'Wajib diisi'
+        else if (!n[v.kunci]!.isFinite || n[v.kunci]! < 0 || n[v.kunci]! > (v.beban ? bebanGarduMaks : teganganGarduMaks))
+          v.kunci: '0 - ${(v.beban ? bebanGarduMaks : teganganGarduMaks).toStringAsFixed(0)} ${v.satuan}',
+        if (foto && a != null && slotGarduWajib.contains(v.slot) && a.foto[v.slot] == null) 'FOTO:${v.kunci}': 'Foto ${v.label} wajib diambil',
+      },
+    };
+  }
+
+  /// Tandai isian salah lalu gulir ke baris pertama. true = tidak ada yang salah.
+  bool _tandai(Map<String, String> salah) {
+    setState(() => _salah = salah);
+    if (salah.isEmpty) return true;
+    gulirKe(_k(salah.keys.first.replaceFirst('FOTO:', '')).currentContext);
+    return false;
+  }
+
+  void _lepas(String k) {
+    if (_salah.containsKey(k)) setState(() => _salah = {..._salah}..remove(k));
+  }
+
   Future<void> _simpanKoreksi() async {
     if (_g == null || _proses) return;
-    final salah = P0Repository.cekNilaiGardu(_nilaiIsian);
-    if (salah != null) {
-      tampilPesan(context, salah);
-      return;
-    }
+    if (!_tandai(_cekIsian(foto: false))) return;
     setState(() => _proses = true);
     try {
       final baru = await widget.deps.p0.ubahUkurGardu(widget.sesi, _x, nilai: _nilaiIsian, catatan: _catatan.text);
@@ -427,7 +450,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
         alamat: g.alamat,
         penyulang: g.penyulang,
         section: g.section.isNotEmpty ? g.section : g.ptsLbs,
-        terakhir: g.tglUkur.isEmpty ? 'Belum pernah diukur' : 'Ukur terakhir ${tanggalPendek(g.tglUkur)} · ${angkaId(g.persen)}%',
+        terakhir: g.tglUkurTerbaru.isEmpty ? 'Belum pernah diukur' : 'Ukur terakhir ${tanggalPanjang(g.tglUkurTerbaru)} · ${angkaId(g.persen)}%',
         trailing: _kunci
             ? null
             : IconButton(
@@ -497,19 +520,26 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
     final fasa = v.label.split(' ').last; // "R" / "R-S"
     final f = _aktif?.foto[v.slot];
     final boleh = _bolehFoto(v.slot);
+    final fotoSalah = f == null ? _salah['FOTO:${v.kunci}'] : null;
     return Padding(
+      key: _k(v.kunci),
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(children: [
+      child: BingkaiWajib(
+        salah: fotoSalah,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _BadgeFasa(fasa),
         const SizedBox(width: 10),
         Expanded(
           child: TextField(
             controller: _c[v.kunci],
             enabled: bisaUbah,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+              setState(() {});
+              _lepas(v.kunci);
+            },
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-            decoration: sisiInput('${v.label} (${v.satuan})'),
+            decoration: sisiInput('${v.label} (${v.satuan})').copyWith(errorText: _salah[v.kunci]),
           ),
         ),
         const SizedBox(width: 8),
@@ -517,9 +547,11 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
           foto: f,
           draf: !(_g?.disimpan ?? false),
           aktif: f != null || boleh,
+          salah: fotoSalah != null,
           onTap: _proses ? null : () => unawaited(_foto(v.slot)),
         ),
       ]),
+      ),
     );
   }
 
@@ -702,7 +734,6 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
         ]);
       }
       final a = _aktif;
-      final siap = (g?.lengkapFotoWajib ?? false) && P0Repository.cekNilaiGardu(_nilaiIsian) == null;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _judul(),
         const SizedBox(height: 10),
@@ -728,14 +759,15 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
           SizedBox(
             height: 48,
             child: FilledButton.icon(
-              onPressed: _proses || _kunci || !_sebelumDisimpan || !siap ? null : () => unawaited(_simpanBaru()),
+              // v1.0.31: aktif walau belum lengkap; Simpan menandai angka / foto yang kurang dengan merah
+              onPressed: _proses || _kunci || !_sebelumDisimpan ? null : () => unawaited(_simpanBaru()),
               icon: const Icon(Icons.save_rounded),
               label: Text(g == null || g.foto.isEmpty ? 'Simpan Pengukuran' : 'Simpan Pengukuran + ${g.foto.length} foto'),
             ),
           ),
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Text('Angka dan foto disimpan bersamaan. Simpan aktif setelah 10 angka terisi dan 10 foto ukur lengkap.',
+            child: Text('Angka dan foto disimpan bersamaan. Wajib 10 angka dan 10 foto ukur; yang kurang ditandai merah saat Simpan.',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
           ),
         ],
@@ -869,10 +901,11 @@ class _BadgeFasa extends StatelessWidget {
 
 /// Tombol kamera di samping angka: kosong = ikon kamera, sudah ada = thumbnail + tanda (centang draf / gembok / terkirim).
 class _TombolFoto extends StatelessWidget {
-  const _TombolFoto({required this.foto, required this.aktif, required this.draf, this.onTap});
+  const _TombolFoto({required this.foto, required this.aktif, required this.draf, this.salah = false, this.onTap});
   final FotoP0? foto;
   final bool aktif;
   final bool draf;
+  final bool salah; // v1.0.31: foto wajib belum diambil saat Simpan
   final VoidCallback? onTap;
 
   @override
@@ -890,7 +923,7 @@ class _TombolFoto extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: f == null ? Colors.transparent : (draf ? AppColors.accent600 : AppColors.success600), width: 2),
+              border: Border.all(color: f == null ? (salah ? AppColors.red600 : Colors.transparent) : (draf ? AppColors.accent600 : AppColors.success600), width: 2),
             ),
             child: f == null
                 ? Icon(Icons.photo_camera_rounded, size: 22, color: aktif ? Colors.white : AppColors.neutral300)
@@ -971,7 +1004,7 @@ class _SheetPilihGardu extends StatefulWidget {
 class _SheetPilihGarduState extends State<_SheetPilihGardu> {
   String _kata = '';
 
-  String? _lagi(Gardu g) => widget.tglShift == null || g.tglUkur.isEmpty ? null : bisaUkurLagi(g.tglUkur, widget.tglShift!);
+  String? _lagi(Gardu g) => widget.tglShift == null || g.tglUkurTerbaru.isEmpty ? null : bisaUkurLagi(g.tglUkurTerbaru, widget.tglShift!);
 
   @override
   Widget build(BuildContext context) {
@@ -1036,7 +1069,7 @@ class _SheetPilihGarduState extends State<_SheetPilihGardu> {
                       child: KartuGardu(
                         gardu: g,
                         onTap: lagi != null
-                            ? () => tampilPesan(context, '${g.no} baru diukur ${tanggalPendek(g.tglUkur)}. Bisa diukur lagi ${tanggalPendek(lagi)}.')
+                            ? () => tampilPesan(context, '${g.no} baru diukur ${tanggalPanjang(g.tglUkurTerbaru)}. Bisa diukur lagi ${tanggalPanjang(lagi)}.')
                             : () => Navigator.pop(context, g),
                       ),
                     );
@@ -1049,7 +1082,7 @@ class _SheetPilihGarduState extends State<_SheetPilihGardu> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(color: AppColors.accent700, borderRadius: BorderRadius.circular(99)),
-                          child: Text('Bisa lagi ${tanggalPendek(lagi)}',
+                          child: Text('Bisa lagi ${tanggalPanjang(lagi)}',
                               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
                         ),
                       ),

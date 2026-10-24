@@ -400,6 +400,9 @@ class PanelAngkaRingkas extends StatelessWidget {
 }
 
 /// Satu kelompok di ringkasan detail: ikon, judul, sub, angka kecil di kanan, lalu baris rincian.
+/// v1.0.34 (permintaan kvlar 24 Okt 2026): desain baru. Kepala bergradasi [warna] (ikon, judul, sub, [catatan] peringatan),
+/// angka per jenis berupa pil berwarna (warna sama dengan panel total), rincian per baris dalam kotak lembut, lalu kaki
+/// [labelBuka] + [aksi] (mis. tombol download foto penyulang).
 class GrupRingkasan extends StatelessWidget {
   const GrupRingkasan({
     super.key,
@@ -411,6 +414,9 @@ class GrupRingkasan extends StatelessWidget {
     this.angka = const [],
     this.baris = const [],
     this.onTap,
+    this.catatan,
+    this.aksi,
+    this.labelBuka = 'Lihat rincian',
   });
   final IconData ikon;
   final Color warna, latar;
@@ -421,26 +427,34 @@ class GrupRingkasan extends StatelessWidget {
   final List<(String, String)> baris;
   final VoidCallback? onTap;
 
+  /// Peringatan kecil di kepala (mis. '2 eksekusi foto belum lengkap'). null = tidak tampil.
+  final String? catatan;
+
+  /// Tombol tambahan di kaki kartu (kanan).
+  final Widget? aksi;
+  final String labelBuka;
+
   @override
   Widget build(BuildContext context) {
-    final bentuk = BorderRadius.circular(18);
+    final gelap = Color.lerp(warna, Colors.black, .25)!;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: AppColors.surface,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: bentuk, side: const BorderSide(color: AppColors.neutral200)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: warna.withValues(alpha: .22))),
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Row(children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+              decoration: BoxDecoration(gradient: LinearGradient(colors: [warna, gelap])),
+              child: Row(children: [
                 Container(
                   width: 42,
                   height: 42,
-                  decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(13)),
-                  child: Icon(ikon, color: warna, size: 21),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .18), borderRadius: BorderRadius.circular(13)),
+                  child: Icon(ikon, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -448,61 +462,119 @@ class GrupRingkasan extends StatelessWidget {
                     Text(judul,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.brand950)),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
                     const SizedBox(height: 2),
-                    Text(sub, style: const TextStyle(fontSize: 13, color: Color(0xFF4F656D))),
-                  ]),
-                ),
-                if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.neutral400),
-              ]),
-              if (angka.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(color: AppColors.neutral50, borderRadius: BorderRadius.circular(12)),
-                  child: Row(children: [
-                    for (final a in angka)
-                      Expanded(
-                        child: Column(children: [
-                          Text('${a.nilai}',
-                              style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  color: a.nilai == 0 ? AppColors.neutral400 : (a.warna ?? AppColors.brand700),
-                                  fontFeatures: const [FontFeature.tabularFigures()])),
-                          Text(a.label,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF4F656D))),
+                    Text(sub, style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: .85))),
+                    if (catatan != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: AppColors.accent100, borderRadius: BorderRadius.circular(99)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.add_a_photo_outlined, size: 13, color: AppColors.accent700),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(catatan!,
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.accent700)),
+                          ),
                         ]),
                       ),
+                    ],
                   ]),
                 ),
-              ],
-              for (var n = 0; n < baris.length; n++) ...[
-                if (n == 0) const SizedBox(height: 6),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(2, 8, 4, 0),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(
-                      child: Text(baris[n].$1, style: const TextStyle(fontSize: 14, color: AppColors.brand950)),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(baris[n].$2,
-                        style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF4F656D),
-                            fontFeatures: [FontFeature.tabularFigures()])),
+                if (onTap != null) const Icon(Icons.chevron_right_rounded, color: Colors.white),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (angka.isNotEmpty)
+                  Row(children: [
+                    for (var i = 0; i < angka.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(child: _PilAngka(angka[i])),
+                    ],
                   ]),
-                ),
-              ],
-            ]),
-          ),
+                if (baris.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: latar.withValues(alpha: .45), borderRadius: BorderRadius.circular(14)),
+                    child: Column(children: [
+                      for (var n = 0; n < baris.length; n++)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(border: n == 0 ? null : Border(top: BorderSide(color: warna.withValues(alpha: .12)))),
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Padding(padding: const EdgeInsets.only(top: 1), child: Icon(Icons.place_outlined, size: 16, color: warna)),
+                            const SizedBox(width: 6),
+                            // nama section dan angkanya berbagi lebar (HP sempit: keduanya membungkus, tidak overflow)
+                            Expanded(
+                              flex: 5,
+                              child: Text(baris[n].$1, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.brand950)),
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              flex: 4,
+                              child: Text(baris[n].$2,
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                      fontSize: 13, fontWeight: FontWeight.w700, color: gelap, fontFeatures: const [FontFeature.tabularFigures()])),
+                            ),
+                          ]),
+                        ),
+                    ]),
+                  ),
+                ],
+                if (onTap != null || aksi != null) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    if (onTap != null)
+                      Expanded(
+                        flex: 2,
+                        child: Row(children: [
+                          Flexible(child: Text(labelBuka, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: warna))),
+                          Icon(Icons.chevron_right_rounded, size: 18, color: warna),
+                        ]),
+                      )
+                    else
+                      const Spacer(flex: 2),
+                    // HP sempit: tombol ikut menyempit (label terpotong), tidak overflow
+                    if (aksi != null) ...[const SizedBox(width: 8), Flexible(flex: 3, child: Align(alignment: Alignment.centerRight, child: aksi!))],
+                  ]),
+                ],
+              ]),
+            ),
+          ]),
         ),
       ),
+    );
+  }
+}
+
+/// Satu angka per jenis di [GrupRingkasan]: pil berwarna (warna jenis sama dengan panel total) + label.
+class _PilAngka extends StatelessWidget {
+  const _PilAngka(this.a);
+  final AngkaRingkas a;
+
+  @override
+  Widget build(BuildContext context) {
+    final (w, bg) = _warnaAngkaRingkas(a, gelap: false);
+    final nol = a.nilai == 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(color: nol ? AppColors.neutral50 : bg, borderRadius: BorderRadius.circular(14)),
+      child: Column(children: [
+        Text('${a.nilai}',
+            style: TextStyle(
+                fontSize: 19, height: 1.1, fontWeight: FontWeight.w900, color: nol ? AppColors.neutral400 : w, fontFeatures: const [FontFeature.tabularFigures()])),
+        const SizedBox(height: 2),
+        Text(a.label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: nol ? AppColors.neutral500 : w)),
+      ]),
     );
   }
 }

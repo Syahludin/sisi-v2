@@ -96,12 +96,39 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
   }
 
   ({double r, double s, double t})? _arus() {
-    final r = _angka(_r), s = _angka(_s), t = _angka(_t);
-    if (r == null || s == null || t == null) {
-      tampilPesan(context, 'Isi Arus R, S, T (angka 0 - 5000 A).');
-      return null;
-    }
-    return (r: r, s: s, t: t);
+    if (!_tandai(_cekArus())) return null;
+    return (r: _angka(_r)!, s: _angka(_s)!, t: _angka(_t)!);
+  }
+
+  // v1.0.31 (permintaan kvlar 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
+  Map<String, String> _salah = const {};
+  final Map<String, GlobalKey> _kunciIsian = {};
+  GlobalKey _k(String k) => _kunciIsian.putIfAbsent(k, () => GlobalKey());
+
+  Map<String, String> _cekArus() => {
+        for (final (k, c) in [('R', _r), ('S', _s), ('T', _t)])
+          if (_angka(c) == null) k: 'Isi 0 - 5000',
+      };
+
+  /// Simpan Switching: indikator, arus, Foto Arus (urut dari atas).
+  Map<String, String> _cekBaru() => {
+        for (final n in namaIndikator)
+          if (_indikator[n] == null) 'IND:$n': 'Pilih Nyala / Padam',
+        ..._cekArus(),
+        if (!(_w?.adaFotoArus ?? false)) 'FOTO': 'Foto Arus wajib diambil',
+      };
+
+  /// Tandai isian salah. true = tidak ada yang salah.
+  bool _tandai(Map<String, String> salah) {
+    setState(() => _salah = salah);
+    if (salah.isEmpty) return true;
+    final k = salah.keys.first;
+    gulirKe(_k(const {'R', 'S', 'T'}.contains(k) ? 'ARUS' : k).currentContext);
+    return false;
+  }
+
+  void _lepas(String k) {
+    if (_salah.containsKey(k)) setState(() => _salah = {..._salah}..remove(k));
   }
 
   Map<String, String> get _isianDraf => {'R': _r.text.trim(), 'S': _s.text.trim(), 'T': _t.text.trim(), 'catatan': _catatan.text.trim()};
@@ -113,18 +140,8 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
       tampilPesan(context, 'Section P0 bukan LBS / ACR. Ubah lewat tombol Edit di card Data P0.');
       return;
     }
-    for (final n in namaIndikator) {
-      if (_indikator[n] == null) {
-        tampilPesan(context, 'Pilih indikator $n (Nyala / Padam).');
-        return;
-      }
-    }
-    final a = _arus();
-    if (a == null) return;
-    if (!(_w?.adaFotoArus ?? false)) {
-      tampilPesan(context, 'Ambil Foto Arus dulu (wajib), lalu Simpan.');
-      return;
-    }
+    if (!_tandai(_cekBaru())) return;
+    final a = (r: _angka(_r)!, s: _angka(_s)!, t: _angka(_t)!);
     final jumlahFoto = _w?.foto.length ?? 0;
     final ok = await showDialog<bool>(
       context: context,
@@ -260,13 +277,25 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
           child: TextField(
             controller: c,
             enabled: bisaUbah,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+              setState(() {});
+              _lepas(label);
+            },
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-            decoration: sisiInput('Arus $label (A)'),
+            decoration: sisiInput('Arus $label (A)').copyWith(errorText: _salah[label], errorMaxLines: 2),
           ),
         );
-    return Row(children: [kolom('R', _r), const SizedBox(width: 8), kolom('S', _s), const SizedBox(width: 8), kolom('T', _t)]);
+    return KeyedSubtree(
+      key: _k('ARUS'),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        kolom('R', _r),
+        const SizedBox(width: 8),
+        kolom('S', _s),
+        const SizedBox(width: 8),
+        kolom('T', _t),
+      ]),
+    );
   }
 
   Widget _kotakFoto(SwitchingLokal? w, String slot) {
@@ -369,15 +398,26 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
           ),
         const SizedBox(height: 12),
         for (final n in namaIndikator)
-          PilihIndikator(
-            nama: n,
-            nilai: _indikator[n],
-            onPilih: kunciSemua ? null : (v) => setState(() => _indikator[n] = v),
+          KeyedSubtree(
+            key: _k('IND:$n'),
+            child: BingkaiWajib(
+              salah: _salah['IND:$n'],
+              child: PilihIndikator(
+                nama: n,
+                nilai: _indikator[n],
+                onPilih: kunciSemua
+                    ? null
+                    : (v) {
+                        setState(() => _indikator[n] = v);
+                        _lepas('IND:$n');
+                      },
+              ),
+            ),
           ),
         const SizedBox(height: 4),
         _kolomArus(bisaUbah: !kunciSemua),
         const SizedBox(height: 12),
-        _gridFoto(w),
+        KeyedSubtree(key: _k('FOTO'), child: BingkaiWajib(salah: adaArus ? null : _salah['FOTO'], child: _gridFoto(w))),
         if (w != null && w.foto.isNotEmpty && !kunciSemua)
           Align(
             alignment: Alignment.centerRight,
@@ -402,7 +442,8 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
         SizedBox(
           height: 46,
           child: FilledButton.icon(
-            onPressed: _proses || nama.isEmpty || kunciSemua || !sebelumDisimpan || !adaArus ? null : () => unawaited(_simpanBaru()),
+            // v1.0.31: aktif walau Foto Arus belum ada; Simpan menandai isian yang kurang
+            onPressed: _proses || nama.isEmpty || kunciSemua || !sebelumDisimpan ? null : () => unawaited(_simpanBaru()),
             icon: const Icon(Icons.save_rounded),
             label: Text(w == null || w.foto.isEmpty ? 'Simpan Switching' : 'Simpan Switching + ${w.foto.length} foto'),
           ),

@@ -104,7 +104,7 @@ class WoStore extends ChangeNotifier {
   /// Catat pekerjaan + foto yang sudah diambil (foto lain bisa menyusul). [tampil] = isian untuk kartu sebelum server
   /// menjawab (pekerjaan, diameter, jumlah, satuan, section, rincian, ...).
   Future<void> simpanPekerjaan(Sesi s, Map<String, dynamic> t, String tlId, Map<String, dynamic> data, Map<String, dynamic> tampil,
-          Map<String, String> foto) =>
+          Map<String, String> foto, {Map<String, String> isian = const {}}) =>
       _kunci(() async {
         final id = teksWo(t['temuanId']);
         await _gudang.tambahOp(_op(s.userId, 'pekerjaan', tlId, {'temuanId': id, 'idBaris': tlId, ...data}));
@@ -116,12 +116,62 @@ class WoStore extends ChangeNotifier {
           WoLokal.peta(l, 'pekerjaan')[tlId] = {
             'tlId': tlId,
             'tampil': tampil,
+            'isian': isian, // v1.0.26: isi ulang form Ubah pekerjaan
             'status': HartekLokal.lokal,
             'dibuat': DateTime.now().toUtc().toIso8601String(),
           };
           final f = WoLokal.peta(WoLokal.peta(l, 'foto'), tlId);
           for (final e in foto.entries) {
             f[e.key] = {'path': e.value, 'status': HartekLokal.lokal};
+          }
+        });
+      });
+
+  /// v1.0.26 (permintaan kvlar 23 Okt 2026): ubah pekerjaan (foto Sebelum sudah ada, Sesudah belum). Belum terkirim =
+  /// isian antrean diganti di tempat (urutan antrean tetap, foto tetap sesudahnya). Sudah di server = antre
+  /// ubahPekerjaanWo (revision diambil saat dikirim). Foto tidak berubah.
+  Future<void> ubahPekerjaan(Sesi s, Map<String, dynamic> t, Map<String, dynamic> p, Map<String, dynamic> data, Map<String, dynamic> tampil,
+          Map<String, String> isian) =>
+      _kunci(() async {
+        final id = teksWo(t['temuanId']), tlId = teksWo(p['tlId']);
+        final ops = await _gudang.ops(s.userId);
+        OpHartek? cari(String aksi) {
+          for (final o in ops) {
+            if (o.aksi == aksi && o.target == tlId) return o;
+          }
+          return null;
+        }
+
+        final belum = cari('pekerjaan');
+        if (belum != null) {
+          belum
+            ..data = {'temuanId': id, 'idBaris': tlId, ...data}
+            ..status = OpHartek.menunggu
+            ..galat = null;
+          await _gudang.ubahOp(belum);
+        } else {
+          final isi = {'temuanId': id, 'tlId': tlId, 'revision': num.tryParse(teksWo(p['revision']))?.toInt() ?? 1, ...data};
+          final lama = cari('ubah');
+          if (lama != null) {
+            lama
+              ..data = isi
+              ..status = OpHartek.menunggu
+              ..galat = null;
+            await _gudang.ubahOp(lama);
+          } else {
+            await _gudang.tambahOp(_op(s.userId, 'ubah', tlId, isi));
+          }
+        }
+        await _ubah(s.userId, (d) {
+          final l = WoLokal.lokalWo(d, id, t);
+          if (belum != null) {
+            final e = WoLokal.peta(WoLokal.peta(l, 'pekerjaan'), tlId)
+              ..['tampil'] = tampil
+              ..['isian'] = isian
+              ..['status'] = HartekLokal.lokal;
+            e.remove('galat');
+          } else {
+            WoLokal.peta(l, 'ubah')[tlId] = {'tampil': tampil, 'isian': isian, 'status': HartekLokal.lokal};
           }
         });
       });
@@ -172,7 +222,8 @@ class WoStore extends ChangeNotifier {
         final ops = await _gudang.ops(s.userId);
         final belumKirim = ops.any((o) => o.aksi == 'pekerjaan' && o.target == tlId);
         for (final o in ops) {
-          if ((o.aksi == 'pekerjaan' && o.target == tlId) || (o.aksi == 'foto' && '${o.data['tlId'] ?? ''}' == tlId)) {
+          if ((o.aksi == 'pekerjaan' && o.target == tlId) || (o.aksi == 'ubah' && o.target == tlId) ||
+              (o.aksi == 'foto' && '${o.data['tlId'] ?? ''}' == tlId)) {
             if (o.aksi == 'foto') await _hapusFoto('${o.data['path'] ?? ''}');
             await _gudang.hapusOp(o.id);
           }
@@ -184,6 +235,7 @@ class WoStore extends ChangeNotifier {
         await _ubah(s.userId, (d) {
           final l = WoLokal.peta(WoLokal.peta(d, 'lokal'), temuanId);
           WoLokal.peta(l, 'pekerjaan').remove(tlId);
+          WoLokal.peta(l, 'ubah').remove(tlId);
           WoLokal.peta(l, 'foto').remove(tlId);
           if (!belumKirim) l['hapus'] = [...WoLokal.teks(l['hapus']), tlId];
         });
@@ -384,7 +436,12 @@ class WoStore extends ChangeNotifier {
           ..remove('temuanId')
           ..remove('path')
           ..['sumber'] = FotoLapangan.dariGaleri(path) ? 'GALERI' : 'KAMERA'
+          ..addAll(await FotoLapangan.metaKirim(path)) // v1.0.29: GPS + waktu jepret (koordinat closing P0 Yandal)
           ..addAll(FotoLapangan.isiKirim(bytes));
+      case 'ubah':
+        // v1.0.26: revision terbaru yang diketahui HP (foto yang terkirim menaikkan revision baris)
+        aksi = 'ubahPekerjaanWo';
+        data['revision'] = WoLokal.revisiPekerjaan(d, tid, '${op.data['tlId'] ?? ''}') ?? data['revision'];
       case 'hapus':
         aksi = 'hapusPekerjaanWo';
         data.remove('temuanId');
@@ -525,7 +582,7 @@ class WoLokal {
 
   static void tandaiUlang(Map<String, dynamic> d, String temuanId) {
     final l = peta(peta(d, 'lokal'), temuanId);
-    for (final p in peta(l, 'pekerjaan').values) {
+    for (final p in [...peta(l, 'pekerjaan').values, ...peta(l, 'ubah').values]) {
       if (p is Map && p['status'] == HartekLokal.gagal) {
         p['status'] = HartekLokal.lokal;
         p.remove('galat');
@@ -567,6 +624,11 @@ class WoLokal {
         peta(peta(l, 'foto'), tlId).remove(slot);
         // tandai di node server supaya kotak foto langsung "terkirim" sebelum daftar ditarik ulang
         peta(l, 'fotoTerkirim')['$tlId#$slot'] = teksWo(r['link']).isEmpty ? 'ok' : teksWo(r['link']);
+      case 'ubah':
+        // v1.0.26: isian server baru langsung dipakai (sebelum daftar ditarik ulang)
+        final tlId = teksWo(data['tlId']);
+        peta(l, 'ubah').remove(tlId);
+        if (r['pekerjaan'] is Map) _gantiPekerjaan(d, l, temuanId, Map<String, dynamic>.from(r['pekerjaan'] as Map));
       case 'hapus':
         break; // tlId tetap di l['hapus'] (disembunyikan) sampai daftar server tidak memuatnya lagi
       case 'selesai':
@@ -577,6 +639,25 @@ class WoLokal {
           _perbaruiNode(d, l, t);
         }
     }
+  }
+
+  /// v1.0.26: revision pekerjaan [tlId] menurut daftar server / jawaban terakhir. null = tidak diketahui.
+  static int? revisiPekerjaan(Map<String, dynamic> d, String temuanId, String tlId) {
+    final l = peta(peta(d, 'lokal'), temuanId);
+    final p = _pekerjaanServer(nodeServer(d, temuanId), tlId) ?? _pekerjaanServer(petaWo(l['node']), tlId) ??
+        petaWo(petaWo(peta(l, 'pekerjaan')[tlId])['server']);
+    return num.tryParse(teksWo(p['revision']))?.toInt();
+  }
+
+  /// Pekerjaan [p] (jawaban server) menggantikan salinannya di daftar server, node lokal, dan pekerjaan HP terkirim.
+  static void _gantiPekerjaan(Map<String, dynamic> d, Map<String, dynamic> l, String temuanId, Map<String, dynamic> p) {
+    final tlId = teksWo(p['tlId']);
+    for (final n in [nodeServer(d, temuanId), petaWo(l['node'])]) {
+      if (n == null || n['pekerjaanWo'] is! List) continue;
+      n['pekerjaanWo'] = [for (final x in daftarWo(n['pekerjaanWo'])) teksWo(x['tlId']) == tlId ? {...x, ...p} : x];
+    }
+    final h = peta(l, 'pekerjaan')[tlId];
+    if (h is Map) h['server'] = p;
   }
 
   static void _perbaruiNode(Map<String, dynamic> d, Map<String, dynamic> l, Map<String, dynamic> t) {
@@ -604,6 +685,10 @@ class WoLokal {
         final f = peta(peta(peta(l, 'foto'), teksWo(data['tlId'])), teksWo(data['slot']));
         f['status'] = HartekLokal.gagal;
         f['galat'] = pesan;
+      case 'ubah':
+        final u = peta(peta(l, 'ubah'), teksWo(data['tlId']));
+        u['status'] = HartekLokal.gagal;
+        u['galat'] = pesan;
       case 'selesai':
         l['selesai'] = {...peta(l, 'selesai'), 'status': HartekLokal.gagal, 'galat': pesan};
       default:
@@ -666,7 +751,7 @@ class WoLokal {
         return teksWo(petaWo(_pekerjaanServer(n, b.first)?['foto'])[b.last]).isNotEmpty;
       });
       if (n != null && statusWoDari(n) == StatusWo.selesai) l.remove('selesai');
-      final kosong = !adaOp.contains(id) && l['konflik'] == null && l['paksa'] != true && pk.isEmpty && ft.isEmpty &&
+      final kosong = !adaOp.contains(id) && l['konflik'] == null && l['paksa'] != true && pk.isEmpty && ft.isEmpty && peta(l, 'ubah').isEmpty &&
           teksWo(petaWo(l['selesai'])['status']) != 'VERIFIKASI' && teksWo(petaWo(l['selesai'])['status']) != HartekLokal.gagal;
       if (kosong && (n != null || l['klaim'] != true)) lokal.remove(id);
     }
@@ -703,6 +788,24 @@ class WoLokal {
       final node = petaWo(l['node']);
       if (node.isEmpty) continue;
       hasil.add(_tempel(Map<String, dynamic>.from(node), l));
+    }
+    return hasil;
+  }
+
+  /// v1.0.29 (permintaan kvlar 24 Okt 2026): P0 dari WO Tindak Lanjut Yandal di shift [kodeShift], untuk ringkasan shift
+  /// di HP (P0 WO dicatat server, tidak ada di P0 HP). Pekerjaan yang sudah tercatat (kode `<kodeShift>-P0.`) + pekerjaan
+  /// WO yang Selesai-nya masih menunggu kirim (dicatat server ke shift aktif). Tiap hasil = pekerjaan + 'temuan' (kartu WO).
+  static List<Map<String, dynamic>> p0Shift(Map<String, dynamic> d, String kodeShift) {
+    if (kodeShift.isEmpty) return const [];
+    final awal = '$kodeShift-P0.';
+    final hasil = <Map<String, dynamic>>[];
+    for (final t in gabung(d)) {
+      final st = teksWo(petaWo(t['_selesai'])['status']);
+      final tunggu = st == HartekLokal.lokal || st == 'TERKIRIM';
+      for (final p in daftarWo(t['pekerjaanWo'])) {
+        final kode = teksWo(p['kodeRealisasiModul']);
+        if (kode.startsWith(awal) || (tunggu && kode.isEmpty && teksWo(p['status']) == 'DRAFT')) hasil.add({...p, 'temuan': t});
+      }
     }
     return hasil;
   }
@@ -744,11 +847,26 @@ class WoLokal {
 
     final pk = <Map<String, dynamic>>[];
     final adaSrv = <String>{};
+    // v1.0.26: perubahan pekerjaan yang belum diterima server tampil lebih dulu
+    final ubah = petaWo(l['ubah']);
+    Map<String, dynamic> timpaUbah(Map<String, dynamic> p) {
+      final u = petaWo(ubah[teksWo(p['tlId'])]);
+      if (u.isEmpty) return p;
+      tunda++;
+      return {
+        ...p,
+        ...petaWo(u['tampil']),
+        '_isian': petaWo(u['isian']),
+        HartekLokal.sinkron: teksWo(u['status']),
+        if (teksWo(u['galat']).isNotEmpty) HartekLokal.galat: teksWo(u['galat']),
+      };
+    }
+
     for (final p in daftarWo(t['pekerjaanWo'])) {
       final tlId = teksWo(p['tlId']);
       if (hapus.contains(tlId)) continue;
       adaSrv.add(tlId);
-      pk.add(tempelFoto(p));
+      pk.add(tempelFoto(timpaUbah(p)));
     }
     final lp = petaWo(l['pekerjaan']).values.whereType<Map<dynamic, dynamic>>().map((x) => Map<String, dynamic>.from(x)).toList()
       ..sort((a, b) => teksWo(a['dibuat']).compareTo(teksWo(b['dibuat'])));
@@ -757,15 +875,16 @@ class WoLokal {
       if (adaSrv.contains(tlId)) continue;
       final srv = petaWo(x['server']);
       if (x['status'] != 'TERKIRIM') tunda++;
-      pk.add(tempelFoto({
+      pk.add(tempelFoto(timpaUbah({
         ...petaWo(x['tampil']),
         ...srv,
         'tlId': tlId,
         'status': 'DRAFT',
         '_lokal': true,
+        '_isian': petaWo(x['isian']),
         HartekLokal.sinkron: x['status'] == 'TERKIRIM' ? null : teksWo(x['status']),
         if (teksWo(x['galat']).isNotEmpty) HartekLokal.galat: teksWo(x['galat']),
-      }));
+      })));
     }
     t['pekerjaanWo'] = pk;
     if (l['mulai'] == true) tunda++;

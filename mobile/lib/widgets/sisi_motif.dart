@@ -24,15 +24,21 @@ class SisiMotif {
 }
 
 /// Tiang + kawat jaringan (catenary) yang samar di kanan bawah. [kerapatan] = jumlah tiang.
+/// v1.0.28: [progres] 0..1 = gambar bertahap (tiang tumbuh satu per satu, lalu kawat terentang); 1 = utuh.
 class PolaJaringanPainter extends CustomPainter {
-  const PolaJaringanPainter({this.warna = Colors.white, this.alpha = .11, this.kerapatan = 4});
+  const PolaJaringanPainter({this.warna = Colors.white, this.alpha = .11, this.kerapatan = 4, this.progres = 1});
   final Color warna;
   final double alpha;
   final int kerapatan;
+  final double progres;
+
+  /// Jeda mulai antar tiang, lama tumbuh satu tiang, lama satu bentang kawat (satuan [progres]).
+  double get _jeda => .6 / math.max(1, kerapatan);
+  static const _tumbuh = .3, _rentang = .25;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
+    if (size.width <= 0 || size.height <= 0 || progres <= 0) return;
     final garis = Paint()
       ..color = warna.withValues(alpha: alpha)
       ..style = PaintingStyle.stroke
@@ -52,29 +58,42 @@ class PolaJaringanPainter extends CustomPainter {
       final x = mulaiX + jarak * i;
       final tinggi = size.height * (.42 + .38 * i / math.max(1, kerapatan - 1));
       final atas = Offset(x, dasar - tinggi);
-      canvas.drawLine(Offset(x, dasar), atas, tiang);
-      // palang (cross-arm)
-      final palang = 9.0 + 3 * i;
-      canvas.drawLine(atas.translate(-palang, 5), atas.translate(palang, 5), tiang);
       puncak.add(atas.translate(0, 5));
+      final t = progres >= 1 ? 1.0 : ((progres - i * _jeda) / _tumbuh).clamp(0.0, 1.0);
+      if (t <= 0) continue;
+      final ujung = Offset(x, dasar - tinggi * Curves.easeOutCubic.transform(t));
+      canvas.drawLine(Offset(x, dasar), ujung, tiang);
+      // palang (cross-arm), melebar sesudah tiang hampir penuh
+      final palang = (9.0 + 3 * i) * ((t - .6) / .4).clamp(0.0, 1.0);
+      if (palang > 0) canvas.drawLine(atas.translate(-palang, 5), atas.translate(palang, 5), tiang);
     }
     // tiga kawat melendut antar tiang
     for (final dx in [-1.0, 0.0, 1.0]) {
       for (var i = 0; i + 1 < puncak.length; i++) {
+        final k = progres >= 1 ? 1.0 : ((progres - (i + 1) * _jeda - _tumbuh * .7) / _rentang).clamp(0.0, 1.0);
+        if (k <= 0) continue;
         final a = puncak[i], b = puncak[i + 1];
         final geserA = dx * (9.0 + 3 * i), geserB = dx * (9.0 + 3 * (i + 1));
         final p0 = a.translate(geserA, 0), p1 = b.translate(geserB, 0);
         final lendut = (p1.dx - p0.dx) * .12;
         final tengah = Offset((p0.dx + p1.dx) / 2, math.max(p0.dy, p1.dy) + lendut);
-        canvas.drawPath(Path()
+        final kawat = Path()
           ..moveTo(p0.dx, p0.dy)
-          ..quadraticBezierTo(tengah.dx, tengah.dy, p1.dx, p1.dy), garis);
+          ..quadraticBezierTo(tengah.dx, tengah.dy, p1.dx, p1.dy);
+        if (k >= 1) {
+          canvas.drawPath(kawat, garis);
+        } else {
+          for (final m in kawat.computeMetrics()) {
+            canvas.drawPath(m.extractPath(0, m.length * k), garis);
+          }
+        }
       }
     }
   }
 
   @override
-  bool shouldRepaint(PolaJaringanPainter old) => old.warna != warna || old.alpha != alpha || old.kerapatan != kerapatan;
+  bool shouldRepaint(PolaJaringanPainter old) =>
+      old.warna != warna || old.alpha != alpha || old.kerapatan != kerapatan || old.progres != progres;
 }
 
 /// Latar header SiSi: gradien + motif jaringan, sudut membulat. Isi [child] di atasnya.

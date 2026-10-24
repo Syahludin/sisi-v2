@@ -598,6 +598,8 @@ function driveTiruan() {
           viewer: [], addViewer: (e) => { o.viewer.push(e); return o; }, getViewers: () => o.viewer.map((e) => ({ getEmail: () => e })),
           // v0.77.0: pindah folder, ID tetap
           moveTo: (tujuan) => { if (o.f.file[o.nama] === o) delete o.f.file[o.nama]; o.f = folders[tujuan.getId()]; o.f.file[o.nama] = o; o.pindah = (o.pindah || 0) + 1; return o; },
+          // v1.0.28: salin file ke folder lain (foto WO -> folder foto tim)
+          makeCopy: (nm, tujuan) => folder(tujuan.getId()).createFile({ bytes: blob.bytes, mime: blob.mime, nama: nm }),
           f };
         f.file[blob.nama] = o; semuaFile[fid] = o; dibuat.push(fid); return o;
       },
@@ -969,7 +971,8 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   // v0.63.0: mulaiShiftYandal = login tahap 2 (tiket sekali pakai dari login, bukan token)
   assert.deepStrictEqual(publik.sort(), ['login', 'mulaiShiftYandal', 'ping'], 'hanya ping & login (2 tahap) tanpa sesi');
   const tanpaMenu = Object.keys(ep).filter((k) => !ep[k].publik && !ep[k].menu).sort();
-  assert.deepStrictEqual(tanpaMenu, ['cekSesi', 'daftarNotif', 'gantiPassword', 'getArsipYandal', 'getKalenderTim', 'getMaster', 'getNotifikasi', 'getRankYandal', 'getUpdateApp', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal',
+  assert.deepStrictEqual(tanpaMenu, ['cekSesi', 'daftarNotif', 'gantiPassword', 'getArsipYandal', 'getFotoP0WoYandal', 'getKalenderTim', 'getMaster', 'getNotifikasi',
+    'getP0WoYandal', 'getRankYandal', 'getUpdateApp', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal',
     'tandaiNotifikasi', 'uploadFotoGarduYandal', 'uploadFotoP0Yandal', 'uploadFotoSwitchingYandal'],
     'endpoint tanpa menu hanya yang milik sesi sendiri');
   // v0.67.0: gantiPassword hanya akun sesi sendiri (sesi.userId), password lama wajib, tim YANDAL ditolak paling awal
@@ -1040,7 +1043,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   for (const k of Object.keys(ep).filter((k) => /InsDu/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INSDU_INPUT', k);
   // v1.0.10: WO tindak lanjut. Admin = bukan PETUGAS paling awal; tim = PETUGAS ROW / HARTEK / YANDAL (YANDAL HP + shift) paling awal
   const epWo = Object.keys(ep).filter((k) => /(Wo|WoAdmin|WoTim|WoPindah)_$/.test(ep[k].fn.name));
-  assert.deepStrictEqual(epWo.sort(), ['getFotoWoAdmin', 'getFotoWoPindah', 'getFotoWoTim', 'getWoAdmin', 'getWoPindah', 'getWoTim', 'hapusPekerjaanWo', 'mulaiWo', 'pindahWo', 'selesaiWo', 'simpanPekerjaanWo', 'tarikWo', 'teruskanWo', 'uploadFotoWo']);
+  assert.deepStrictEqual(epWo.sort(), ['getFotoWoAdmin', 'getFotoWoPindah', 'getFotoWoTim', 'getWoAdmin', 'getWoPindah', 'getWoTim', 'hapusPekerjaanWo', 'mulaiWo', 'pindahWo', 'selesaiWo', 'simpanPekerjaanWo', 'tarikWo', 'teruskanWo', 'ubahPekerjaanWo', 'uploadFotoWo']);
   // v1.0.18: pindah / tarik WO terkirim = menu Pindah Tim TO; Penerusan WO hanya daftar + teruskan
   const menuAdminWo = { getWoAdmin: 'OPS_PENERUSAN_WO', getFotoWoAdmin: 'OPS_PENERUSAN_WO', teruskanWo: 'OPS_PENERUSAN_WO',
                         tarikWo: 'OPS_PINDAH_TIM_TO', getWoPindah: 'OPS_PINDAH_TIM_TO', getFotoWoPindah: 'OPS_PINDAH_TIM_TO', pindahWo: 'OPS_PINDAH_TIM_TO' };
@@ -1052,7 +1055,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
     cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi, data, platform\\) \\{\\s*wajibPetugasWo_\\(sesi, platform\\)');
     assert.strictEqual(ep[k].menu, 'OPS_WO_TIM', k);
   }
-  assert.deepStrictEqual(epWo.filter((k) => ep[k].tulis).sort(), ['hapusPekerjaanWo', 'mulaiWo', 'pindahWo', 'selesaiWo', 'simpanPekerjaanWo', 'tarikWo', 'teruskanWo', 'uploadFotoWo'], 'tulis WO butuh UBAH');
+  assert.deepStrictEqual(epWo.filter((k) => ep[k].tulis).sort(), ['hapusPekerjaanWo', 'mulaiWo', 'pindahWo', 'selesaiWo', 'simpanPekerjaanWo', 'tarikWo', 'teruskanWo', 'ubahPekerjaanWo', 'uploadFotoWo'], 'tulis WO butuh UBAH');
   // v1.0.16: verifikasi WO ganda = admin paling awal, menu OPS_WO_GANDA, putuskan butuh UBAH
   const epGanda = Object.keys(ep).filter((k) => /WoGanda_$/.test(ep[k].fn.name)).sort();
   assert.deepStrictEqual(epGanda, ['getFotoWoGanda', 'getWoGanda', 'putuskanWoGanda']);
@@ -3117,8 +3120,9 @@ test('v0.64.1 audit guard Yandal: arsip hanya dari HP, periode rank dibatasi, AK
   x.jam.atur('16:30:00');
   const ep = x.g.endpoints_();
   const boleh = Object.keys(ep).filter((k) => ep[k].syncShift).sort();
-  assert.deepStrictEqual(boleh, ['cekSesi', 'daftarNotif', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal', 'uploadFotoGarduYandal', 'uploadFotoP0Yandal', 'uploadFotoSwitchingYandal'],
-    'daftar endpoint mode sync (v0.65.0: + kirim P0, v0.66.0: + switching, v0.74.0: + pengukuran gardu, v0.83.0: + daftar notifikasi)');
+  assert.deepStrictEqual(boleh, ['cekSesi', 'daftarNotif', 'getFotoP0WoYandal', 'getP0WoYandal', 'logout', 'simpanGarduYandal', 'simpanP0Yandal', 'simpanSwitchingYandal',
+    'uploadFotoGarduYandal', 'uploadFotoP0Yandal', 'uploadFotoSwitchingYandal'],
+    'daftar endpoint mode sync (v0.65.0: + kirim P0, v0.66.0: + switching, v0.74.0: + pengukuran gardu, v0.83.0: + daftar notifikasi, v1.0.31: + P0 dari WO)');
   for (const k of Object.keys(ep).filter((k) => !ep[k].publik && !ep[k].syncShift)) {
     assert.strictEqual(kodeError(() => x.g.proses_({ action: k, token: s.token, data: {} }, 'MOBILE')), 'SHIFT_BERAKHIR', k);
   }
@@ -3831,7 +3835,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     // v1.0.8: OPS_INSDU_INPUT tidak ada di db_Menu uji = semua ditolak (fail closed)
     getMasterInsDu: [], getInsDuHarian: [], buatHeaderInsDu: [], ubahHeaderInsDu: [], simpanRealisasiInsDu: [], ubahRealisasiInsDu: [], simpanPengukuranInsDu: [], hapusRealisasiInsDu: [], simpanTemuanInsDu: [], ubahTemuanInsDu: [], uploadFotoInsDu: [],
     // v1.0.10: OPS_PENERUSAN_WO / OPS_WO_TIM tidak ada di db_Menu uji = semua ditolak (fail closed)
-    getWoAdmin: [], getFotoWoAdmin: [], teruskanWo: [], tarikWo: [], getWoPindah: [], getFotoWoPindah: [], pindahWo: [], getWoTim: [], getFotoWoTim: [], mulaiWo: [], simpanPekerjaanWo: [], hapusPekerjaanWo: [], uploadFotoWo: [], selesaiWo: [],
+    getWoAdmin: [], getFotoWoAdmin: [], teruskanWo: [], tarikWo: [], getWoPindah: [], getFotoWoPindah: [], pindahWo: [], getWoTim: [], getFotoWoTim: [], mulaiWo: [], simpanPekerjaanWo: [], ubahPekerjaanWo: [], hapusPekerjaanWo: [], uploadFotoWo: [], selesaiWo: [],
     getWoGanda: [], getFotoWoGanda: [], putuskanWoGanda: [],
     // v1.0.17: segel sinkron atomik, menu modul tim tidak ada di db_Menu uji = semua ditolak
     segelSinkronHartek: [], segelSinkronInsJar: [], segelSinkronInsDu: [],
@@ -3854,6 +3858,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     simpanP0Yandal: ['yandal/MOBILE'], uploadFotoP0Yandal: ['yandal/MOBILE'],
     simpanSwitchingYandal: ['yandal/MOBILE'], uploadFotoSwitchingYandal: ['yandal/MOBILE'],
     simpanGarduYandal: ['yandal/MOBILE'], uploadFotoGarduYandal: ['yandal/MOBILE'],
+    getP0WoYandal: ['yandal/MOBILE'], getFotoP0WoYandal: ['yandal/MOBILE'],   // v1.0.31
     getPetugasYandal: ['admin/MOBILE'], simpanPetugasYandal: ['admin/MOBILE'],
     // ROW tulis: hanya PETUGAS ROW dari HP; admin dengan menu * tetap ditolak (wajibPetugasRow_ paling awal)
     getKodeRow: ['row/MOBILE'], syncRow: ['row/MOBILE'], uploadFotoRow: ['row/MOBILE'],
@@ -3869,8 +3874,8 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
 });
 
 // ---------- v0.67.0: sheet Gardu + BA (struktur dikunci) dan Ganti Password ----------
-test('v0.67.0: header Rekap_BA 112 / db_Gardu 64 (v0.79.0) / db_Pejabat_BA 9, unik, masuk skema; kategori beban v1; beda struktur', () => {
-  assert.deepStrictEqual([g.REKAP_BA_HEADER_.length, g.DB_GARDU_HEADER_.length, g.DB_PEJABAT_BA_HEADER_.length], [112, 64, 9]);
+test('v0.67.0: header Rekap_BA 112 / db_Gardu 89 (v1.0.23 blok LWBP + cover) / db_Pejabat_BA 9, unik, masuk skema; kategori beban v1; beda struktur', () => {
+  assert.deepStrictEqual([g.REKAP_BA_HEADER_.length, g.DB_GARDU_HEADER_.length, g.DB_PEJABAT_BA_HEADER_.length], [112, 89, 9]);
   for (const h of [g.REKAP_BA_HEADER_, g.DB_GARDU_HEADER_]) assert.strictEqual(new Set(h).size, h.length);
   const sk = g.skemaHeader_();
   assert.deepStrictEqual([...sk.GARDU_SHEET_ID.Rekap_BA], [...g.REKAP_BA_HEADER_]);
@@ -4812,17 +4817,20 @@ test('v0.74.0: pengukuran gardu: syarat P0, gardu AKTIF di penyulang P0, satu pe
   const rTerakhir = x.panggil('uploadFotoGarduYandal', x.fg(u1.ukurId, sisa.at(-1), '09:16:00'));
   assert.strictEqual(rTerakhir.fotoServer.length, 11);
   assert.strictEqual(rTerakhir.diterapkan, 'YA');
-  assert.deepStrictEqual([kg(1, 'Tanggal Ukur Terakhir'), kg(1, 'Kode Ukur Terakhir'), kg(1, 'Arus Maks per Fasa (A)'), kg(1, 'Pembebanan (kVA)'),
-    kg(1, 'Persentase Beban (%)'), kg(1, 'Waktu Beban'), kg(1, 'Kategori Beban'), kg(1, 'ukur_id_terakhir'), kg(1, 'revision'), kg(1, 'Diubah Oleh')],
-  [x.hari, kode1, 144.34, 66.31, 66.31, 'LWBP', 'Cukup', u1.ukurId, 2, 'YANDAL 13']);
-  assert.strictEqual(kg(2, 'Kode Ukur Terakhir'), '', 'gardu lain tidak tersentuh');
+  // v1.0.23: ukur jam 09:xx = LWBP -> blok LWBP db_Gardu (kolom lama = WBP tidak tersentuh)
+  assert.deepStrictEqual([kg(1, 'Tanggal Ukur LWBP'), kg(1, 'Kode Ukur LWBP'), kg(1, 'Arus Maks per Fasa (A)'), kg(1, 'Pembebanan LWBP (kVA)'),
+    kg(1, 'Persentase Beban LWBP (%)'), kg(1, 'Sumber Data LWBP'), kg(1, 'Kategori Beban LWBP'), kg(1, 'ukur_id_lwbp'), kg(1, 'revision'), kg(1, 'Diubah Oleh')],
+  [x.hari, kode1, 144.34, 66.31, 66.31, 'Pengecekan Gardu Yandal', 'Cukup', u1.ukurId, 2, 'YANDAL 13']);
+  assert.deepStrictEqual([kg(1, 'Tanggal Ukur Terakhir'), kg(1, 'Beban R (A)')], ['2026-01-05', ''], 'blok WBP tidak tersentuh');
+  assert.strictEqual(kg(2, 'Kode Ukur LWBP'), '', 'gardu lain tidak tersentuh');
   // v0.79.0: 10 angka pengukuran ikut ke db_Gardu
-  assert.deepStrictEqual(x.g.YAN_NILAI_GARDU_.map((n) => kg(1, n.kolom)), x.g.YAN_NILAI_GARDU_.map((n) => k(1, n.kolom)));
-  assert.ok(typeof kg(1, 'Beban R (A)') === 'number');
+  const L = x.g.UKUR_BLOK_LWBP_;
+  assert.deepStrictEqual(x.g.YAN_NILAI_GARDU_.map((n) => kg(1, L[n.kolom])), x.g.YAN_NILAI_GARDU_.map((n) => k(1, n.kolom)));
+  assert.ok(typeof kg(1, 'Beban R LWBP (A)') === 'number');
   // koreksi sesudah lengkap = master ikut diperbarui
   x.panggil('simpanGarduYandal', { ...u1, bebanR: 80, catatan: 'Kabel NH kendor, sudah dikencangkan' });
-  assert.strictEqual(kg(1, 'Beban R (A)'), 80);
-  assert.deepStrictEqual([kg(1, 'Pembebanan (kVA)'), kg(1, 'Kategori Beban'), kg(1, 'revision')], [48.07, 'Underload', 3]);
+  assert.strictEqual(kg(1, 'Beban R LWBP (A)'), 80);
+  assert.deepStrictEqual([kg(1, 'Pembebanan LWBP (kVA)'), kg(1, 'Kategori Beban LWBP'), kg(1, 'revision')], [48.07, 'Underload', 3]);
   // Sesudah sekarang boleh; sesudah SELESAI semua terkunci
   assert.strictEqual(x.panggil('uploadFotoP0Yandal', x.foto(a.p0Id, 'SESUDAH', '09:20:00')).statusP0, 'SELESAI');
   assert.strictEqual(e('simpanGarduYandal', { ...u1, bebanR: 90, catatan: 'Kabel NH kendor, sudah dikencangkan' }), 'P0_SUDAH_SELESAI');
@@ -4842,7 +4850,7 @@ test('v0.74.0: pengukuran gardu: syarat P0, gardu AKTIF di penyulang P0, satu pe
 test('v0.74.0: master gardu: ukur yang lebih lama tidak menimpa ukur lebih baru; kapasitas kosong = persen kosong; Master Gardu boleh dibaca petugas YANDAL', () => {
   const x = siapkanUkurGardu();
   const { k, kg } = x;
-  x.sheets.g.db_Gardu.data[2][x.g.DB_GARDU_HEADER_.indexOf('Tanggal Ukur Terakhir')] = '2099-01-01';
+  x.sheets.g.db_Gardu.data[2][x.g.DB_GARDU_HEADER_.indexOf('Tanggal Ukur LWBP')] = '2099-01-01';   // v1.0.23: ukur 09:xx = blok LWBP
   x.jam.atur('09:01:00');
   const a = x.p0({ namaPekerjaan: 'Pengecekan Gardu' });
   x.panggil('simpanP0Yandal', a);
@@ -4853,7 +4861,7 @@ test('v0.74.0: master gardu: ukur yang lebih lama tidak menimpa ukur lebih baru;
   assert.deepStrictEqual([r.hasil.persen, r.hasil.kategori, r.hasil.kva], [null, '', 48.07]);
   x.g.YAN_SLOT_GARDU_WAJIB_.forEach((s, i) => x.panggil('uploadFotoGarduYandal', x.fg(u.ukurId, s, '09:1' + Math.floor(i / 5) + ':0' + (i % 5), i ? {} : { lat: undefined, lng: undefined })));
   assert.deepStrictEqual([k(1, 'Diterapkan ke Master'), k(1, 'Koordinat'), k(1, 'Jarak ke Gardu (m)')], ['TIDAK', '', '']);
-  assert.strictEqual(kg(2, 'Kode Ukur Terakhir'), '', 'master lebih baru tidak ditimpa');
+  assert.strictEqual(kg(2, 'Kode Ukur LWBP'), '', 'master lebih baru tidak ditimpa');
   // getMaster gardu: petugas YANDAL boleh, ROW tetap tidak
   const sesiY = x.g.profilUser_(x.user.y13);
   assert.ok(x.g.getMaster_(sesiY, { modul: ['gardu'] }).modul.gardu.jumlah >= 3);
@@ -5384,9 +5392,10 @@ test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terb
   assert.strictEqual(x.mg.rumus[(cari('TB0002') + 1) + ',155'], 'R[0]C[-2]/R[0]C[-142]*100', 'sel formula EY tidak ditimpa');
   // sheet lama lebih baru (TB0422, LWBP) -> db_Gardu dihitung ulang
   const g = x.objek(x.HG, x.gRow('TB0422'));
-  assert.deepStrictEqual([g['Tanggal Ukur Terakhir'], g['Kode Ukur Terakhir'], g['Waktu Beban'], g['Beban R (A)'], g['Tegangan R-N (V)'], g['Tegangan R-S (V)'], g['Diubah Oleh']],
-    ['2026-10-05', 'SHEET LAMA', 'LWBP', 70, 225, 390, 'sinkron-gardu']);
-  assert.strictEqual(g['Pembebanan (kVA)'], Math.round((70 * 225 + 60 * 226 + 65 * 227) / 1000 * 100) / 100);
+  // v1.0.23: grup LWBP sheet lama -> blok LWBP db_Gardu
+  assert.deepStrictEqual([g['Tanggal Ukur LWBP'], g['Kode Ukur LWBP'], g['Beban R LWBP (A)'], g['Tegangan R-N LWBP (V)'], g['Tegangan R-S LWBP (V)'], g['Diubah Oleh']],
+    ['2026-10-05', 'SHEET LAMA', 70, 225, 390, 'sinkron-gardu']);
+  assert.strictEqual(g['Pembebanan LWBP (kVA)'], Math.round((70 * 225 + 60 * 226 + 65 * 227) / 1000 * 100) / 100);
   assert.strictEqual(h.db.diubah, 1);
   // gardu baru: di bawah TB terakhir (TB0422), sebelum pemisah PG, formula baris acuan disalin
   const iBaru = cari('TB0500');
@@ -5472,6 +5481,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     getPetugasYandal: 'peranPetugasYandal_(sesi, false)', simpanPetugasYandal: 'peranPetugasYandal_(sesi, true)',
     getLaporanTimYandal: 'wajibAdminLaporanYandal_(sesi)',
     gantiPassword: 'if (petugasYandal_(sesi))', daftarNotif: "if (platform !== 'MOBILE')", getPemakaian: "if (!sesi || (sesi.role !== 'ADMIN'", getArsipYandal: 'if (!petugasYandal_(sesi)', getRankYandal: 'if (!sesi || (sesi.role',
+    getP0WoYandal: 'wajibPetugasYandalHp_(sesi, platform)', getFotoP0WoYandal: 'wajibPetugasYandalHp_(sesi, platform)',   // v1.0.31
   };
   for (const k of Object.keys(ep)) {
     const nama = ep[k].fn.name;
@@ -5844,7 +5854,8 @@ function siapkanNotif() {
       const m = JSON.parse(q.payload).message;
       assert.strictEqual(q.headers.Authorization, 'Bearer akses-1');
       assert.ok(q.url.endsWith('/projects/sisi-uji/messages:send'));
-      fcm.kirim.push({ token: m.token, judul: m.notification.title, isi: m.notification.body, jenis: m.data.jenis });
+      fcm.kirim.push({ token: m.token, judul: m.notification.title, isi: m.notification.body, jenis: m.data.jenis, data: m.data,
+        kanal: m.android.notification.channel_id, tag: m.android.notification.tag, prioritas: m.android.priority });
       return fcm.mati.has(m.token) ? { getResponseCode: () => 404, getContentText: () => '{"error":{"status":"NOT_FOUND","details":[{"errorCode":"UNREGISTERED"}]}}' }
         : { getResponseCode: () => 200, getContentText: () => '{"name":"x"}' };
     }),
@@ -5934,6 +5945,57 @@ test('v0.83.0: ADMIN_pengingatYandal: pengingat ke HP Yandal terakhir login (FCM
   assert.strictEqual(x.fcm.kirim.length, n);
 });
 
+test('v1.0.29 notifikasi: WO ke semua HP tim (kanal sisi_wo), ringkasan temuan / P0 ke admin (15 / 60 menit, tag tetap), logout admin mematikan token, Yandal tidak', () => {
+  const x = siapkanNotif();
+  x.sheets.m.db_Menu.data.push(['OPS_VERIFIKASI_P0', 'Approval P0', 'MOBILE', false, 32, true], ['OPS_INPUT_TEMUAN', 'Temuan', 'MOBILE', false, 33, true]);
+  x.jam.atur('03:00:00');
+  const s13 = x.mulai(x.login('16130.yandal13', x.ins1).tiket, [x.p.a], x.ins1);
+  x.daftar(s13.token, 'tok13:' + 'a'.repeat(30));
+  const insAdm = '33333333-3333-4333-8333-333333333333';
+  const adm = x.login('16130.admin', insAdm).token;
+  x.daftar(adm, 'tokAdm:' + 'c'.repeat(30));
+  // WO: semua HP aktif akun tim, kanal WO, tag per WO, data = layar tujuan
+  assert.strictEqual(x.g.notifWoTim_(x.tim.t13, { temuan_id: 'tm-1', jenis_temuan: 'FCO rusak', kode_temuan: 'PEG-1', penyulang: 'P1', catatan_admin: 'segera' }), 1);
+  let k = x.fcm.kirim.at(-1);
+  assert.deepStrictEqual([k.token.split(':')[0], k.judul, k.isi, k.kanal, k.tag, k.data.menu, k.data.temuanId, k.prioritas],
+    ['tok13', 'WO baru: FCO rusak', 'PEG-1\nP1\nsegera', 'sisi_wo', 'wo-tm-1', 'OPS_WO_TIM', 'tm-1', 'HIGH']);
+  assert.strictEqual(x.g.notifWoTim_(x.tim.t14, { temuan_id: 'tm-2' }), 0, 'tim tanpa HP terdaftar = tidak mengirim');
+  // ringkasan admin: pertama kali hanya mencatat waktu
+  const temuan = [];
+  x.g.tabelInsJar_ = () => ({ rows: temuan });
+  const akun = x.g.akunFcm_();
+  const n0 = x.fcm.kirim.length;
+  x.jam.atur('10:00:00');
+  assert.deepStrictEqual(x.j(x.g.notifRingkasanAdmin_(akun, x.g.sekarangMsYandal_())), {});
+  temuan.push({ temuan_id: 'a', sumber: 'ADMIN', jenis_temuan: 'Admin', timestamp: new Date(x.g.sekarangMsYandal_()).toISOString(), tanggal: x.hari },
+    { temuan_id: 'b', sumber: 'INSPEKSI', jenis_temuan: 'Isolator retak', timestamp: new Date(x.g.sekarangMsYandal_() + 60e3).toISOString(), tanggal: x.hari });
+  x.jam.atur('10:10:00');
+  x.g.notifRingkasanAdmin_(akun, x.g.sekarangMsYandal_());
+  assert.strictEqual(x.fcm.kirim.length, n0, 'belum 15 menit');
+  x.jam.atur('10:16:00');
+  assert.deepStrictEqual(x.j(x.g.notifRingkasanAdmin_(akun, x.g.sekarangMsYandal_())), { TEMUAN: 1 });
+  k = x.fcm.kirim.at(-1);
+  assert.deepStrictEqual([k.token.split(':')[0], k.judul, k.kanal, k.tag, k.data.jenis, k.prioritas],
+    ['tokAdm', '1 temuan inspeksi baru', 'sisi_ringkasan', 'temuan-' + x.hari, 'TEMUAN', 'NORMAL']);
+  assert.match(k.isi, /^Hari ini 1 temuan dari petugas\. Terbaru: Isolator retak\.$/);
+  x.jam.atur('10:32:00');
+  assert.deepStrictEqual(x.j(x.g.notifRingkasanAdmin_(akun, x.g.sekarangMsYandal_())), {}, 'tidak ada temuan baru = diam');
+  // P0 masuk: tiap 60 menit
+  const H = x.sheets.y.yan_P0.data[0];
+  x.sheets.y.yan_P0.data.push(H.map((h) => ({ p0_id: 'p-1', 'Nama Pekerjaan': 'Ganti FCO', 'Status P0': 'SELESAI', status: 'AKTIF', Tanggal: x.hari,
+    Timestamp: new Date(x.g.sekarangMsYandal_()).toISOString() })[h] ?? ''));
+  x.jam.atur('11:01:00');
+  assert.deepStrictEqual(x.j(x.g.notifRingkasanAdmin_(akun, x.g.sekarangMsYandal_())), { P0: 1 });
+  k = x.fcm.kirim.at(-1);
+  assert.deepStrictEqual([k.judul, k.isi, k.tag, k.data.menu, k.data.tanggal], ['1 P0 masuk dalam 1 jam terakhir', '1 P0 menunggu verifikasi.', 'p0-ringkasan', 'OPS_VERIFIKASI_P0', x.hari]);
+  // logout admin = token HP itu mati; HP Yandal tetap (pengingat login)
+  x.g.proses_({ action: 'logout', token: adm, data: {} }, 'MOBILE');
+  const nA = x.notif().find((n) => n.install_id === insAdm), n13 = x.notif().find((n) => n.install_id === x.ins1);
+  assert.deepStrictEqual([nA.aktif, nA.pesan, n13.aktif], [false, 'LOGOUT', true]);
+  // pemicu: tanpa ringkasan baru tetap aman, pengingat login tetap jalan
+  x.g.ADMIN_pengingatYandal();
+});
+
 // ---------- v0.84.0 pantau pemakaian kuota ----------
 test('v0.84.0: jalanPemicu_ mencatat waktu pemicu vs manual, rem RENDAH 80% / NORMAL 95%, PENTING tidak pernah direm; ambilUrl_ menghitung UrlFetch + engine PDF bulanan', () => {
   const gp = buatKonteks(PROPS);
@@ -5980,6 +6042,15 @@ test('v0.84.0: ringkasPemakaian_ + getPemakaian (admin) + ADMIN_pantauPemakaian:
   assert.deepStrictEqual(r.pemicu.perFungsi.map((f) => [f.nama, f.menit]), [['ADMIN_pengingatYandal', 30], ['ADMIN_rekapShiftYandal', 15]]);
   assert.deepStrictEqual(r.riwayat.map((x) => [x.tanggal, x.pemicuPersen]), [['2026-10-10', 50], ['2026-10-09', 10]]);
   assert.deepStrictEqual([...g.peringatanBaruPakai_({ pemicu: { persen: 96 }, urlFetch: { persen: 81 }, pdfBulan: { persen: 1 } }, { url80: true })], ['pemicu95']);
+  // v1.0.31 Firebase: jatah harian, ditolak = langsung BAHAYA
+  const bf = { ...b, fcmHari: 4000 };
+  const rf = JSON.parse(JSON.stringify(g.ringkasPemakaian_('2026-10-10', { '2026-10-10': { fcm_kirim: 3300, fcm_gagal: 4 } }, { fcm_kirim: 9000 }, bf)));
+  assert.deepStrictEqual([rf.status, rf.fcm.kirim, rf.fcm.batas, rf.fcm.persen, rf.fcm.gagal, rf.fcm.bulan], ['WASPADA', 3300, 4000, 82.5, 4, 9000]);
+  assert.deepStrictEqual([...g.peringatanBaruPakai_(rf, { fcm80: true })], []);
+  assert.deepStrictEqual([...g.peringatanBaruPakai_(rf, {})], ['fcm80']);
+  const rt = JSON.parse(JSON.stringify(g.ringkasPemakaian_('2026-10-10', { '2026-10-10': { fcm_kirim: 10, fcm_tolak: 2 } }, {}, bf)));
+  assert.deepStrictEqual([rt.status, rt.fcm.ditolak, [...g.peringatanBaruPakai_(rt, {})]], ['BAHAYA', 2, ['fcmTolak95']]);
+  assert.strictEqual(g.ringkasPemakaian_('2026-10-10', {}, {}, b).fcm.persen, 0, 'batas tidak ada = 0, bukan NaN');
   // endpoint + pemantau
   const x = siapkanNotif();
   const props = x.props;
@@ -6000,6 +6071,10 @@ test('v0.84.0: ringkasPemakaian_ + getPemakaian (admin) + ADMIN_pantauPemakaian:
   assert.deepStrictEqual(x.fcm.kirim.map((k) => [k.judul, k.jenis]), [['Pemakaian server tinggi', 'PEMAKAIAN']]);
   assert.match(x.fcm.kirim[0].isi, /^Waktu pemicu 76\.5\/90 menit \(85%\)/);
   assert.strictEqual(props.getProperty('PAKAI_H:' + lama), null, 'catatan > 8 hari dihapus');
+  // v1.0.31: kirimFcm_ mencatat pesan Firebase hari ini + bulan ini (token basi bukan gagal)
+  const fcmHari = () => JSON.parse(props.getProperty('PAKAI_H:' + tgl));
+  assert.deepStrictEqual([fcmHari().fcm_kirim, fcmHari().fcm_gagal, fcmHari().fcm_tolak], [1, 0, 0]);
+  assert.strictEqual(x.g.batasPemakaian_().fcmHari, 4000);
   x.g.ADMIN_pantauPemakaian();
   assert.strictEqual(x.fcm.kirim.length, 1, 'peringatan 80% sekali sehari');
   assert.strictEqual(x.sheets.a.log_Pemakaian.data.filter((b) => b[0] === tgl).length, 1, 'satu baris per tanggal (diperbarui)');
@@ -6008,6 +6083,11 @@ test('v0.84.0: ringkasPemakaian_ + getPemakaian (admin) + ADMIN_pantauPemakaian:
   x.g.ADMIN_pantauPemakaian();
   assert.deepStrictEqual(x.fcm.kirim.slice(1).map((k) => k.judul), ['Kuota server hampir habis']);
   assert.ok(JSON.parse(props.getProperty('PAKAI_H:' + tgl)).manual_n >= 3, 'jalan pemantau manual ikut tercatat');
+  const sebelum = fcmHari().fcm_kirim, bulanIni = () => JSON.parse(props.getProperty(x.g.kunciBulanPakai_(Date.now()))).fcm_kirim;
+  assert.strictEqual(bulanIni(), sebelum);
+  x.fcm.mati.add('tokAdm:' + 'c'.repeat(30));
+  x.g.kirimFcm_(x.g.akunFcm_(), [{ token: 'tokAdm:' + 'c'.repeat(30), judul: 'a', isi: 'b' }]);
+  assert.deepStrictEqual([fcmHari().fcm_kirim, fcmHari().fcm_gagal, bulanIni()], [sebelum + 1, 0, sebelum + 1], 'token basi bukan gagal');
 });
 
 test('v0.85.0: Cloud Run per layanan dari Cloud Monitoring: hari ini + bulan ini, total vs kuota gratis, cache 10 menit, salah izin = pesan jelas', () => {
@@ -7959,13 +8039,16 @@ test('v1.0.8 insdu: header IGD, gardu dari db_Gardu, GARDU_GANDA, LWBP (cover wa
   const p = x.sheets.d.db_insdu_pengukuran.data[1];
   assert.deepStrictEqual([p[x.kol('db_insdu_pengukuran', 'kode_pengukuran')], p[x.kol('db_insdu_pengukuran', 'lwbp_beban_r')], p[x.kol('db_insdu_pengukuran', 'jumperan_atas')]], [r1.kodeRealisasi + '-UKR', 80, 'A3C']);
   assert.strictEqual(x.sheets.d.db_insdu_realisasi.data[1][x.kol('db_insdu_realisasi', 'status_ukur')], 'LWBP');
-  assert.deepStrictEqual([x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)'), x.kg(1, 'Tanggal Ukur Terakhir'), x.kg(1, 'Kode Ukur Terakhir')], ['LWBP', 80, x.hariIni, r1.kodeRealisasi + '-UKR']);
+  // v1.0.23: LWBP -> blok LWBP + 7 cover gardu
+  assert.deepStrictEqual([x.kg(1, 'Beban R LWBP (A)'), x.kg(1, 'Tanggal Ukur LWBP'), x.kg(1, 'Kode Ukur LWBP'), x.kg(1, 'Sumber Data LWBP')],
+    [80, x.hariIni, r1.kodeRealisasi + '-UKR', 'Inspeksi Gardu']);
+  assert.deepStrictEqual([x.kg(1, 'Tanggal Cover'), x.kg(1, 'Cover Bushing TM'), x.kg(1, 'Jumperan Atas')], [x.hariIni, 'Belum Lengkap', 'A3C']);
   assert.strictEqual(kodeError(() => x.h.simpanPengukuranInsDu_(x.sesi, { realisasiId: r1.realisasiId, periode: 'WBP', ...x.nilai, ...x.cover })), 'FIELD_TIDAK_DIKENAL', 'cover hanya di LWBP');
   const w = x.h.simpanPengukuranInsDu_(x.sesi, { realisasiId: r1.realisasiId, periode: 'WBP', ...x.nilai, bebanR: 100, waktu: x.hariIni + 'T19:00:00+07:00' });
-  assert.deepStrictEqual([w.statusUkur, x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)')], ['LENGKAP', 'WBP', 100]);
-  // koreksi LWBP tidak menimpa WBP di master
+  assert.deepStrictEqual([w.statusUkur, x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)'), x.kg(1, 'Beban R LWBP (A)')], ['LENGKAP', 'WBP', 100, 80]);
+  // koreksi LWBP = blok LWBP saja, WBP di master tetap
   x.h.simpanPengukuranInsDu_(x.sesi, { realisasiId: r1.realisasiId, periode: 'LWBP', ...x.nilai, bebanR: 81, ...x.cover });
-  assert.deepStrictEqual([x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)'), x.sheets.d.db_insdu_pengukuran.data.length], ['WBP', 100, 2]);
+  assert.deepStrictEqual([x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)'), x.kg(1, 'Beban R LWBP (A)'), x.sheets.d.db_insdu_pengukuran.data.length], ['WBP', 100, 81, 2]);
   // laporan: r2 belum ada LWBP = tidak dihitung
   const lap = x.h.dataInspeksiGarduHari_(x.hariIni);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(lap)), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1 });
@@ -8212,6 +8295,24 @@ test('v1.0.15 WO: getFotoWoTim_ hanya foto WO tim sendiri (temuan + pekerjaan), 
   assert.strictEqual(kodeError(() => x.h.getFotoWoTim_(x.admin, { temuanId: id, slot: 'TIANG' }, 'MOBILE')), 'AKSES_DITOLAK');
 });
 
+test('v1.0.26 WO: ubah pekerjaan DRAFT hanya sesudah foto Sebelum dan sebelum foto Sesudah, revision dicek, foto tetap', () => {
+  const x = konteksWo();
+  const id = x.temuan();
+  let rev = x.h.teruskanWo_(x.admin, { temuanId: id, timId: x.sesi.timId, revision: 1 }).revision;
+  rev = x.h.mulaiWo_(x.sesi, { temuanId: id, revision: rev }, 'MOBILE').revision;
+  const p = x.h.simpanPekerjaanWo_(x.sesi, { koordinat: '-3.010000, 106.510000', temuanId: id, diameter: 30, sectionId: x.sekB }, 'MOBILE');
+  const ubah = (isi) => x.h.ubahPekerjaanWo_(x.sesi, { koordinat: '-3.020000, 106.520000', temuanId: id, tlId: p.tlId, revision: 1, diameter: 0, ...isi }, 'MOBILE');
+  assert.strictEqual(kodeError(() => ubah({})), 'FOTO_SEBELUM_BELUM_ADA');
+  x.h.uploadFotoWo_(x.sesi, fotoWo(p.tlId, 'SEBELUM'), 'MOBILE');
+  assert.strictEqual(kodeError(() => ubah({})), 'KONFLIK_REVISION', 'foto menaikkan revision');
+  const u = x.j(ubah({ revision: 2, catatan: 'ternyata rabas' }));
+  assert.deepStrictEqual([u.revision, u.pekerjaan.pekerjaan, u.pekerjaan.koordinat, u.pekerjaan.catatan, u.pekerjaan.foto.SEBELUM !== ''], [3, 'Rabas / Pangkas', '-3.020000, 106.520000', 'ternyata rabas', true]);
+  assert.strictEqual(kodeError(() => x.h.ubahPekerjaanWo_(x.sesiH, { koordinat: '-3.02, 106.52', temuanId: id, tlId: p.tlId, revision: 3, jenisId: 'jh1', jumlah: 1 }, 'MOBILE')), 'BUKAN_MILIK_TIM');
+  x.h.uploadFotoWo_(x.sesi, fotoWo(p.tlId, 'SESUDAH'), 'MOBILE');
+  assert.strictEqual(kodeError(() => ubah({ revision: 4 })), 'FOTO_SESUDAH_SUDAH_ADA');
+  assert.match(x.h.simpanPekerjaanWo_.toString(), /isiPekerjaanWo_\(sesi, d, t\)/);
+});
+
 test('v1.0.10 WO ROW: diameter -> jenis, foto wajib 3, butuh Laporan Utama ROW, Selesai = row_Realisasi + row_Eksekusi (sumber TEMUAN) + row_Foto', () => {
   const x = konteksWo();
   const id = x.temuan();
@@ -8268,6 +8369,33 @@ test('v1.0.10 WO ROW: diameter -> jenis, foto wajib 3, butuh Laporan Utama ROW, 
   // eksekusi dari WO dikunci di syncRow (ubah / batal dari HP ditolak)
   const eksWo = kolom(x, 'row_Eksekusi', 1, 'eksekusi_id');
   assert.deepStrictEqual(x.sync([x.op('eksekusi', 'batal', eksWo, undefined, {}, 1), x.op('eksekusi', 'ubah', eksWo, undefined, { nomorTiang: 'X' }, 1)]).hasil.map((h) => h.alasan), ['TERKUNCI_WO', 'TERKUNCI_WO']);
+});
+
+test('v1.0.28 WO Selesai: foto tetap di folder temuan + disalin ke folder foto tim per pekerjaan (2 folder), sheet tim menunjuk salinan', () => {
+  const x = konteksWo();
+  const id = x.temuan();
+  let rev = x.h.teruskanWo_(x.admin, { temuanId: id, timId: x.sesi.timId, revision: 1 }).revision;
+  rev = x.h.mulaiWo_(x.sesi, { temuanId: id, revision: rev }, 'MOBILE').revision;
+  const p = x.h.simpanPekerjaanWo_(x.sesi, { koordinat: '-3.010000, 106.510000', temuanId: id, diameter: 30 }, 'MOBILE');
+  const asli = {};
+  for (const sl of ['SEBELUM', 'PEKERJAAN', 'SESUDAH']) asli[sl] = x.h.uploadFotoWo_(x.sesi, fotoWo(p.tlId, sl), 'MOBILE').link;
+  x.sync([x.op('header', 'buat', U(), x.kodeH, { tanggal: x.hariIni })]);
+  const jumlahFile = x.dr.dibuat.length;
+  x.h.selesaiWo_(x.sesi, { temuanId: id, revision: rev }, 'MOBILE');
+  assert.strictEqual(x.dr.dibuat.length - jumlahFile, 3, '3 foto penyelesaian disalin');
+  const url = kolom(x, 'row_Eksekusi', 1, 'Foto Sesudah URL');
+  assert.ok(url.startsWith('https://drive.google.com/file/d/') && url !== asli.SESUDAH, 'row_Eksekusi menunjuk salinan di folder ROW');
+  const salinan = x.dr.semuaFile[url.split('/d/')[1].split('/')[0]];
+  const jalur = [];
+  for (let f = salinan.f; f; f = Object.values(x.dr.folders).find((g) => Object.values(g.anak).includes(f.id))) jalur.unshift(f.nama || f.id);
+  assert.strictEqual(jalur[0], 'akar', 'akar ROW_FOTO_FOLDER_ID');
+  assert.strictEqual(jalur[jalur.length - 1], kolom(x, 'row_Eksekusi', 1, 'Kode Eksekusi'), 'folder per pekerjaan');
+  assert.strictEqual(salinan.getName(), kolom(x, 'row_Eksekusi', 1, 'Foto Sesudah'));
+  const TL = x.h.TEMUAN_HEADER_.db_temuan_tindak_lanjut;
+  assert.strictEqual(x.sheets.t.db_temuan_tindak_lanjut.data[1][TL.indexOf('foto_sesudah_link')], asli.SESUDAH, 'WO tetap menunjuk folder temuan');
+  // folder tim tidak bisa disalin = tetap file folder temuan, Selesai tidak gagal
+  assert.deepStrictEqual(x.j(x.h.salinFotoWoKeTim_('', ['x'], { tl_id: 'a', foto_sebelum_file_id: 'F', foto_sebelum_link: 'L' }, 'SEBELUM', 'n.jpg')), { fileId: 'F', link: 'L', nama: '' });
+  assert.strictEqual(x.h.salinFotoWoKeTim_('akar', ['x'], { tl_id: 'a', foto_sebelum_file_id: 'HILANG', foto_sebelum_link: 'L' }, 'SEBELUM', 'n.jpg').link, 'L');
 });
 
 test('v1.0.10 WO HARTEK: banyak pekerjaan per temuan, foto sebelum + sesudah, Selesai = PG Gardu + db_Hartek_Pekerjaan; Jaringan baru butuh daerah + gawang', () => {
@@ -8462,6 +8590,57 @@ test('v1.0.10 WO YANDAL: hanya HP + shift, Selesai = yan_P0 SELESAI Menunggu ver
   assert.match(String(x.kol(b, 'Catatan')), /^WO IJR-X-TJR\.001 FCO rusak\. FCO fasa R/);
   assert.strictEqual(x.kolS('Jumlah P0'), 1, 'rekap shift ikut');
   assert.deepStrictEqual(s.realisasi.map((r) => r.kode), [x.s.yandal.kodeShift + '-P0.001']);
+});
+
+test('v1.0.29 WO YANDAL: koordinat P0 = GPS foto Sebelum, closing = GPS foto Sesudah; foto tanpa GPS = koordinat pekerjaan WO', () => {
+  const x = siapkanP0();
+  const props = x.g.PropertiesService.getScriptProperties();
+  props.setProperty('TEMUAN_SHEET_ID', 't');
+  props.setProperty('INSJAR_FOTO_FOLDER_ID', 'wofoto');
+  const buat = sheetPalsu(x.log);
+  x.sheets.t = {};
+  for (const [nama, hdr] of Object.entries(x.g.TEMUAN_HEADER_)) x.sheets.t[nama] = buat(nama, [hdr.slice()]);
+  const tgl = x.hari;
+  const sesi = x.g.sesiDariToken_(x.s.token);
+  x.jam.atur('09:00:00');
+  const kabar = [];
+  x.g.notifWoTim_ = (timId, t) => { kabar.push([timId, t.kode_temuan]); return 1; };   // v1.0.29: notifikasi WO ke tim
+  const kerjakan = (nomor, gps) => {
+    const id = U();
+    x.sheets.t.db_temuan_inspeksi.data.push(barisTemuanWo(x.g, { nomor, kode_header: 'IJR-16130' + tgl.slice(2, 4) + tgl.slice(5, 7) + tgl.slice(8, 10) + '001',
+      kode_temuan: 'IJR-X-TJR.00' + nomor, tanggal: tgl, objek_inspeksi: 'Jaringan', penyulang: 'Tanjung Labu', section: 'FCO Jar Tj. Sangkar', section_id: x.sek.a,
+      jenis_temuan: 'FCO rusak', status: 'Penugasan Tim', sumber: 'ADMIN', temuan_id: id, revision: 1 }));
+    let rev = x.g.teruskanWo_(x.sesiAdmin, { temuanId: id, timId: x.tim.t13, revision: 1 }).revision;
+    rev = x.g.mulaiWo_(sesi, { temuanId: id, revision: rev }, 'MOBILE').revision;
+    const p = x.g.simpanPekerjaanWo_(sesi, { koordinat: '-3.010000, 106.510000', temuanId: id, namaPekerjaan: 'Ganti FCO' }, 'MOBILE');
+    const jam = { SEBELUM: '09:05:00', PEKERJAAN: '09:20:00', SESUDAH: '09:35:00' };
+    for (const sl of ['SEBELUM', 'PEKERJAAN', 'SESUDAH']) x.g.uploadFotoWo_(sesi, fotoWo(p.tlId, sl, { waktu: x.iso(jam[sl]), ...(gps[sl] || { lat: undefined, lng: undefined, akurasiM: undefined }) }), 'MOBILE');
+    x.g.selesaiWo_(sesi, { temuanId: id, revision: rev }, 'MOBILE');
+    return x.sheets.y.yan_P0.data.length - 1;
+  };
+  const b1 = kerjakan(1, { SEBELUM: { lat: -3.02, lng: 106.52 }, SESUDAH: { lat: -3.03, lng: 106.53 } });
+  const m1 = JSON.parse(x.kol(b1, 'foto_meta'));
+  assert.deepStrictEqual([x.kol(b1, 'Lat'), x.kol(b1, 'Long'), x.kol(b1, 'Lat Closing'), x.kol(b1, 'Long Closing'), m1.sumberKoordinat, m1.sumberKoordinatClosing],
+    [-3.02, 106.52, -3.03, 106.53, 'SEBELUM', 'SESUDAH']);
+  assert.ok(x.kol(b1, 'Jarak Closing P0 (m)') > 0, 'jarak buka ke closing');
+  const b2 = kerjakan(2, {});
+  const m2 = JSON.parse(x.kol(b2, 'foto_meta'));
+  assert.deepStrictEqual([x.kol(b2, 'Lat'), x.kol(b2, 'Lat Closing'), x.kol(b2, 'Long Closing'), m2.sumberKoordinat, m2.sumberKoordinatClosing],
+    [-3.01, -3.01, 106.51, 'PEKERJAAN_WO', 'PEKERJAAN_WO']);
+  assert.strictEqual(x.kol(b2, 'Kode P0'), x.s.yandal.kodeShift + '-P0.002');
+  assert.deepStrictEqual(kabar, [[x.tim.t13, 'IJR-X-TJR.001'], [x.tim.t13, 'IJR-X-TJR.002']], 'tiap WO diteruskan = satu notifikasi ke tim');
+  // v1.0.31: HP Yandal membaca P0 dari WO (yan_P0) seperti P0 lokal, plus fotonya
+  const daftar = x.g.getP0WoYandal_(sesi, {}, 'MOBILE');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(daftar.list.map((o) => [o.kodeP0, o.status, o.koordinat === '' ? '' : 'ada', o.foto.length, !!o.temuanId,
+    o.tlId === x.kol(b1, 'p0_id') || o.tlId === x.kol(b2, 'p0_id')]))),
+    [[x.s.yandal.kodeShift + '-P0.001', 'Menunggu', 'ada', 3, true, true], [x.s.yandal.kodeShift + '-P0.002', 'Menunggu', 'ada', 3, true, true]]);
+  assert.ok(daftar.list[0].waktuPekerjaan && daftar.list[0].waktuDibuat, 'waktu foto Pekerjaan + dibuat ikut');
+  assert.strictEqual(kodeError(() => x.g.getP0WoYandal_(sesi, {}, 'WEB')), 'AKSES_DITOLAK');
+  assert.strictEqual(kodeError(() => x.g.getP0WoYandal_(sesi, { a: 1 }, 'MOBILE')), 'FIELD_TIDAK_DIKENAL');
+  const f = x.g.getFotoP0WoYandal_(sesi, { p0Id: x.kol(b1, 'p0_id'), slot: 'SESUDAH', ukuran: 'PENUH' }, 'MOBILE');
+  assert.ok(f.data.length > 0, 'foto yan_P0');
+  assert.strictEqual(kodeError(() => x.g.getFotoP0WoYandal_({ ...sesi, timId: x.tim.t14 }, { p0Id: x.kol(b1, 'p0_id'), slot: 'SEBELUM' }, 'MOBILE')),
+    'DATA_TIDAK_DITEMUKAN', 'tim lain tidak boleh');
 });
 
 test('v1.0.10 WO: struktur db_temuan_inspeksi + db_temuan_tindak_lanjut, ADMIN_siapkanSheetInsJar membuat tab baru, cekKonfigWo_', () => {
@@ -9102,6 +9281,31 @@ test('v1.0.22 cekKonfigurasi: properti migrasi boleh dihapus kalau datanya sudah
   assert.match(g.ADMIN_cekKonfigurasi.toString(), /cekKonfigProperti_/);
 });
 
+test('v1.0.31 cekKonfigurasi menghapus properti migrasi selesai, lalu penanda jendela ROW kalau masih hampir penuh', () => {
+  const isi = { ...PROPS, MIG_DARI: '1', MIG_SUMBER_ID: 's', MIG_FOTO_AKAR_ID: 'f', MIGP0_DARI: '1', MIGHARTEK_DARI: '1',
+    ROW_JENDELA_row_Header: '5', ROW_JENDELA_BULAN_row_Realisasi: '3' };
+  for (let i = 0; Object.keys(isi).length < 50; i++) isi['LAIN_' + i] = 'v';
+  const gp = buatKonteks(isi);
+  gp.keluargaMigrasi_ = () => [
+    { awalan: 'MIG_', nama: 'ROW', idKey: 'ROW_SHEET_ID', tabel: () => 'ROW' },
+    { awalan: 'MIGP0_', nama: 'P0', idKey: 'YANDAL_SHEET_ID', tabel: () => 'P0' },
+    { awalan: 'MIGHARTEK_', nama: 'Hartek', idKey: 'HARTEK_SHEET_ID', tabel: () => 'H' },
+  ];
+  const hariIni = gp.tglJakarta_(new Date());
+  gp.ringkasMigrasiTab_ = (t) => ({ ROW: { jumlah: 9, terakhir: '2020-01-01' }, P0: { jumlah: 0, terakhir: '' }, H: { jumlah: 3, terakhir: hariIni } })[t];
+  const m = gp.cekKonfigProperti_({ ROW_SHEET_ID: 'r', YANDAL_SHEET_ID: 'y', HARTEK_SHEET_ID: 'h' });
+  const sisa = gp.PropertiesService.getScriptProperties().getProperties();
+  assert.ok(!('MIG_DARI' in sisa) && !('MIG_SUMBER_ID' in sisa), 'migrasi ROW selesai = dihapus');
+  assert.ok('MIG_FOTO_AKAR_ID' in sisa, 'kunci foto ditunda');
+  assert.ok('MIGP0_DARI' in sisa && 'MIGHARTEK_DARI' in sisa, 'belum ada data / ditulis hari ini = tetap');
+  assert.ok(!('ROW_JENDELA_row_Header' in sisa) && !('ROW_JENDELA_BULAN_row_Realisasi' in sisa), '48 masih hampir penuh = jendela ROW dihapus');
+  assert.ok(m >= 1, 'kunci foto tertunda dihitung masalah');
+  const longgar = buatKonteks({ ...PROPS, ROW_JENDELA_row_Header: '5' });
+  longgar.keluargaMigrasi_ = () => [];
+  assert.strictEqual(longgar.cekKonfigProperti_({}), 0);
+  assert.ok('ROW_JENDELA_row_Header' in longgar.PropertiesService.getScriptProperties().getProperties(), 'slot longgar = jendela ROW tetap');
+});
+
 test('v1.0.22 pengukuran gardu: terbaru hanya dari Master Gardu, Update Pengukuran Gardu menulis kolom master', () => {
   const x = konteksWo();
   assert.match(x.h.getRiwayatGardu_.toString(), /terbaruRg_\(ukurMasterRg_\(master\)\)/);
@@ -9112,6 +9316,46 @@ test('v1.0.22 pengukuran gardu: terbaru hanya dari Master Gardu, Update Pengukur
   const ep = x.h.endpoints_().updateUkurMasterGardu;
   assert.deepStrictEqual([ep.menu, ep.tulis], ['OPS_PENGUKURAN_GARDU', true]);
   assert.strictEqual(kodeError(() => x.h.updateUkurMasterGardu_({ role: 'PETUGAS' }, {})), 'AKSES_DITOLAK');
+});
+
+test('v1.0.23 tanggal ukur: sel tanggal (Sheets) / teks String(Date) terbaca, bukan dipotong jadi "Fri Oct 16"', () => {
+  assert.strictEqual(g.tglSel_('Fri Oct 16 2026 17:30:00 GMT+0700 (Western Indonesia Time)'), '2026-10-16');
+  assert.strictEqual(g.tglTeksJs_('Fri Oct 16', '2026-10-23'), '2026-10-16');
+  assert.strictEqual(g.tglTeksJs_('Fri Dec 26', '2026-10-23'), '2025-12-26', 'tanpa tahun = tidak di masa depan');
+  assert.strictEqual(g.tglTeksJs_('2026-10-16', '2026-10-23'), '');
+  assert.strictEqual(g.tanggalHp_('Fri Oct 16'), g.tglTeksJs_('Fri Oct 16'));
+  const r = { 'Tanggal Ukur Terakhir': 'Fri Oct 16', 'Tanggal Ukur LWBP': '2026-10-20', 'Tanggal Operasi': new Date(2026, 0, 2), 'Tanggal Cover': '' };
+  assert.deepStrictEqual({ ...g.perbaikanTanggalGardu_(r, '2026-10-23') }, { 'Tanggal Ukur Terakhir': '2026-10-16' });
+  assert.strictEqual(g.jamUkurSel_('2026-10-16T17:30:00+07:00'), '17:30');
+  assert.strictEqual(g.jamUkurSel_('09:15'), '09:15');
+  assert.match(g.terapkanUkurGardu_.toString(), /tglSel_\(r\['Jam Ukur'\]\)/);
+  assert.match(g.terapkanUkurInsDu_.toString(), /tglSel_\(p\[a \+ 'waktu'\]\)/);
+});
+
+test('v1.0.23 db_Gardu blok WBP (kolom lama) + LWBP: pemetaan kolom, tanggal terbaru, pindah data lama, bentuk HP, riwayat master 2 blok', () => {
+  const u = g.kolomUkurPeriode_('LWBP', { 'Tanggal Ukur Terakhir': '2026-10-20', 'Beban R (A)': 80, 'Waktu Beban': 'LWBP', 'Arus Maks per Fasa (A)': 144.34, ukur_id_terakhir: 'u1' });
+  assert.deepStrictEqual({ ...u }, { 'Tanggal Ukur LWBP': '2026-10-20', 'Beban R LWBP (A)': 80, 'Arus Maks per Fasa (A)': 144.34, ukur_id_lwbp: 'u1' });
+  assert.strictEqual(g.kolomUkurPeriode_('WBP', { 'Beban R (A)': 1 })['Waktu Beban'], 'WBP');
+  assert.strictEqual(g.tglUkurTerbaruGardu_({ 'Tanggal Ukur Terakhir': '2026-10-01', 'Tanggal Ukur LWBP': '2026-10-05' }), '2026-10-05');
+  const H = g.DB_GARDU_HEADER_;
+  assert.ok(Object.values(g.UKUR_BLOK_LWBP_).every((k) => H.includes(k)) && Object.values(g.COVER_GARDU_).every((k) => H.includes(k)));
+  const b = H.map(() => '');
+  b[H.indexOf('Waktu Beban')] = 'LWBP'; b[H.indexOf('Tanggal Ukur Terakhir')] = '2026-10-02'; b[H.indexOf('Beban R (A)')] = 70;
+  const w = H.map(() => ''); w[H.indexOf('Waktu Beban')] = 'WBP'; w[H.indexOf('Beban R (A)')] = 90;
+  assert.strictEqual(g.pindahUkurLwbpGardu_([b, w], H), 1);
+  assert.deepStrictEqual([b[H.indexOf('Tanggal Ukur LWBP')], b[H.indexOf('Beban R LWBP (A)')], b[H.indexOf('Beban R (A)')], b[H.indexOf('Waktu Beban')], w[H.indexOf('Beban R (A)')]],
+    ['2026-10-02', 70, '', '', 90]);
+  const o = Object.fromEntries(H.map((k) => [k, '']));
+  Object.assign(o, { 'Tanggal Ukur Terakhir': '2026-10-21', 'Waktu Beban': 'WBP', 'Beban R (A)': 90, 'Tanggal Ukur LWBP': '2026-10-21', 'Beban R LWBP (A)': 70,
+    'Persentase Beban LWBP (%)': 40, 'Tanggal Cover': '2026-10-21', 'Cover FCO Atas': 'Lengkap' });
+  const hp = JSON.parse(JSON.stringify(g.barisGarduHp_(o)));
+  assert.deepStrictEqual([hp.ukur.bebanR, hp.lwbp.tglUkur, hp.lwbp.ukur.bebanR, hp.lwbp.kategori, hp.cover.coverFcoAtas], [90, '2026-10-21', 70, 'Underload', 'Lengkap']);
+  const m = g.ukurMasterRg_(hp);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(m.map((x) => [x.periode, x.bebanR]))), [['WBP', 90], ['LWBP', 70]]);
+  // sinkron ke sheet lama: blok bertanggal terbaru ke grupnya
+  const S = g.SINKRON_GARDU_;
+  const sel = new Map(g.selUkurSinkron_({ ...o, 'Tanggal Ukur Terakhir': '2026-10-01' }));
+  assert.ok(!sel.has(S.grup.WBP['Beban R (A)']) && sel.get(S.grup.LWBP['Beban R (A)']) === 70, 'WBP lebih lama tidak ditulis');
 });
 
 test('v1.0.20 riwayat gardu: periode ukur selalu LWBP / WBP (isian baku dipakai, kosong = dari jam ukur WBP 17:00-21:59)', () => {

@@ -57,6 +57,7 @@ class _FormP0ScreenState extends State<FormP0Screen> {
   bool _simpan = false;
   String? _nama;
   NilaiLokasiP0 _lokasi = (penyulang: null, sectionId: null, section: ''); // v0.66.4: dari PilihLokasiP0
+  final _form = GlobalKey<FormState>(); // v1.0.31: kolom wajib kosong = merah + digulir ke sana
   final _lainnya = TextEditingController();
   final _daerah = TextEditingController();
   final _catatan = TextEditingController();
@@ -101,6 +102,7 @@ class _FormP0ScreenState extends State<FormP0Screen> {
   }
 
   Future<void> _kirim() async {
+    if (!validasiForm(_form)) return;
     final nama = _nama;
     if (nama == null) {
       tampilPesan(context, 'Pilih nama pekerjaan.');
@@ -146,7 +148,10 @@ class _FormP0ScreenState extends State<FormP0Screen> {
       appBar: sisiAppBar('Tambah P0', subjudul: widget.sesi.timNama),
       body: !_siap
           ? const SisiLoading(pesan: 'Menyiapkan form...', ukuran: 60)
-          : ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
+          : Form(
+              key: _form,
+              // v1.0.31: tidak lazy (ListView membangun kolom di luar layar belakangan), semua kolom wajib ikut divalidasi
+              child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               if (hanyaLain)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -167,14 +172,16 @@ class _FormP0ScreenState extends State<FormP0Screen> {
                 pilihan: [for (final n in _pekerjaan) PilihanItem(n, n)],
                 nilaiAwal: _nama,
                 selaluCari: true,
+                validator: (v) => (v ?? '').isEmpty ? 'Nama pekerjaan wajib dipilih' : null,
                 onChanged: (v) => setState(() => _nama = v),
               ),
               if (lain) ...[
                 const SizedBox(height: 12),
-                TextField(
+                TextFormField(
                   controller: _lainnya,
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: 100,
+                  validator: (v) => (v ?? '').trim().isEmpty ? 'Pekerjaan lainnya wajib diisi' : null,
                   decoration: const InputDecoration(labelText: 'Pekerjaan lainnya *', prefixIcon: Icon(Icons.edit_note_rounded)),
                 ),
               ],
@@ -215,7 +222,8 @@ class _FormP0ScreenState extends State<FormP0Screen> {
               const SizedBox(height: 8),
               const Text('P0 tersimpan di HP dan dikirim otomatis ke server saat ada sinyal.',
                   textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
-            ]),
+            ])),
+            ),
     );
   }
 }

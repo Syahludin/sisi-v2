@@ -47,7 +47,7 @@ enum FilterHistoryGardu {
   final diukur = <Gardu>[];
   final siap = <Gardu>[];
   for (final g in aktif) {
-    final lagi = g.tglUkur.isEmpty ? null : bisaUkurLagi(g.tglUkur, tglAcuan);
+    final lagi = g.tglUkurTerbaru.isEmpty ? null : bisaUkurLagi(g.tglUkurTerbaru, tglAcuan);
     if (lagi != null) {
       diukur.add(g);
     } else {
@@ -55,12 +55,12 @@ enum FilterHistoryGardu {
     }
   }
   diukur.sort((a, b) {
-    final c = b.tglUkur.compareTo(a.tglUkur);
+    final c = b.tglUkurTerbaru.compareTo(a.tglUkurTerbaru);
     return c != 0 ? c : a.no.compareTo(b.no);
   });
   siap.sort((a, b) {
-    final ta = a.tglUkur.isEmpty ? '0000' : a.tglUkur;
-    final tb = b.tglUkur.isEmpty ? '0000' : b.tglUkur;
+    final ta = a.tglUkurTerbaru.isEmpty ? '0000' : a.tglUkurTerbaru;
+    final tb = b.tglUkurTerbaru.isEmpty ? '0000' : b.tglUkurTerbaru;
     final c = ta.compareTo(tb);
     return c != 0 ? c : a.no.compareTo(b.no);
   });
@@ -190,9 +190,9 @@ class HistoryPengukuranGarduViewState extends State<HistoryPengukuranGarduView> 
   }
 
   Future<void> _ukurGarduIni(Gardu g) async {
-    final lagi = g.tglUkur.isEmpty ? null : bisaUkurLagi(g.tglUkur, _tglShift);
+    final lagi = g.tglUkurTerbaru.isEmpty ? null : bisaUkurLagi(g.tglUkurTerbaru, _tglShift);
     if (lagi != null) {
-      tampilPesan(context, 'Gardu ${g.no} sudah diukur ${tanggalPendek(g.tglUkur)}. Bisa diukur lagi ${tanggalPendek(lagi)}.');
+      tampilPesan(context, 'Gardu ${g.no} sudah diukur ${tanggalPanjang(g.tglUkurTerbaru)}. Bisa diukur lagi ${tanggalPanjang(lagi)}.');
       return;
     }
     if (!_bolehTambahP0) {
@@ -495,7 +495,7 @@ class _KartuHistoryGardu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = gardu;
-    final lagi = g.tglUkur.isEmpty ? null : bisaUkurLagi(g.tglUkur, tglShift);
+    final lagi = g.tglUkurTerbaru.isEmpty ? null : bisaUkurLagi(g.tglUkurTerbaru, tglShift);
     final sudahDiukur2Hari = lagi != null;
     final tim = '${infoUkur?['tim'] ?? ''}'.trim();
     final petugas = '${infoUkur?['petugas'] ?? ''}'.trim();
@@ -526,8 +526,8 @@ class _KartuHistoryGardu extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   sudahDiukur2Hari
-                      ? 'Diukur ${tanggalPendek(g.tglUkur)} · Bisa diukur lagi ${tanggalPendek(lagi)}'
-                      : (g.tglUkur.isEmpty ? 'Belum pernah diukur · Aman diukur' : 'Terakhir diukur ${tanggalPendek(g.tglUkur)} · Aman diukur'),
+                      ? 'Diukur ${tanggalPanjang(g.tglUkurTerbaru)} · Bisa diukur lagi ${tanggalPanjang(lagi)}'
+                      : (g.tglUkurTerbaru.isEmpty ? 'Belum pernah diukur · Aman diukur' : 'Terakhir diukur ${tanggalPanjang(g.tglUkurTerbaru)} · Aman diukur'),
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
