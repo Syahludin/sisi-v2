@@ -4,7 +4,7 @@
  * A. ADMIN_migrasiInspeksiFoto: foto temuan hasil migrasi v1 (kolom foto_*_link berisi link AppSheet
  *    https://www.appsheet.com/image/getimageurl?...&fileName=<path>&... atau link Drive) dicari file Drive-nya
  *    (link Drive = file id; link AppSheet = path dari folder MIG_FOTO_AKAR_ID, pathFotoLama_ + fileDariPathMig_),
- *    lalu DIPINDAH ke satu folder INSJAR_FOTO_FOLDER_ID / db_Temuan_Inspeksi, diberi nama pola ROW
+ *    lalu DIPINDAH ke satu folder FOTO_TEMUAN_FOLDER_ID / db_Temuan_Inspeksi, diberi nama pola ROW
  *    (<kode temuan>_<SLOT>.jpg), dan kolom foto_*_file_id + foto_*_link diisi link Drive. File asli tidak disalin
  *    (keputusan kvlar: pindah, AppSheet v1 tidak lagi bisa menampilkan foto itu). BISA DILANJUTKAN: posisi baris
  *    disimpan (Script Property), tiap jalan ~4,5 menit. Laporan: migins_Foto (SiSi_Temuan).
@@ -59,7 +59,7 @@ function ADMIN_migrasiInspeksiFoto() {
   var akarId = String(p.getProperty('MIG_FOTO_AKAR_ID') || '').trim();
   var akar = akarId ? DriveApp.getFolderById(akarId) : null;
   if (!akar) console.warn('MIG_FOTO_AKAR_ID kosong: hanya foto berlink Drive yang bisa dipindah (link AppSheet dilewati).');
-  var tujuan = folderFoto_(folderFotoInsJar_(), [FOTO_TEMUAN_FOLDER_]);
+  var tujuan = folderFoto_(folderFotoTemuan_(), [FOTO_TEMUAN_FOLDER_]);
   var cache = {}, laporan = [];
   var hasil = denganLock_(function () {
     var t = tabelInsJar_(INSJAR_SHEET_.TEMUAN);

@@ -45,7 +45,9 @@ function cfg_() {
     // v1.0.17: sumber migrasi temuan / InsJar / InsDu v1 (spreadsheet v1 lama, HANYA DIBACA)
     INSPEKSI_LAMA_SHEET_ID: p.INSPEKSI_LAMA_SHEET_ID || '',
     HARTEK_FOTO_FOLDER_ID: p.HARTEK_FOTO_FOLDER_ID || '',   // v1.0.0: folder Drive privat foto grounding / pemerataan
-    INSJAR_FOTO_FOLDER_ID: p.INSJAR_FOTO_FOLDER_ID || '',   // v1.0.0: folder Drive privat foto temuan inspeksi
+    // v1.0.0: folder Drive privat foto temuan inspeksi. v1.0.34 (permintaan kvlar 25 Okt 2026): nama umum FOTO_TEMUAN_FOLDER_ID
+    // (gabungan foto temuan InsJar, InsDu, admin, foto WO); nama lama INSJAR_FOTO_FOLDER_ID masih dibaca sampai diganti.
+    FOTO_TEMUAN_FOLDER_ID: p.FOTO_TEMUAN_FOLDER_ID || p.INSJAR_FOTO_FOLDER_ID || '',
     GARDU_FOTO_FOLDER_ID: p.GARDU_FOTO_FOLDER_ID || '',   // v0.70.0: folder Drive privat foto BA gardu   // v0.67.0: spreadsheet Pengukuran Gardu Toboali (tab Rekap_BA, db_Gardu)   // v0.65.0: folder Drive foto P0 (privat)     // v0.63.0: SiSi_Yandal (yan_Shift, yan_Login)   // v0.51: SiSi_Laporan (lap_Harian, lap_C4A), file terpisah dari SiSi_ROW
     KODE_ULP: p.KODE_ULP,
     ADMIN_EMAIL: String(p.ADMIN_EMAIL).trim().toLowerCase(),

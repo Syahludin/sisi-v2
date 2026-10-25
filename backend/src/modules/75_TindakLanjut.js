@@ -773,7 +773,7 @@ function hapusPekerjaanWo_(sesi, data, platform) {
   }, 20000);
 }
 
-/** Foto pekerjaan WO (slot SEBELUM / PEKERJAAN / SESUDAH). Folder INSJAR_FOTO_FOLDER_ID / Tindak Lanjut WO / <tgl> / <kode temuan>. */
+/** Foto pekerjaan WO (slot SEBELUM / PEKERJAAN / SESUDAH). Folder FOTO_TEMUAN_FOLDER_ID / Tindak Lanjut WO / <tgl> / <kode temuan>. */
 function uploadFotoWo_(sesi, data, platform) {
   wajibPetugasWo_(sesi, platform);
   var s = isiFotoLapangan_();
@@ -788,7 +788,7 @@ function uploadFotoWo_(sesi, data, platform) {
   if ((d.lat === undefined) !== (d.lng === undefined)) throw new SisiError_('FIELD_WAJIB', d.lat === undefined ? 'lat' : 'lng');
   // v1.0.16: WO Yandal = foto kamera SiSi saja (petugas di lapangan), galeri hanya ROW / Hartek
   if (sesi.jenisTim === 'YANDAL' && d.sumber === 'GALERI') throw new SisiError_('FOTO_HARUS_KAMERA', d.slot);
-  var folderId = folderFotoInsJar_();
+  var folderId = folderFotoTemuan_();
   var bytes = bytesFotoLapangan_(d);
   return denganLock_(function () {
     var tTl = tabelTlWo_();
@@ -831,7 +831,7 @@ function pekerjaanDariWo_(id) {
 /* ===== Selesai: masuk realisasi tim ===== */
 
 /**
- * v1.0.28 (permintaan kvlar 23 Okt 2026): foto WO tetap di folder temuan (INSJAR_FOTO_FOLDER_ID / Tindak Lanjut WO)
+ * v1.0.28 (permintaan kvlar 23 Okt 2026): foto WO tetap di folder temuan (FOTO_TEMUAN_FOLDER_ID / Tindak Lanjut WO)
  * dan saat masuk realisasi tim disalin ke folder foto tim per pekerjaan, jadi tersimpan di 2 folder. Sheet tim
  * menunjuk salinan. Akar tim kosong / salin gagal = tetap file folder temuan (Selesai tidak gagal karena salinan).
  * Kirim ulang tidak membuat salinan kembar (penanda deskripsi file). Hasil { fileId, link, nama }.

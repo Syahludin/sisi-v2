@@ -5284,12 +5284,17 @@ function sheetLamaPalsu(data, rumus = {}, id = 0) {
     for (const k of Object.keys(rumus)) delete rumus[k];
     Object.assign(rumus, baru);
   };
+  // validasi: { kolom: [pilihan] } dropdown tolak isian lain, berlaku semua baris (v1.0.34)
+  const validasi = {};
+  const dv = (pilihan) => ({ getCriteriaType: () => 'VALUE_IN_LIST', getCriteriaValues: () => [pilihan, true], getAllowInvalid: () => false });
   const sh = {
-    data, rumus, tulis,
+    data, rumus, tulis, validasi,
     getSheetId: () => id,
+    getName: () => 'Lama',
     getLastRow: () => data.length,
     getLastColumn: () => Math.max(...data.map((r) => r.length)),
     insertRowsAfter: (r, n) => { for (let i = 0; i < n; i++) data.splice(r, 0, new Array(sh.getLastColumn()).fill('')); geserRumus(r); },
+    deleteRow: (r) => { data.splice(r - 1, 1); },
     getRange: (r, c, nr = 1, nc = 1) => {
       const sel = (f) => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => f(r + i, c + j)));
       return {
@@ -5298,7 +5303,13 @@ function sheetLamaPalsu(data, rumus = {}, id = 0) {
         getFormulas: () => sel((a, b) => (rumus[a + ',' + b] ? '=' + rumus[a + ',' + b] : '')),
         getFormulasR1C1: () => sel((a, b) => rumus[a + ',' + b] || ''),
         setFormulaR1C1: (f) => { rumus[r + ',' + c] = f; },
-        setValues: (vals) => { tulis.push([r, c, vals.length, vals[0].length]); vals.forEach((b, i) => b.forEach((v, j) => { data[r - 1 + i][c - 1 + j] = v; delete rumus[(r + i) + ',' + (c + j)]; })); },
+        getDataValidations: () => sel((a, b) => (validasi[b] ? dv(validasi[b]) : null)),
+        setValues: (vals) => {
+          vals.forEach((b, i) => b.forEach((v, j) => {
+            const p = validasi[c + j];
+            if (p && v !== '' && !p.includes(v)) throw new Error('Data yang dimasukkan ke dalam sel melanggar aturan validasi data');
+          }));
+          tulis.push([r, c, vals.length, vals[0].length]); vals.forEach((b, i) => b.forEach((v, j) => { data[r - 1 + i][c - 1 + j] = v; delete rumus[(r + i) + ',' + (c + j)]; })); },
       };
     },
   };
@@ -5416,6 +5427,35 @@ test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terb
   const h2 = x.gg.ADMIN_sinkronGarduLama();
   assert.deepStrictEqual([h2.master.identitas, h2.master.ukurKeLama, h2.master.ukurKeDb, h2.master.baru], [0, 0, 0, 0]);
   assert.strictEqual(x.mg.tulis.length, tulisAwal);
+});
+
+test('v1.0.34 sinkron sheet lama: sel dropdown (Merk L) disamakan ke pilihannya, yang tidak cocok dilewati + diperingatkan, sinkron tetap jalan', () => {
+  const x = siapkanSinkron();
+  x.props.setProperty('SHEET_GARDU_ULP', 'lama2');
+  x.mg.validasi[12] = ['Trafindo', 'Triputra Electric Abadi', 'Unindo'];
+  x.mg.data.forEach((r) => { if (r[11] === 'TRAFINDO') r[11] = 'Trafindo'; });
+  const HG = x.HG;
+  x.gRow('TB0500')[x.kol('Merk')] = 'TRIPUTRA ELECTRIC  ABADI';
+  x.sheets.g.db_Gardu.data.push(HG.map((h) => ({ No: 10, 'No Gardu': 'TB0501', Prefix: 'TB', 'Status Gardu': 'AKTIF', Alamat: 'Jl. Merk Asing', Merk: 'Merk Asing',
+    gardu_id: U(), revision: 1 }[h] ?? '')));
+  x.gRow('TB0002')[x.kol('Merk')] = 'Merk Lain';
+  const w = console.warn; console.warn = () => {};
+  let h;
+  try { h = JSON.parse(JSON.stringify(x.gg.ADMIN_sinkronGarduLama())); } finally { console.warn = w; }
+  const cari = (no) => x.mg.data.find((r) => r[2] === no);
+  assert.deepStrictEqual([cari('TB0500')[11], cari('TB0500')[3]], ['Triputra Electric Abadi', 'Jl. Gardu Baru'], 'huruf besar / spasi disamakan ke pilihan');
+  assert.deepStrictEqual([cari('TB0501')[11], cari('TB0501')[3]], ['', 'Jl. Merk Asing'], 'gardu tetap disisip, Merk asing dikosongkan');
+  assert.deepStrictEqual([cari('TB0002')[11], cari('TB0002')[3]], ['Trafindo', 'Jl. DB Baru'], 'Merk asing tidak ditulis, identitas lain tetap');
+  assert.strictEqual(h.peringatan.filter((p) => /bukan pilihan dropdown/.test(p)).length, 2);
+  assert.ok(h.peringatan.some((p) => /^Lama L\d+ \(TB0501\): "Merk Asing"/.test(p)), h.peringatan.join(' | '));
+  // gagal tulis karena hal lain: baris sisipan dihapus lagi
+  const x2 = siapkanSinkron();
+  x2.props.setProperty('SHEET_GARDU_ULP', 'lama2');
+  const panjang = x2.mg.data.length;
+  const asli = x2.mg.getRange;
+  x2.mg.getRange = (r, c, nr, nc) => { const g = asli(r, c, nr, nc); if (nc > 1) g.setValues = () => { throw new Error('kuota'); }; return g; };
+  assert.throws(() => x2.gg.sinkronGarduLama_(true));
+  assert.strictEqual(x2.mg.data.length, panjang, 'tidak ada baris kosong tertinggal');
 });
 
 test('v0.79.0: pemicu sinkron gardu 05:00 WIB (diganti, bukan ditambah) + berhenti', () => {
@@ -7723,15 +7763,31 @@ test('v1.0.0 ADMIN_siapkanSheetInsJar: buat 2 tab SiSi_InsJar + db_temuan_inspek
   x.h.Session = { getActiveUser: () => ({ getEmail: () => 'x@y.z' }) };
   delete x.sheets.i.insjar_realisasi;
   delete x.sheets.t.db_temuan_inspeksi;
-  x.sheets.m.db_Jenis_Temuan.data[1][x.h.INSJAR_MASTER_HEADER_.db_Jenis_Temuan.indexOf('jenis_temuan_id')] = '';
+  const H = x.h.INSJAR_MASTER_HEADER_.db_Jenis_Temuan;
+  const idCol = H.indexOf('jenis_temuan_id');
+  x.sheets.m.db_Jenis_Temuan.data[1][idCol] = '';
   assert.strictEqual(x.h.ADMIN_siapkanSheetInsJar(), 0);
   assert.deepStrictEqual(JSON.stringify(x.sheets.i.insjar_realisasi.data[0]), JSON.stringify(x.h.INSJAR_HEADER_.insjar_realisasi));
   assert.deepStrictEqual(JSON.stringify(x.sheets.t.db_temuan_inspeksi.data[0]), JSON.stringify(x.h.TEMUAN_HEADER_.db_temuan_inspeksi));
   assert.strictEqual(x.sheets.i.db_temuan_inspeksi, undefined, 'temuan tidak dibuat di SiSi_InsJar');
   assert.deepStrictEqual(Object.keys(x.h.INSJAR_HEADER_), ['insjar_header', 'insjar_realisasi']);
-  const idCol = x.h.INSJAR_MASTER_HEADER_.db_Jenis_Temuan.indexOf('jenis_temuan_id');
-  assert.match(String(x.sheets.m.db_Jenis_Temuan.data[1][idCol]), /^[0-9a-f-]{36}$/);
+  assert.strictEqual(x.sheets.m.db_Jenis_Temuan.data[1][idCol], '', 'v1.0.34: ID jenis temuan bukan urusan siapkan sheet lagi');
   assert.strictEqual(x.h.ADMIN_siapkanSheetInsJar(), 0);
+  // v1.0.34: ADMIN_lengkapiMaster mengisi jenis_temuan_id (+ nomor) seperti ID master lain, ID lama tetap
+  x.sheets.m.db_Jenis_Temuan.data.push(H.map((k) => ({ jenis_temuan: 'Isolator Retak', objek_inspeksi: 'Jaringan', tier_inspeksi: 'Tier 1' }[k] ?? '')));
+  const idLama = x.sheets.m.db_Jenis_Temuan.data[2][idCol];
+  const buat = sheetPalsu([]);
+  for (const [n, h] of Object.entries({ db_Tim: ['tim_id', 'kode', 'nama', 'jenis', 'aktif'], db_Users: ['user_id', 'username', 'nama', 'role', 'tim_id', 'aktif'],
+    db_Jaringan: ['section_id', 'penyulang', 'section', 'parent_section_id', 'urutan'], db_Jenis_Pekerjaan: ['jenis_id', 'modul', 'nama', 'bobot'] })) {
+    x.sheets.m[n] = x.sheets.m[n] || buat(n, [h]);
+  }
+  const a = { l: console.log, w: console.warn }; console.log = () => {}; console.warn = () => {};
+  try { x.h.ADMIN_lengkapiMaster(); } finally { console.log = a.l; console.warn = a.w; }
+  const d = x.sheets.m.db_Jenis_Temuan.data;
+  assert.match(String(d[1][idCol]), /^[0-9a-f-]{36}$/);
+  assert.match(String(d[d.length - 1][idCol]), /^[0-9a-f-]{36}$/);
+  assert.strictEqual(d[d.length - 1][H.indexOf('nomor')], d.length - 1);
+  assert.strictEqual(d[2][idCol], idLama, 'ID lama tidak diubah');
 });
 
 test('v1.0.5 insjar: ubahTemuanInsJar (isian lengkap, revision, segmen hanya Jaringan), ubah section penyulang utama, foto menaikkan revision', () => {
@@ -7884,7 +7940,7 @@ test('v1.0.0 insjar: kolom link foto temuan + tiang; upload petugas (tim sendiri
   const dr = driveTiruan();
   x.h.DriveApp = dr.DriveApp;
   x.h.Utilities.newBlob = (bytes, mime, nama) => ({ bytes, mime, nama });
-  x.h.PropertiesService.getScriptProperties().setProperty('INSJAR_FOTO_FOLDER_ID', 'akarI');
+  x.h.PropertiesService.getScriptProperties().setProperty('FOTO_TEMUAN_FOLDER_ID', 'akarI');
   const hd = x.h.buatHeaderInsJar_(x.sesi, {});
   const r = x.h.simpanRealisasiInsJar_(x.sesi, { headerId: hd.headerId, penyulang: 'PNY-A', tier: 'Tier 1', totalTiang: 3, section: 'SEC-1' });
   const t = x.h.simpanTemuanInsJar_(x.sesi, { realisasiId: r.realisasiId, jenisTemuanId: 'jt-1' });
@@ -7938,7 +7994,7 @@ test('v1.0.2 guard hartek + insjar: slot prototipe ditolak, Laporan Utama non-AK
   const y = konteksInsJar();
   y.h.DriveApp = driveTiruan().DriveApp;
   y.h.Utilities.newBlob = (bytes, mime, nama) => ({ bytes, mime, nama });
-  y.h.PropertiesService.getScriptProperties().setProperty('INSJAR_FOTO_FOLDER_ID', 'akarI');
+  y.h.PropertiesService.getScriptProperties().setProperty('FOTO_TEMUAN_FOLDER_ID', 'akarI');
   const hd = y.h.buatHeaderInsJar_(y.sesi, {});
   const r = y.h.simpanRealisasiInsJar_(y.sesi, { headerId: hd.headerId, penyulang: 'PNY-A', tier: 'Tier 1', totalTiang: 3, section: 'SEC-1' });
   const t = y.h.simpanTemuanInsJar_(y.sesi, { realisasiId: r.realisasiId, jenisTemuanId: 'jt-1' });
@@ -8187,7 +8243,7 @@ function fotoWo(tlId, slot, isi = {}) {
 }
 
 function konteksWo() {
-  const x = siapkanRow({ propsTambahan: { TEMUAN_SHEET_ID: 't', HARTEK_SHEET_ID: 'h', GARDU_SHEET_ID: 'g', INSJAR_FOTO_FOLDER_ID: 'wofoto' } });
+  const x = siapkanRow({ propsTambahan: { TEMUAN_SHEET_ID: 't', HARTEK_SHEET_ID: 'h', GARDU_SHEET_ID: 'g', FOTO_TEMUAN_FOLDER_ID: 'wofoto' } });
   const h = x.g;
   const buat = sheetPalsu(x.log);
   x.sheets.t = {};
@@ -8560,7 +8616,7 @@ test('v1.0.10 WO YANDAL: hanya HP + shift, Selesai = yan_P0 SELESAI Menunggu ver
   const x = siapkanP0();
   const props = x.g.PropertiesService.getScriptProperties();
   props.setProperty('TEMUAN_SHEET_ID', 't');
-  props.setProperty('INSJAR_FOTO_FOLDER_ID', 'wofoto');
+  props.setProperty('FOTO_TEMUAN_FOLDER_ID', 'wofoto');
   const buat = sheetPalsu(x.log);
   x.sheets.t = {};
   for (const [nama, hdr] of Object.entries(x.g.TEMUAN_HEADER_)) x.sheets.t[nama] = buat(nama, [hdr.slice()]);
@@ -8592,11 +8648,20 @@ test('v1.0.10 WO YANDAL: hanya HP + shift, Selesai = yan_P0 SELESAI Menunggu ver
   assert.deepStrictEqual(s.realisasi.map((r) => r.kode), [x.s.yandal.kodeShift + '-P0.001']);
 });
 
+test('v1.0.34 FOTO_TEMUAN_FOLDER_ID: nama umum folder foto temuan; nama lama INSJAR_FOTO_FOLDER_ID tetap dibaca + diingatkan', () => {
+  assert.strictEqual(buatKonteks({ ...PROPS, FOTO_TEMUAN_FOLDER_ID: 'baru' }).folderFotoTemuan_(), 'baru');
+  const lama = buatKonteks({ ...PROPS, INSJAR_FOTO_FOLDER_ID: 'lama' });
+  assert.strictEqual(lama.folderFotoTemuan_(), 'lama', 'staging lama tidak putus');
+  assert.strictEqual(buatKonteks({ ...PROPS, FOTO_TEMUAN_FOLDER_ID: 'baru', INSJAR_FOTO_FOLDER_ID: 'lama' }).folderFotoTemuan_(), 'baru', 'nama baru menang');
+  assert.strictEqual(kodeError(() => buatKonteks(PROPS).folderFotoTemuan_()), 'CONFIG_TIDAK_LENGKAP');
+  assert.strictEqual(g.folderFotoInsJar_, undefined, 'nama fungsi lama tidak ada lagi');
+});
+
 test('v1.0.29 WO YANDAL: koordinat P0 = GPS foto Sebelum, closing = GPS foto Sesudah; foto tanpa GPS = koordinat pekerjaan WO', () => {
   const x = siapkanP0();
   const props = x.g.PropertiesService.getScriptProperties();
   props.setProperty('TEMUAN_SHEET_ID', 't');
-  props.setProperty('INSJAR_FOTO_FOLDER_ID', 'wofoto');
+  props.setProperty('FOTO_TEMUAN_FOLDER_ID', 'wofoto');
   const buat = sheetPalsu(x.log);
   x.sheets.t = {};
   for (const [nama, hdr] of Object.entries(x.g.TEMUAN_HEADER_)) x.sheets.t[nama] = buat(nama, [hdr.slice()]);
@@ -9054,6 +9119,59 @@ test('v1.0.17 migrasi inspeksi v1: header IJR / IGD, realisasi, temuan (PEG = ad
   assert.ok(x.sheets.t.db_temuan_inspeksi.data.some((r) => r.includes(idv2)), 'baris app v2 tetap ada');
 });
 
+test('v1.0.34 migrasi inspeksi v1: induk yang tidak ada di v1 dibuat otomatis (Laporan Utama, penyulang utama, gardu), induk dikarantina tetap menahan anak', () => {
+  const x = konteksWo();
+  const h = x.h;
+  x.sheets.m.db_Tim.data.push([x.timIns, 'INSPEKSI_JARINGAN', 'Inspeksi Jaringan 01', '01', true], ['tig-1', 'INSPEKSI_GARDU', 'Inspeksi Gardu 01', '01', true]);
+  const baris = (n, isi) => { const b = Array(n).fill(''); for (const [k, v] of Object.entries(isi)) b[k] = v; return b; };
+  const H = h.MIGINS_KOL_.header, R = h.MIGINS_KOL_.realisasi, T = h.MIGINS_KOL_.temuan;
+  assert.deepStrictEqual([h.kodeIndukMig_('IJR-1-PNY.002-TJR.001', 'realisasi'), h.kodeIndukMig_('IJR-1-PNY.002', 'header'), h.kodeIndukMig_('IGD-1-GDU.001', 'header'), h.kodeIndukMig_('ACAK', 'header')],
+    ['IJR-1-PNY.002', 'IJR-1', 'IGD-1', '']);
+  const S = {
+    header: [baris(17, { [H.kodeHeader]: 'IJR-16130261003001', [H.subTim]: 'Tim Asing' })],
+    realisasi: [
+      // A: penyulang utama tanpa Laporan Utama (kode header kosong = dipotong dari kode); tim dari temuannya
+      baris(13, { [R.kodePekerjaanPeny]: 'IJR-16130261004001-PNY.001', [R.tanggal]: '2026-10-04', [R.hari]: 'Minggu', [R.penyulang]: 'TB-01', [R.tier]: 'Tier 1', [R.totalTiang]: 20 }),
+      // induk ada di v1 tapi dikarantina (tim asing) = tetap karantina
+      baris(13, { [R.kodeHeader]: 'IJR-16130261003001', [R.kodePekerjaanPeny]: 'IJR-16130261003001-PNY.001' }),
+    ],
+    insdu: [],
+    temuan: [
+      baris(43, { [T.kodeHeader]: 'IJR-16130261004001', [T.kodePekerjaanPeny]: 'IJR-16130261004001-PNY.001', [T.kodePekerjaan]: 'IJR-16130261004001-PNY.001-TJR.001',
+        [T.timInspeksi]: 'Inspeksi Jaringan 01', [T.ulp]: 'Toboali', [T.tanggal]: '2026-10-04' }),
+      // B: temuan tanpa penyulang utama + Laporan Utama (kode induk kosong), 2 temuan = 1 penyulang utama
+      baris(43, { [T.kodePekerjaan]: 'IJR-16130261006001-PNY.002-TJR.001', [T.timInspeksi]: 'Inspeksi Jaringan 01', [T.tanggal]: '2026-10-06', [T.hari]: 'Selasa',
+        [T.ulp]: 'Toboali', [T.penyulang]: 'TB-02', [T.section]: 'Kota', [T.tier]: 'Tier 2' }),
+      baris(43, { [T.kodePekerjaan]: 'IJR-16130261006001-PNY.002-TJR.002', [T.timInspeksi]: 'Inspeksi Jaringan 01', [T.tanggal]: '2026-10-06', [T.penyulang]: 'TB-02' }),
+      // C: temuan gardu tanpa induk
+      baris(43, { [T.kodePekerjaan]: 'IGD-16130261007001-GDU.001-TJR.001', [T.objekInspeksi]: 'Gardu', [T.nomorGardu]: 'tb0001', [T.timInspeksi]: 'Inspeksi Gardu 01',
+        [T.tanggal]: '2026-10-07', [T.tier]: 'Tier 1' }),
+      // induk realisasi ada di v1 tapi dikarantina = tetap karantina
+      baris(43, { [T.kodePekerjaan]: 'IJR-16130261003001-PNY.001-TJR.001', [T.timInspeksi]: 'Inspeksi Jaringan 01' }),
+    ],
+  };
+  const M = { tim: x.sheets.m.db_Tim.data.slice(1).map((r) => ({ tim_id: r[0], jenis: r[1], nama: r[2], kode: r[3], aktif: r[4] })),
+    jenisTemuan: [], gardu: [{ 'No Gardu': 'TB0001', gardu_id: 'gar-1', Penyulang: 'TB-01', Section: 'Kampung Baru' }] };
+  const a = x.j(h.analisisMigrasiInspeksi_(S, M));
+  assert.deepStrictEqual([a.hitung.insjar_header, a.hitung.db_insdu_header, a.hitung.insjar_realisasi, a.hitung.db_insdu_realisasi, a.hitung.db_temuan_inspeksi, a.hitung.karantina],
+    [2, 1, 2, 1, 4, 3], 'karantina: header tim asing, realisasi + temuan berinduk karantina');
+  const hA = a.rencana.insjar_header.find((o) => o.kode_header === 'IJR-16130261004001');
+  assert.deepStrictEqual([hA.tanggal, hA.hari, hA.ulp, hA.tim_id, hA.dibuat_oleh], ['2026-10-04', 'Minggu', 'Toboali', x.timIns, 'MIGRASI']);
+  assert.strictEqual(a.rencana.insjar_realisasi.find((o) => o.kode_realisasi === 'IJR-16130261004001-PNY.001').header_id, hA.header_id);
+  const hB = a.rencana.insjar_header.find((o) => o.kode_header === 'IJR-16130261006001');
+  const rB = a.rencana.insjar_realisasi.find((o) => o.kode_realisasi === 'IJR-16130261006001-PNY.002');
+  assert.deepStrictEqual([hB.tanggal, rB.penyulang, rB.section, rB.tier, rB.jumlah_temuan, rB.header_id], ['2026-10-06', 'TB-02', 'Kota', 'Tier 2', 2, hB.header_id]);
+  const tB = a.rencana.db_temuan_inspeksi.filter((o) => o.kode_realisasi === 'IJR-16130261006001-PNY.002');
+  assert.deepStrictEqual(tB.map((o) => [o.realisasi_id, o.header_id, o.kode_header]), [[rB.realisasi_id, hB.header_id, hB.kode_header], [rB.realisasi_id, hB.header_id, hB.kode_header]]);
+  const rC = a.rencana.db_insdu_realisasi[0], hC = a.rencana.db_insdu_header[0];
+  assert.deepStrictEqual([hC.kode_header, hC.tim_id, rC.kode_realisasi, rC.no_gardu, rC.gardu_id, rC.header_id], ['IGD-16130261007001', 'tig-1', 'IGD-16130261007001-GDU.001', 'TB0001', 'gar-1', hC.header_id]);
+  assert.strictEqual(a.rencana.db_temuan_inspeksi.find((o) => o.kode_temuan === 'IGD-16130261007001-GDU.001-TJR.001').realisasi_id, rC.realisasi_id);
+  const dibuat = a.catatan.filter((c) => c.status === 'PERINGATAN' && /dibuat otomatis/.test(c.alasan)).map((c) => c.kode_lama);
+  assert.deepStrictEqual(dibuat.sort(), ['IGD-16130261007001', 'IGD-16130261007001-GDU.001', 'IJR-16130261004001', 'IJR-16130261006001', 'IJR-16130261006001-PNY.002']);
+  assert.ok(a.catatan.some((c) => c.kode_lama === 'IJR-16130261003001-PNY.001-TJR.001' && c.status === 'KARANTINA' && /tidak termigrasi/.test(c.alasan)));
+  assert.strictEqual(x.j(h.analisisMigrasiInspeksi_(S, M)).rencana.insjar_header.find((o) => o.kode_header === 'IJR-16130261006001').header_id, hB.header_id, 'ID deterministik (aman diulang)');
+});
+
 test('v1.0.17 migrasi Jadwal Padam v1: judul kolom v1, tanggal teks Indonesia, jam titik / titik dua, Batal Pekerjaan = Batal Pemadaman, master daerah', () => {
   const x = konteksJadwalPadam();
   const h = x.h;
@@ -9088,11 +9206,11 @@ test('v1.0.18 foto temuan migrasi: link AppSheet / Drive dicari, DIPINDAH ke db_
   const dr = driveTiruan();
   x.h.DriveApp = dr.DriveApp;
   x.h.Utilities.newBlob = (bytes, mime, nama) => ({ bytes, mime, nama });
-  const props = { INSJAR_FOTO_FOLDER_ID: 'akarIns', MIG_FOTO_AKAR_ID: 'akarAs' };
+  const props = { FOTO_TEMUAN_FOLDER_ID: 'akarIns', MIG_FOTO_AKAR_ID: 'akarAs' };
   const sp = x.h.PropertiesService.getScriptProperties();
   for (const [k, v] of Object.entries(props)) sp.setProperty(k, v);
   x.h.Session = { getActiveUser: () => ({ getEmail: () => x.h.cfg_().ADMIN_EMAIL }) };
-  x.h.cfg_ = ((asli) => () => ({ ...asli(), INSJAR_FOTO_FOLDER_ID: 'akarIns' }))(x.h.cfg_);
+  x.h.cfg_ = ((asli) => () => ({ ...asli(), FOTO_TEMUAN_FOLDER_ID: 'akarIns' }))(x.h.cfg_);
   const laporan = {};
   x.h.tulisSheetMig_ = (ss, nama, kepala, baris) => { laporan[nama] = baris; };
   // file AppSheet: AppSheet SiSi - ULP Toboali/Temuan Inspeksi/2026/07. Juli/01/<kode>/<kode>.Foto Temuan.115650.jpg

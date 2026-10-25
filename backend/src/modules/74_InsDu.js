@@ -772,7 +772,7 @@ function ubahTemuanInsDu_(sesi, data) {
 function uploadFotoInsDu_(sesi, data) {
   wajibPetugasInsDu_(sesi);
   var d = validasi_(data, skemaFotoInsJar_());
-  var folderId = folderFotoInsJar_();
+  var folderId = folderFotoTemuan_();
   var bytes = bytesFotoLapangan_(d);
   return denganLock_(function () {
     var t = tabelInsDu_(INSJAR_SHEET_.TEMUAN);

@@ -21,7 +21,7 @@
  * Aturan: petugas INSPEKSI_JARINGAN (menu OPS_INSJAR_INPUT) hanya menulis ke header tim sendiri dengan tanggal hari ini.
  * Kolom audit semua tabel: dibuat_oleh, diubah_oleh, timestamp, timestamp_update, revision (sama dengan Hartek).
  * Struktur kolom DIKUNCI: dicek setiap baca untuk tulis (STRUKTUR_BERUBAH), disiapkan ADMIN_siapkanSheetInsJar.
- * v1.0.0: foto temuan + foto tiang ke Drive (INSJAR_FOTO_FOLDER_ID), kolom *_file_id + *_link.
+ * v1.0.0: foto temuan + foto tiang ke Drive (FOTO_TEMUAN_FOLDER_ID, dulu INSJAR_FOTO_FOLDER_ID), kolom *_file_id + *_link.
  * v1.0.5 (permintaan kvlar 20 Okt 2026): penyulang utama hanya SATU kolom section (section_awal / section_akhir dan
  * segmen dihapus dari insjar_realisasi; ADMIN_siapkanSheetInsJar menghapus kolom lama). Segmen tetap ada di
  * db_temuan_inspeksi, opsional, hanya untuk object Jaringan. Endpoint baru ubahTemuanInsJar (petugas, hari ini).
@@ -782,7 +782,7 @@ function skemaFotoInsJar_() {
   return skema;
 }
 
-/** Tulis foto ke Drive: INSJAR_FOTO_FOLDER_ID / Inspeksi Jaringan / <tanggal> / <kode header> / <kode temuan>_<SLOT>.jpg. */
+/** Tulis foto ke Drive: FOTO_TEMUAN_FOLDER_ID / Inspeksi Jaringan / <tanggal> / <kode header> / <kode temuan>_<SLOT>.jpg. */
 function tulisFotoTemuanInsJar_(sesi, t, r, d, bytes, folderId) {
   var kol = INSJAR_FOTO_[d.slot];
   var ada = String(r[kol + '_link'] || '').trim();
@@ -799,17 +799,17 @@ function tulisFotoTemuanInsJar_(sesi, t, r, d, bytes, folderId) {
   return { temuanId: d.temuanId, slot: d.slot, link: f.link, status: 'OK', revision: rev };
 }
 
-function folderFotoInsJar_() {
+function folderFotoTemuan_() {
   var c = cfg_();
-  if (!c.INSJAR_FOTO_FOLDER_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'INSJAR_FOTO_FOLDER_ID');
-  return c.INSJAR_FOTO_FOLDER_ID;
+  if (!c.FOTO_TEMUAN_FOLDER_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'FOTO_TEMUAN_FOLDER_ID');
+  return c.FOTO_TEMUAN_FOLDER_ID;
 }
 
 /** Petugas: foto temuan milik tim sesi, hari ini. */
 function uploadFotoInsJar_(sesi, data) {
   wajibPetugasInsJar_(sesi);
   var d = validasi_(data, skemaFotoInsJar_());
-  var folderId = folderFotoInsJar_();
+  var folderId = folderFotoTemuan_();
   var bytes = bytesFotoLapangan_(d);
   return denganLock_(function () {
     var t = tabelInsJar_(INSJAR_SHEET_.TEMUAN);
@@ -822,7 +822,7 @@ function uploadFotoInsJar_(sesi, data) {
 function uploadFotoTemuanInspeksi_(sesi, data) {
   wajibAdminTemuan_(sesi);
   var d = validasi_(data, skemaFotoInsJar_());
-  var folderId = folderFotoInsJar_();
+  var folderId = folderFotoTemuan_();
   var bytes = bytesFotoLapangan_(d);
   return denganLock_(function () {
     var t = tabelInsJar_(INSJAR_SHEET_.TEMUAN);
@@ -946,8 +946,10 @@ function cekKonfigInsJar_(c) {
     console.log('  [DILEWATI]    INSJAR_SHEET_ID kosong, modul Inspeksi Jaringan belum disiapkan (isi Script Property, lalu ADMIN_siapkanSheetInsJar)');
     return 0;
   }
-  if (!c.INSJAR_FOTO_FOLDER_ID) perhatian('INSJAR_FOTO_FOLDER_ID kosong, foto temuan / tiang tidak bisa dikirim (folder Drive privat)');
-  else ok('INSJAR_FOTO_FOLDER_ID terisi (foto temuan inspeksi)');
+  if (!c.FOTO_TEMUAN_FOLDER_ID) perhatian('FOTO_TEMUAN_FOLDER_ID kosong, foto temuan (InsJar, InsDu, admin) dan foto WO tidak bisa dikirim (folder Drive privat)');
+  else if (!PropertiesService.getScriptProperties().getProperty('FOTO_TEMUAN_FOLDER_ID')) {
+    perhatian('Script Property INSJAR_FOTO_FOLDER_ID (nama lama) masih dipakai: buat FOTO_TEMUAN_FOLDER_ID dengan isi yang sama, lalu hapus nama lama');
+  } else ok('FOTO_TEMUAN_FOLDER_ID terisi (foto temuan InsJar, InsDu, admin, foto WO)');
   try { bukaSpreadsheet_(c.INSJAR_SHEET_ID); } catch (e) {
     gagal('INSJAR_SHEET_ID tidak bisa dibuka: ' + (e.message || e));
     return masalah;
@@ -978,7 +980,7 @@ function cekKonfigInsJar_(c) {
     if (kurang.length) gagal('db_Jenis_Temuan (SiSi_Master): kolom kurang -> ' + kurang.join(', ') + ' (jalankan ADMIN_siapkanSheetInsJar)');
     else {
       var tanpaId = jt.rows.filter(function (r) { return String(r.jenis_temuan || '').trim() && !String(r.jenis_temuan_id || '').trim(); }).length;
-      if (tanpaId) perhatian('db_Jenis_Temuan: ' + tanpaId + ' baris tanpa jenis_temuan_id (jalankan ADMIN_siapkanSheetInsJar untuk mengisi)');
+      if (tanpaId) perhatian('db_Jenis_Temuan: ' + tanpaId + ' baris tanpa jenis_temuan_id (jalankan ADMIN_lengkapiMaster untuk mengisi)');
       var aktif = jenisTemuanAktifInsJar_().length;
       if (aktif) ok('db_Jenis_Temuan (SiSi_Master): ' + aktif + ' jenis temuan aktif (objek Jaringan)');
       else perhatian('db_Jenis_Temuan: belum ada jenis temuan aktif, dropdown temuan di HP kosong');
@@ -1034,7 +1036,8 @@ function cekKonfigInsJar_(c) {
  *  3. SiSi_Master > db_Jenis_Temuan.
  * Tab yang sudah ada disesuaikan ke struktur kode (judul diganti, kolom disisip / dipindah utuh, kolom asing tidak dihapus).
  * v1.0.5: KECUALI kolom usang INSJAR_KOLOM_USANG_ (insjar_realisasi: section_awal, section_akhir, segmen) yang dihapus.
- * Sebelum menggeser kolom dibuat salinan cadangan spreadsheet. Baris db_Jenis_Temuan tanpa jenis_temuan_id diberi ID baru.
+ * Sebelum menggeser kolom dibuat salinan cadangan spreadsheet. v1.0.34: jenis_temuan_id kosong diisi ADMIN_lengkapiMaster
+ * (sama dengan ID master lain), bukan di sini lagi.
  * Lihat rencananya saja tanpa mengubah apa pun: ADMIN_cekSheetInsJar.
  */
 function ADMIN_siapkanSheetInsJar() { pastikanPemilik_(); return jalankanSiapkanInsJar_(false); }
@@ -1090,18 +1093,9 @@ function jalankanSiapkanInsJar_(uji) {
     });
     if (!c.INSJAR_SHEET_ID) { masalah++; console.error('INSJAR_SHEET_ID kosong: isi Script Property dengan ID spreadsheet SiSi_InsJar, lalu jalankan lagi.'); }
     if (!c.TEMUAN_SHEET_ID) { masalah++; console.error('TEMUAN_SHEET_ID kosong: isi Script Property dengan ID spreadsheet SiSi_Temuan (db_temuan_inspeksi), lalu jalankan lagi.'); }
-    if (!uji) {
-      if (typeof SpreadsheetApp.flush === 'function') SpreadsheetApp.flush();
-      try {
-        var jt = tabel_('MASTER_SHEET_ID', INSJAR_SHEET_.JENIS_TEMUAN);
-        var isi = isiKosongHartek_({ sheet: jt.sheet, header: jt.header, rows: jt.rows.filter(function (r) { return String(r.jenis_temuan || '').trim(); }) },
-          'jenis_temuan_id', function () { return uuid_(); });
-        if (isi.terisi) console.log('SiSi_Master > db_Jenis_Temuan: ' + isi.terisi + ' jenis_temuan_id diisi');
-      } catch (e) { if (!e || e.kode !== 'SHEET_TIDAK_ADA') throw e; }
-    }
   }, 30000);
   console.log(masalah ? 'SELESAI dengan ' + masalah + ' masalah (lihat log di atas).'
     : uji ? 'SELESAI. Jalankan ADMIN_siapkanSheetInsJar untuk menerapkan rencana di atas.'
-      : 'SELESAI. Isi jenis temuan di db_Jenis_Temuan (SiSi_Master), impor db_Menu / db_Akses InsJar, lalu ADMIN_bersihkanCache + ADMIN_cekKonfigurasi.');
+      : 'SELESAI. Isi jenis temuan di db_Jenis_Temuan (SiSi_Master), jalankan ADMIN_lengkapiMaster (isi jenis_temuan_id), impor db_Menu / db_Akses InsJar, lalu ADMIN_bersihkanCache + ADMIN_cekKonfigurasi.');
   return masalah;
 }

@@ -9,6 +9,10 @@
  *      db_InsDu_Realisasi                    -> db_insdu_realisasi                   (COL_INSDU.REALISASI)
  *      db_INS_Temuan                         -> db_temuan_inspeksi (SiSi_Temuan)     (COL_INS.TEMUAN)
  *    - Kode v1 sudah format v2 (IJR- / IGD- / PEG-, -PNY. / -GDU., -TJR.) dan dipakai apa adanya. ID = uuidMig_.
+ *    - v1.0.34 (permintaan kvlar 25 Okt 2026): induk yang TIDAK ADA di v1 dibuat otomatis (PERINGATAN, bukan karantina):
+ *      penyulang utama / gardu tanpa Laporan Utama -> Laporan Utama dari tanggal / tim anaknya; temuan tanpa penyulang
+ *      utama / gardu -> penyulang utama / gardu (dan Laporan Utama kalau perlu) dari kolom temuan. Kode induk kosong =
+ *      dipotong dari kode anak (-PNY. / -GDU. / -TJR.). Induk yang ADA di v1 tapi dikarantina tetap menahan anaknya.
  *    - Tim: db_Tim jenis INSPEKSI_JARINGAN / INSPEKSI_GARDU (nama / kode Sub-Tim, atau satu-satunya tim jenis itu).
  *    - Temuan PEG (input admin v1) = sumber ADMIN tanpa header / realisasi (sama dengan v2).
  *    - Temuan Selesai di v1 = status_wo SELESAI + tindak_lanjut (jenis pekerjaan + diameter v1). Temuan v1 yang belum
@@ -80,6 +84,12 @@ function timTlMigIns_(timRows, nama) {
   })[0] || null;
 }
 
+/** v1.0.34: kode induk dari pola kode v1: <header>-PNY.nnn / -GDU.nnn (realisasi), <realisasi>-TJR.nnn (temuan). */
+function kodeIndukMig_(kode, tingkat) {
+  var m = tingkat === 'realisasi' ? /^(.+)-TJR\.\d+$/i.exec(kode) : /^(.+?)-(?:PNY|GDU)\./i.exec(kode);
+  return m ? m[1] : '';
+}
+
 /**
  * Analisis murni (tanpa Sheets): S = baris array per tab v1, M = { tim, jenisTemuan, gardu } baris objek master v2.
  * Hasil { rencana: {tab v2: [objek]}, catatan: [{jenis, kode_lama, status, alasan}], hitung }.
@@ -96,6 +106,24 @@ function analisisMigrasiInspeksi_(S, M) {
     kodeDipakai[k] = true;
     return true;
   };
+  // v1.0.34: kode induk yang ADA di sumber (termigrasi atau dikarantina) + petunjuk tanggal / tim / ULP untuk induk buatan
+  var diSumber = { header: {}, realisasi: {} }, petunjuk = {}, jumlahTemuan = {};
+  (S.header || []).forEach(function (row) { diSumber.header[teksMig_(selMigIns_(row, H.kodeHeader))] = true; });
+  (S.realisasi || []).forEach(function (row) { diSumber.realisasi[teksMig_(selMigIns_(row, R.kodePekerjaanPeny))] = true; });
+  (S.insdu || []).forEach(function (row) { diSumber.realisasi[teksMig_(selMigIns_(row, D.kodePekerjaanGardu))] = true; });
+  var kodeTemuan = function (row) {
+    var kt = teksMig_(selMigIns_(row, T.kodePekerjaan));
+    var kr = teksMig_(selMigIns_(row, T.kodePekerjaanPeny)) || kodeIndukMig_(kt, 'realisasi');
+    return { temuan: kt, realisasi: kr, header: teksMig_(selMigIns_(row, T.kodeHeader)) || kodeIndukMig_(kr, 'header') };
+  };
+  (S.temuan || []).forEach(function (row) {
+    var k = kodeTemuan(row);
+    if (k.temuan.indexOf('PEG-') === 0) return;
+    jumlahTemuan[k.realisasi] = (jumlahTemuan[k.realisasi] || 0) + 1;
+    if (k.header && !petunjuk[k.header]) {
+      petunjuk[k.header] = { tim: teksMig_(selMigIns_(row, T.timInspeksi)), ulp: teksMig_(selMigIns_(row, T.ulp)) };
+    }
+  });
   // header
   var headerPorKode = {};
   (S.header || []).forEach(function (row) {
@@ -121,58 +149,108 @@ function analisisMigrasiInspeksi_(S, M) {
     headerPorKode[kode] = { o: o, tab: tab };
     catat('header', kode, 'OK', gardu ? 'Inspeksi Gardu' : 'Inspeksi Jaringan');
   });
+  /**
+   * v1.0.34: Laporan Utama induk. Sudah termigrasi = dipakai; ada di v1 tapi dikarantina = { alasan }; tidak ada di v1 =
+   * dibuat dari data anak x { tanggal, hari, ulp, tim, inputBy, ts } (tim / ULP kosong = dari temuan ber-header sama).
+   */
+  var headerInduk = function (kodeH, gardu, x, asal) {
+    if (headerPorKode[kodeH]) return headerPorKode[kodeH];
+    if (!kodeH) return { alasan: 'kode Laporan Utama induk kosong' };
+    if (diSumber.header[kodeH]) return { alasan: 'Laporan Utama induk ' + kodeH + ' ada di v1 tapi tidak termigrasi (lihat baris header-nya)' };
+    var tab = gardu ? 'db_insdu_header' : 'insjar_header', p = petunjuk[kodeH] || {}, namaTim = x.tim || p.tim || '';
+    var tim = timMigIns_(M.tim || [], gardu ? 'INSPEKSI_GARDU' : 'INSPEKSI_JARINGAN', namaTim);
+    if (!tim) return { alasan: 'Laporan Utama induk ' + kodeH + ' tidak ada di v1, tim inspeksi "' + namaTim + '" tidak ada di db_Tim untuk membuatnya' };
+    var o = auditMigIns_({
+      kode_header: kodeH, ulp: x.ulp || p.ulp || '', hari: x.hari || '', tanggal: x.tanggal || '', tim: teksMig_(tim.nama),
+      koordinat_awal: '', koordinat_akhir: '', km_awal: '', km_akhir: '', kendala: '', wa_text: '', input_by: x.inputBy || '',
+      header_id: uuidMig_(tab, kodeH), tim_id: String(tim.tim_id), status: 'AKTIF', waktu_perangkat: ''
+    }, x.ts);
+    rencana[tab].push(o);
+    headerPorKode[kodeH] = { o: o, tab: tab };
+    catat('header', kodeH, 'PERINGATAN', 'Laporan Utama tidak ada di v1, dibuat otomatis dari ' + asal);
+    return headerPorKode[kodeH];
+  };
+  var realJar = function (h, kode, penyulang, section, tier, totalTiang, jumlah, ts) {
+    var o = auditMigIns_({
+      kode_header: h.o.kode_header, kode_realisasi: kode, tanggal: h.o.tanggal, hari: h.o.hari, ulp: h.o.ulp, tim: h.o.tim,
+      penyulang: penyulang, tier: tier, section: section, total_tiang: totalTiang, jumlah_temuan: jumlah,
+      realisasi_id: uuidMig_('insjar_realisasi', kode), header_id: h.o.header_id, tim_id: h.o.tim_id
+    }, ts);
+    rencana.insjar_realisasi.push(o);
+    realPorKode[kode] = o;
+    return o;
+  };
   // realisasi Inspeksi Jaringan
   var realPorKode = {};
   (S.realisasi || []).forEach(function (row) {
     var kode = teksMig_(selMigIns_(row, R.kodePekerjaanPeny));
     if (!unik('realisasi', kode)) return;
-    var h = headerPorKode[teksMig_(selMigIns_(row, R.kodeHeader))];
-    if (!h || h.tab !== 'insjar_header') { catat('realisasi', kode, 'KARANTINA', 'Laporan Utama induk tidak ada / tidak termigrasi'); return; }
-    var o = auditMigIns_({
-      kode_header: h.o.kode_header, kode_realisasi: kode, tanggal: h.o.tanggal, hari: h.o.hari, ulp: h.o.ulp, tim: h.o.tim,
-      penyulang: teksMig_(selMigIns_(row, R.penyulang)), tier: teksMig_(selMigIns_(row, R.tier)), section: teksMig_(selMigIns_(row, R.section)),
-      total_tiang: angkaLama_(selMigIns_(row, R.totalTiang)) === null ? '' : angkaLama_(selMigIns_(row, R.totalTiang)),
-      jumlah_temuan: angkaLama_(selMigIns_(row, R.jumlahTemuan)) || 0,
-      realisasi_id: uuidMig_('insjar_realisasi', kode), header_id: h.o.header_id, tim_id: h.o.tim_id
-    }, isoMigIns_(selMigIns_(row, R.timestamp)));
+    var kodeH = teksMig_(selMigIns_(row, R.kodeHeader)) || kodeIndukMig_(kode, 'header');
+    var h = headerInduk(kodeH, false, { tanggal: tglLama_(selMigIns_(row, R.tanggal)), hari: teksMig_(selMigIns_(row, R.hari)),
+      inputBy: teksMig_(selMigIns_(row, R.inputBy)), ts: isoMigIns_(selMigIns_(row, R.timestamp)) }, 'penyulang utama ' + kode);
+    if (!h.o || h.tab !== 'insjar_header') { catat('realisasi', kode, 'KARANTINA', h.alasan || 'Laporan Utama induk ' + kodeH + ' bukan Inspeksi Jaringan'); return; }
+    realJar(h, kode, teksMig_(selMigIns_(row, R.penyulang)), teksMig_(selMigIns_(row, R.section)), teksMig_(selMigIns_(row, R.tier)),
+      angkaLama_(selMigIns_(row, R.totalTiang)) === null ? '' : angkaLama_(selMigIns_(row, R.totalTiang)),
+      angkaLama_(selMigIns_(row, R.jumlahTemuan)) || 0, isoMigIns_(selMigIns_(row, R.timestamp)));
     if (teksMig_(selMigIns_(row, R.segmen))) catat('realisasi', kode, 'PERINGATAN', 'segmen v1 "' + teksMig_(selMigIns_(row, R.segmen)) + '" tidak ada kolomnya di v2 (hanya di temuan)');
-    rencana.insjar_realisasi.push(o);
-    realPorKode[kode] = o;
   });
   // realisasi Inspeksi Gardu
   var garduPorNo = {};
   (M.gardu || []).forEach(function (g) { var n = teksMig_(g['No Gardu']).toUpperCase(); if (n) garduPorNo[n] = g; });
-  (S.insdu || []).forEach(function (row) {
-    var kode = teksMig_(selMigIns_(row, D.kodePekerjaanGardu));
-    if (!unik('realisasi', kode)) return;
-    var h = headerPorKode[teksMig_(selMigIns_(row, D.kodeHeader))];
-    if (!h || h.tab !== 'db_insdu_header') { catat('realisasi', kode, 'KARANTINA', 'Laporan Utama Inspeksi Gardu induk tidak ada'); return; }
-    var no = teksMig_(selMigIns_(row, D.nomorGardu)).toUpperCase();
+  var realDu = function (h, kode, no, penyulang, section, tier, jumlah, ts) {
     var g = garduPorNo[no];
     if (!g) catat('realisasi', kode, 'PERINGATAN', 'gardu ' + no + ' tidak ada di db_Gardu (gardu_id kosong)');
     var o = auditMigIns_({
       kode_header: h.o.kode_header, kode_realisasi: kode, tanggal: h.o.tanggal, hari: h.o.hari, ulp: h.o.ulp, tim: h.o.tim, no_gardu: no,
-      penyulang: teksMig_(selMigIns_(row, D.penyulang)) || teksMig_(g && g.Penyulang), section: teksMig_(selMigIns_(row, D.section)) || teksMig_(g && g.Section),
+      penyulang: penyulang || teksMig_(g && g.Penyulang), section: section || teksMig_(g && g.Section),
       alamat: teksMig_(g && g.Alamat), kapasitas_kva: g && angkaLama_(g['Kapasitas (kVA)']) !== null ? angkaLama_(g['Kapasitas (kVA)']) : '',
-      merk_trafo: teksMig_(g && g.Merk), tier: teksMig_(selMigIns_(row, D.tier)), status_ukur: '', jumlah_temuan: angkaLama_(selMigIns_(row, D.jumlahTemuan)) || 0,
+      merk_trafo: teksMig_(g && g.Merk), tier: tier, status_ukur: '', jumlah_temuan: jumlah,
       jumlah_temuan_lanjutan: 0, realisasi_id: uuidMig_('db_insdu_realisasi', kode), header_id: h.o.header_id, tim_id: h.o.tim_id,
       gardu_id: g ? String(g.gardu_id || '') : '', section_id: g ? teksMig_(g.section_id) : ''
-    }, isoMigIns_(selMigIns_(row, D.timestamp)));
+    }, ts);
     rencana.db_insdu_realisasi.push(o);
     realPorKode[kode] = o;
+    return o;
+  };
+  (S.insdu || []).forEach(function (row) {
+    var kode = teksMig_(selMigIns_(row, D.kodePekerjaanGardu));
+    if (!unik('realisasi', kode)) return;
+    var kodeH = teksMig_(selMigIns_(row, D.kodeHeader)) || kodeIndukMig_(kode, 'header');
+    var h = headerInduk(kodeH, true, { tanggal: tglLama_(selMigIns_(row, D.tanggal)), hari: teksMig_(selMigIns_(row, D.hari)),
+      inputBy: teksMig_(selMigIns_(row, D.inputBy)), ts: isoMigIns_(selMigIns_(row, D.timestamp)) }, 'gardu ' + kode);
+    if (!h.o || h.tab !== 'db_insdu_header') { catat('realisasi', kode, 'KARANTINA', h.alasan || 'Laporan Utama induk ' + kodeH + ' bukan Inspeksi Gardu'); return; }
+    realDu(h, kode, teksMig_(selMigIns_(row, D.nomorGardu)).toUpperCase(), teksMig_(selMigIns_(row, D.penyulang)), teksMig_(selMigIns_(row, D.section)),
+      teksMig_(selMigIns_(row, D.tier)), angkaLama_(selMigIns_(row, D.jumlahTemuan)) || 0, isoMigIns_(selMigIns_(row, D.timestamp)));
   });
   // jenis temuan master (nama tanpa beda huruf besar / kecil)
   var jenisPorNama = {};
   (M.jenisTemuan || []).forEach(function (j) { var n = normNama_(j.jenis_temuan); if (n && j.jenis_temuan_id) jenisPorNama[n] = j; });
   // temuan
   (S.temuan || []).forEach(function (row) {
-    var kode = teksMig_(selMigIns_(row, T.kodePekerjaan));
+    var kd = kodeTemuan(row), kode = kd.temuan;
     if (!unik('temuan', kode)) return;
     var peg = kode.indexOf('PEG-') === 0;
-    var kodeReal = teksMig_(selMigIns_(row, T.kodePekerjaanPeny)), kodeH = teksMig_(selMigIns_(row, T.kodeHeader));
-    var r = realPorKode[kodeReal], h = headerPorKode[kodeH];
-    if (!peg && (!r || !h)) { catat('temuan', kode, 'KARANTINA', 'Laporan Utama / penyulang utama induk tidak termigrasi (' + kodeReal + ')'); return; }
+    var kodeReal = peg ? teksMig_(selMigIns_(row, T.kodePekerjaanPeny)) : kd.realisasi, kodeH = peg ? teksMig_(selMigIns_(row, T.kodeHeader)) : kd.header;
     var objek = teksMig_(selMigIns_(row, T.objekInspeksi)) || (kodeH.indexOf('IGD-') === 0 ? 'Gardu' : 'Jaringan');
+    var r = peg ? null : realPorKode[kodeReal], h = r ? headerPorKode[r.kode_header] : null;
+    if (!peg && !r) {
+      // v1.0.34: penyulang utama / gardu induk tidak ada di v1 = dibuat dari kolom temuan (Laporan Utama juga kalau perlu)
+      var gardu = objek === 'Gardu' || kodeH.indexOf('IGD-') === 0, alasan = '';
+      if (!kodeReal) alasan = 'kode penyulang utama / gardu induk kosong';
+      else if (diSumber.realisasi[kodeReal]) alasan = 'penyulang utama / gardu induk ' + kodeReal + ' ada di v1 tapi tidak termigrasi (lihat baris realisasi-nya)';
+      else {
+        h = headerInduk(kodeH, gardu, { tanggal: tglLama_(selMigIns_(row, T.tanggal)), hari: teksMig_(selMigIns_(row, T.hari)), ulp: teksMig_(selMigIns_(row, T.ulp)),
+          tim: teksMig_(selMigIns_(row, T.timInspeksi)), inputBy: teksMig_(selMigIns_(row, T.inputBy)), ts: isoMigIns_(selMigIns_(row, T.timestamp)) }, 'temuan ' + kode);
+        if (!h.o) alasan = h.alasan;
+        else if (h.tab !== (gardu ? 'db_insdu_header' : 'insjar_header')) alasan = 'Laporan Utama induk ' + kodeH + ' beda modul dengan temuan (' + objek + ')';
+      }
+      if (alasan) { catat('temuan', kode, 'KARANTINA', alasan); return; }
+      var tierT = teksMig_(selMigIns_(row, T.tier)), tsT = isoMigIns_(selMigIns_(row, T.timestamp)), nT = jumlahTemuan[kodeReal] || 0;
+      r = gardu
+        ? realDu(h, kodeReal, teksMig_(selMigIns_(row, T.nomorGardu)).toUpperCase(), teksMig_(selMigIns_(row, T.penyulang)), teksMig_(selMigIns_(row, T.section)), tierT, nT, tsT)
+        : realJar(h, kodeReal, teksMig_(selMigIns_(row, T.penyulang)), teksMig_(selMigIns_(row, T.section)), tierT, '', nT, tsT);
+      catat('realisasi', kodeReal, 'PERINGATAN', (gardu ? 'gardu' : 'penyulang utama') + ' tidak ada di v1, dibuat otomatis dari temuan ' + kode);
+    }
     var namaJenis = teksMig_(selMigIns_(row, T.temuan));
     var jenis = jenisPorNama[normNama_(namaJenis)];
     if (!jenis) catat('temuan', kode, 'PERINGATAN', 'jenis temuan "' + namaJenis + '" belum ada di db_Jenis_Temuan (teks disalin, jenis_temuan_id kosong)');

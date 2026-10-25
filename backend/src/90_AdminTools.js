@@ -354,10 +354,11 @@ function ADMIN_lengkapiMaster() {
                  db_Material: 'material_id',    // v0.95.0: master material Hartek
                  db_Kepemilikan_Material: 'kepemilikan_id',   // v0.96.0: master kepemilikan material Hartek
                  db_jenis_peralatan: 'peralatan_id',          // v0.98.11: master jenis peralatan hasil grounding
-                 db_Daerah_Padam: 'daerah_id' };              // v1.0.18: sumber dampak Jadwal Padam per penyulang + section
+                 db_Daerah_Padam: 'daerah_id',                // v1.0.18: sumber dampak Jadwal Padam per penyulang + section
+                 db_Jenis_Temuan: 'jenis_temuan_id' };        // v1.0.34: dulu diisi ADMIN_siapkanSheetInsJar
   // tab opsional (modul belum dipakai = dilewati) dan tab berkolom `nomor`
-  var opsional = ['db_Petugas', 'db_Pejabat_BA', 'db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan'];
-  var bernomor = ['db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Daerah_Padam'];
+  var opsional = ['db_Petugas', 'db_Pejabat_BA', 'db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Jenis_Temuan'];
+  var bernomor = ['db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Daerah_Padam', 'db_Jenis_Temuan'];
   denganLock_(function () {
     lengkapiDaerahPadam_();   // v1.0.18: tab dibuat + baris penyulang / section db_Jaringan yang belum ada ditambahkan
     Object.keys(target).forEach(function (nama) {

@@ -115,13 +115,49 @@ function ubahSelSinkron_(b, ubah, i, kol, nilai) {
   return true;
 }
 
+/** Pilihan sel dropdown yang menolak isian lain (validasi daftar / rentang). null = bebas. */
+function pilihanValidasiSinkron_(dv) {
+  if (!dv || typeof dv.getCriteriaType !== 'function') return null;
+  if (typeof dv.getAllowInvalid === 'function' && dv.getAllowInvalid()) return null;
+  var jenis = String(dv.getCriteriaType()), kriteria = dv.getCriteriaValues() || [];
+  if (jenis === 'VALUE_IN_LIST') return (kriteria[0] || []).map(String);
+  if (jenis === 'VALUE_IN_RANGE' && kriteria[0] && typeof kriteria[0].getDisplayValues === 'function') {
+    return [].concat.apply([], kriteria[0].getDisplayValues()).map(String).filter(function (x) { return x.trim(); });
+  }
+  return null;
+}
+
+/**
+ * v1.0.34 (laporan kvlar 25 Okt 2026, Merk gardu baru ditolak dropdown Master_Gardu L238): nilai untuk sel dropdown
+ * disamakan ke pilihannya (huruf besar / spasi / tanda baca diabaikan). Tidak ada yang cocok = undefined (tidak ditulis)
+ * dan dicatat di b.peringatan, supaya satu sel tidak menggagalkan seluruh sinkron.
+ */
+function nilaiValidasiSinkron_(b, dv, nilai, sel) {
+  var pilihan = pilihanValidasiSinkron_(dv);
+  if (!pilihan || kosongSinkron_(nilai)) return nilai;
+  var kunci = function (x) { return String(x).toUpperCase().replace(/[^A-Z0-9]/g, '') || String(x).trim().toUpperCase(); }, k = kunci(nilai);
+  for (var i = 0; i < pilihan.length; i++) {
+    if (kunci(pilihan[i]) === k) return typeof nilai === 'number' ? nilai : pilihan[i];
+  }
+  (b.peringatan = b.peringatan || []).push((typeof b.sh.getName === 'function' ? b.sh.getName() + ' ' : '') + sel + ': "' + nilai +
+    '" bukan pilihan dropdown, tidak ditulis (tambah pilihannya di sheet lama atau samakan isian db_Gardu)');
+  return undefined;
+}
+
 /** Tulis perubahan: per kolom, baris berurutan digabung jadi satu setValues. */
 function tulisSelSinkron_(b, ubah) {
   var perKol = {};
   ubah.forEach(function (u) { (perKol[u.kol] = perKol[u.kol] || {})[u.i] = u.nilai; });
   var panggil = 0;
   Object.keys(perKol).forEach(function (k) {
-    var kol = Number(k), m = perKol[k], idx = Object.keys(m).map(Number).sort(function (x, y) { return x - y; });
+    var kol = Number(k), m = perKol[k];
+    var rKol = b.sh.getRange(b.awal, kol, b.nilai.length, 1);
+    var dv = typeof rKol.getDataValidations === 'function' ? rKol.getDataValidations() : [];
+    Object.keys(m).forEach(function (i) {
+      var v = nilaiValidasiSinkron_(b, dv[i] && dv[i][0], m[i], kolomHuruf_(kol) + (b.awal + Number(i)));
+      if (v === undefined) delete m[i]; else m[i] = v;
+    });
+    var idx = Object.keys(m).map(Number).sort(function (x, y) { return x - y; });
     for (var a = 0; a < idx.length;) {
       var z = a;
       while (z + 1 < idx.length && idx[z + 1] === idx[z] + 1) z++;
@@ -243,8 +279,14 @@ function sisipGarduSinkron_(b, baru, peta, kolGardu, denganUkur) {   // denganUk
     }
     // nilai hanya di sel tanpa formula acuan; formula disalin relatif (R1C1)
     var r = b.sh.getRange(barisBaru, 1, 1, b.lebar);
-    var lama = r.getValues()[0];
-    r.setValues([tulis.map(function (v, c) { return rumusBaru.indexOf(c) !== -1 ? lama[c] : v; })]);
+    var lama = r.getValues()[0], dv = typeof r.getDataValidations === 'function' ? r.getDataValidations()[0] : [];
+    var isi = tulis.map(function (v, c) {
+      if (rumusBaru.indexOf(c) !== -1) return lama[c];
+      var n = nilaiValidasiSinkron_(b, dv[c], v, kolomHuruf_(c + 1) + barisBaru + ' (' + x.no.nomor + ')');
+      return n === undefined ? '' : n;
+    });
+    // gagal tulis = baris sisipan dihapus lagi (tidak meninggalkan baris kosong yang disisip ulang besok)
+    try { r.setValues([isi]); } catch (e) { b.sh.deleteRow(barisBaru); throw e; }
     rumusBaru.forEach(function (c) { b.sh.getRange(barisBaru, c + 1).setFormulaR1C1(rumus[c]); });
     hasil++;
   });
@@ -313,6 +355,7 @@ function sinkronGarduLama_(tulis) {
     }
   }
   hasil.master = m;
+  hasil.peringatan = hasil.peringatan.concat(b.peringatan || []);
 
   // 2) sheet penerima: identitas + gardu baru dari db_Gardu (sudah termasuk pengukuran terbaru dari sheet lama)
   S.target.forEach(function (tg) {
@@ -335,6 +378,7 @@ function sinkronGarduLama_(tulis) {
       });
       r.baru = br.length;
       if (tulis) { tulisSelSinkron_(bt, ub); r.baru = sisipGarduSinkron_(bt, br, peta, tg.kolGardu, false); }
+      hasil.peringatan = hasil.peringatan.concat(bt.peringatan || []);
     } catch (e) {
       r.galat = (e && (e.kode ? e.kode + ' ' + (e.detail || '') : e.message)) || String(e);
     }
