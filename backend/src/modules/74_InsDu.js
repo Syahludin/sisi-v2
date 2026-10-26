@@ -797,25 +797,30 @@ function uploadFotoInsDu_(sesi, data) {
 
 /**
  * Inspeksi Gardu satu tanggal (hanya baca, untuk laporan UP3). Realisasi = gardu yang SUDAH ADA LWBP, header AKTIF.
- * Hasil: { perPenyulang: { penyulang: jumlah gardu }, komulatif: jumlah gardu tgl 1 s.d. tanggal }. Konfigurasi kosong = 0.
+ * v1.0.34: gardu hasil migrasi v1 (dibuat_oleh MIGRASI) dihitung seperti v1 (1 baris = 1 Unit): pengukuran v1 hidup di
+ * Master_Gardu, bukan per inspeksi, jadi tidak pernah punya LWBP di v2.
+ * Hasil: { perPenyulang: { penyulang: jumlah gardu }, komulatif: jumlah gardu tgl 1 s.d. tanggal, status, timLapor (v1.0.35 kartu
+ * Status tim) }. Konfigurasi kosong = 0 / status V1.
  */
 function dataInspeksiGarduHari_(tanggal) {
-  var kosong = { perPenyulang: {}, komulatif: 0 };
+  var kosong = { perPenyulang: {}, komulatif: 0, status: 'V1', timLapor: 0 };   // v1.0.35: + status tim (statusTimHeader_)
   if (!cfg_().INSDU_SHEET_ID) return kosong;
-  var aktif = headerAktifInsDu_(tabelInsDu_(INSDU_SHEET_.HEADER).rows);
+  var H = tabelInsDu_(INSDU_SHEET_.HEADER).rows, R = tabelInsDu_(INSDU_SHEET_.REALISASI).rows;
+  var aktif = headerAktifInsDu_(H);
   var rowsP = tabelInsDu_(INSDU_SHEET_.PENGUKURAN).rows;
   var bulan = tanggal.slice(0, 7), per = {}, kom = 0;
-  tabelInsDu_(INSDU_SHEET_.REALISASI).rows.forEach(function (r) {
+  R.forEach(function (r) {
     if (!aktif[String(r.header_id)]) return;
     var t = tglInsJar_(r);
     if (t.slice(0, 7) !== bulan || t > tanggal) return;
-    if (!masukLaporanInsDu_(r, pengukuranRealisasiInsDu_(rowsP, r.realisasi_id))) return;   // v1.0.14: Tier 2 saja tanpa ukur
+    var migrasi = String(r.dibuat_oleh || '') === MIGINS_OLEH_;
+    if (migrasi ? realisasiBatalInsDu_(r) : !masukLaporanInsDu_(r, pengukuranRealisasiInsDu_(rowsP, r.realisasi_id))) return;   // v1.0.14: Tier 2 saja tanpa ukur
     kom++;
     if (t !== tanggal) return;
     var p = teksInsDu_(r.penyulang) || '-';
     per[p] = (per[p] || 0) + 1;
   });
-  return { perPenyulang: per, komulatif: kom };
+  return Object.assign({ perPenyulang: per, komulatif: kom }, statusTimHeader_(H, R, tanggal, tglInsJar_));
 }
 
 /* ===== setup sheet + cek konfigurasi ===== */

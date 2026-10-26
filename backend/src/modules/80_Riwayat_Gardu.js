@@ -216,7 +216,7 @@ function kolomMasterUkurRg_(u) {
  * Jawaban: {gardu (bentuk HP), terbaru}. Versi master gardu ikut berubah (hash isi), HP mengunduh ulang.
  * v1.0.23: ditulis ke blok periodenya (WBP = kolom lama, LWBP = blok LWBP).
  */
-function updateUkurMasterGardu_(sesi, data) {
+function updateUkurMasterGardu_(sesi, data, platform) {
   wajibAdminRiwayatGardu_(sesi);
   var d = validasi_(data, {
     garduId: { tipe: 'teks', wajib: true, maks: 60 }, noGardu: { tipe: 'teks', maks: 20 },
@@ -237,7 +237,7 @@ function updateUkurMasterGardu_(sesi, data) {
       'Diubah Oleh': sesi.nama || sesi.username || '', 'Timestamp Update': sekarangIso_(), diubah_oleh: sesi.userId || ''
     });
     tulisBlok_(tG, [{ r: g, u: ubah }], [], { bolehId: ['ukur_id_terakhir', 'ukur_id_lwbp'] });
-    auditLog_(sesi, 'UPDATE_UKUR_GARDU', teksRg_(g['No Gardu']), u.sumber + ' ' + u.kode + ' ' + u.periode + ' ' + u.tanggal, 'MOBILE', tLog);
+    auditLog_(sesi, 'UPDATE_UKUR_GARDU', teksRg_(g['No Gardu']), u.sumber + ' ' + u.kode + ' ' + u.periode + ' ' + u.tanggal, platform, tLog);
     var baru = barisGarduHp_(Object.assign({}, g, ubah, { revision: (Number(g.revision) || 0) + 1 }));
     return { gardu: baru, terbaru: terbaruRg_(ukurMasterRg_(baru)) };
   });

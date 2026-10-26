@@ -1001,7 +1001,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   const epJp = Object.keys(ep).filter((k) => /JadwalPadam/.test(ep[k].fn.name)).sort();
   assert.deepStrictEqual(epJp.filter((k) => ep[k].tulis), ['hapusJadwalPadam', 'simpanJadwalPadam', 'ubahJadwalPadam', 'ubahStatusJadwalPadam']);
   for (const k of epJp) assert.strictEqual(ep[k].menu, 'OPS_JADWAL_PADAM', k);
-  assert.deepStrictEqual(tulis, ['buatPdfBaGardu', 'kirimEamBaGardu', 'lepasNomorGardu', 'pesanNomorGardu', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPetugasYandal', 'syncRow', 'ubahBaGardu', 'ubahJenisP0', 'updateMasterGarduBa', 'updateUkurMasterGardu', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
+  assert.deepStrictEqual(tulis, ['buatPdfBaGardu', 'kirimEamBaGardu', 'lepasNomorGardu', 'pesanNomorGardu', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPetugasYandal', 'syncRow', 'ubahBaGardu', 'ubahJenisP0', 'updateHiGardu', 'updateMasterGarduBa', 'updateUkurMasterGardu', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
   // data ROW: fungsi wajib membatasi ke tim sesi (PETUGAS) sendiri
   const cekMilik = { getKodeRow: /wajibPetugasRow_\(sesi\)[\s\S]*sesi\.timId/, syncRow: /wajibPetugasRow_\(sesi\)/,
     uploadFotoRow: /wajibPetugasRow_\(sesi\)[\s\S]*BUKAN_MILIK_TIM/,
@@ -1014,14 +1014,14 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
     getLaporanTimYandal: /^function getLaporanTimYandal_\(sesi, data\) \{\s*wajibAdminLaporanYandal_\(sesi\)/,
     // v0.70.0: BA gardu = data bersama ULP, khusus ADMIN / SUPER (dicek paling awal)
     getNomorGarduBaru: /^function getNomorGarduBaru_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, getOwnerIdGardu: /^function getOwnerIdGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    uploadFotoBaGardu: /^function uploadFotoBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, simpanBaGardu: /^function simpanBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    // v0.71.0: PDF BA + daftar BA, sama: khusus ADMIN / SUPER paling awal
+    uploadFotoBaGardu: /^function uploadFotoBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, simpanBaGardu: /^function simpanBaGardu_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/,
+    // v0.71.0: PDF BA + daftar BA, sama: khusus ADMIN / SUPER paling awal; v1.0.34 web: tulis + platform
     getBaGardu: /^function getBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, getFotoBaGardu: /^function getFotoBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    getPdfBaGardu: /^function getPdfBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, ubahBaGardu: /^function ubahBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    getDaftarBaGardu: /^function getDaftarBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, buatPdfBaGardu: /^function buatPdfBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    // v0.78.0: BA TTD / Kirim EAM / Update Master Gardu, khusus ADMIN / SUPER paling awal
-    uploadTtdBaGardu: /^function uploadTtdBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, getTtdBaGardu: /^function getTtdBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
-    kirimEamBaGardu: /^function kirimEamBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, updateMasterGarduBa: /^function updateMasterGarduBa_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
+    getPdfBaGardu: /^function getPdfBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, ubahBaGardu: /^function ubahBaGardu_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/,
+    getDaftarBaGardu: /^function getDaftarBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, buatPdfBaGardu: /^function buatPdfBaGardu_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/,
+    // v0.78.0: BA TTD / Kirim EAM / Update Master Gardu, khusus ADMIN / SUPER paling awal; v1.0.34 web: tulis + platform
+    uploadTtdBaGardu: /^function uploadTtdBaGardu_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/, getTtdBaGardu: /^function getTtdBaGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
+    kirimEamBaGardu: /^function kirimEamBaGardu_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/, updateMasterGarduBa: /^function updateMasterGarduBa_\(sesi, data, platform\) \{\s*wajibAdminBa_\(sesi\)/,
     // v0.73.0: pesan / lepas nomor gardu per BA, khusus ADMIN / SUPER paling awal
     pesanNomorGardu: /^function pesanNomorGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/, lepasNomorGardu: /^function lepasNomorGardu_\(sesi, data\) \{\s*wajibAdminBa_\(sesi\)/,
     // v0.75.0: Approval P0 + aturan Yandal = data bersama ULP, khusus ADMIN / SUPER paling awal
@@ -1070,9 +1070,12 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INPUT_TEMUAN', k);
   // v1.0.17: riwayat gardu = data bersama ULP, khusus admin paling awal
   cekMilik.getRiwayatGardu = /^function getRiwayatGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;
-  cekMilik.updateUkurMasterGardu = /^function updateUkurMasterGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;   // v1.0.22
-  // v1.0.17: Jadwal Padam = admin paling awal
-  for (const k of epJp) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibAdminJadwalPadam_\\(sesi\\)');
+  // v1.0.35: form Update Data Gardu (HI) 3 sheet lama, admin paling awal
+  cekMilik.getHiGardu = /^function getHiGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;
+  cekMilik.updateHiGardu = /^function updateHiGardu_\(sesi, data, platform\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;
+  cekMilik.updateUkurMasterGardu = /^function updateUkurMasterGardu_\(sesi, data, platform\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;   // v1.0.22, v1.0.34 web
+  // v1.0.17: Jadwal Padam = admin paling awal; v1.0.34 web: fungsi tulis + platform
+  for (const k of epJp) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data(, platform)?)?\\) \\{\\s*wajibAdminJadwalPadam_\\(sesi\\)');
   for (const k of Object.keys(ep).filter((k) => ep[k].menu)) {
     assert.ok(cekMilik[k], 'endpoint menu baru belum diaudit kepemilikannya: ' + k);
     assert.match(ep[k].fn.toString(), cekMilik[k], k + ' tidak membatasi data ke tim sesi');
@@ -1449,6 +1452,38 @@ function konteksLogin(props = {}) {
   gl.Session = { getActiveUser: () => ({ getEmail: () => 'x@y.z' }) };
   return { gl, log, sheets };
 }
+
+test('v1.0.34 web admin: doPost platform WEB, login + guard khusus Admin / Admin ES, menu disaring platform, kunci versi APK tidak berlaku', () => {
+  const { gl, sheets } = konteksLogin();
+  const salt = Buffer.from('0123456789abcdef').toString('base64');
+  sheets.m.db_Users.data.push(['u2', '16130.admin', 'Admin ULP', 'ADMIN', '', true]);
+  sheets.a.auth_Password.data.push(['u2', gl.hashPassword_('Rahasia-Admin-2026', salt, 1000), salt, 'pbkdf2-sha256:1000', '', 0, '']);
+  sheets.m.db_Menu.data.push(['OPS_LAP_UP3', 'Laporan UP3', 'KEDUANYA', false, 2, true], ['OPS_ENGINE', 'Pemakaian Engine', 'MOBILE', false, 3, true]);
+  sheets.m.db_Akses.data.push(['ADMIN', '*', 'OPS_LAP_UP3', 'LIHAT'], ['ADMIN', '*', 'OPS_ENGINE', 'LIHAT']);
+  gl.ContentService = { MimeType: { JSON: 'j' }, createTextOutput: (t) => ({ setMimeType: () => t }) };
+  const post = (req) => JSON.parse(gl.doPost({ postData: { contents: JSON.stringify(req) } }));
+  assert.deepStrictEqual([{ platform: 'WEB' }, {}, { platform: 'web' }, null].map((r) => gl.platformDoPost_(r)), ['WEB', 'MOBILE', 'MOBILE', 'MOBILE']);
+  // petugas: password benar tetap ditolak di web, tidak dihitung gagal login, dicatat
+  const p = post({ action: 'login', platform: 'WEB', data: { username: '16130.uji.row01', password: 'Rahasia-Toboali-2026' } });
+  assert.deepStrictEqual([p.ok, p.kode], [false, 'WEB_KHUSUS_ADMIN']);
+  assert.ok(sheets.a.log_Audit.data.some((l) => l[4] === 'LOGIN_WEB_DITOLAK' && l[7] === 'WEB'));
+  assert.strictEqual(sheets.a.auth_Password.data[1][5], 0, 'gagal_login tidak naik');
+  // admin: token WEB, menu hanya KEDUANYA / WEB
+  const a = post({ action: 'login', platform: 'WEB', data: { username: '16130.admin', password: 'Rahasia-Admin-2026' } });
+  assert.strictEqual(a.ok, true, JSON.stringify(a));
+  assert.deepStrictEqual(a.data.menu.map((m) => m.kode), ['OPS_LAP_UP3']);
+  assert.strictEqual(sheets.a.auth_Perangkat.data.at(-1)[4], 'WEB');
+  const c = post({ action: 'cekSesi', platform: 'WEB', token: a.data.token });
+  assert.deepStrictEqual([c.ok, c.data.profil.role, c.data.menu.map((m) => m.kode)], [true, 'ADMIN', ['OPS_LAP_UP3']]);
+  // token petugas dari HP tidak bisa dipakai lewat web
+  const hp = post({ action: 'login', data: { username: '16130.uji.row01', password: 'Rahasia-Toboali-2026' } });
+  assert.strictEqual(hp.ok, true);
+  assert.deepStrictEqual([post({ action: 'cekSesi', token: hp.data.token }).ok, post({ action: 'cekSesi', platform: 'WEB', token: hp.data.token }).kode], [true, 'AKSES_DITOLAK']);
+  // WAJIB_VERSI_APP: HP tanpa versiApp ditolak, web tidak
+  gl.PropertiesService.getScriptProperties().setProperty('WAJIB_VERSI_APP', 'YA');
+  assert.strictEqual(post({ action: 'cekSesi', token: hp.data.token }).kode, 'UPDATE_APLIKASI_DULU');
+  assert.strictEqual(post({ action: 'cekSesi', platform: 'WEB', token: a.data.token }).ok, true);
+});
 
 test('audit: login dibatasi lewat cache SEBELUM lock & baca sheet (per username + global)', () => {
   const { gl, log, sheets } = konteksLogin();
@@ -3815,7 +3850,8 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     matriks[k] = [];
     for (const [a, tok] of Object.entries(akun)) for (const pf of ['MOBILE', 'WEB']) if (!tolak.includes(cek(k, tok, pf))) matriks[k].push(a + '/' + pf);
   }
-  const semua = ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'];
+  // v1.0.34 web admin: platform WEB hanya untuk Admin / Admin ES (guard_), token petugas lewat web = AKSES_DITOLAK
+  const semua = ['yandal/MOBILE', 'row/MOBILE', 'admin/MOBILE', 'admin/WEB'];
   assert.deepStrictEqual(JSON.parse(JSON.stringify(matriks)), {
     cekSesi: semua, getMaster: semua,
     // menu ROW_LAPORAN / OPS_LAP_* tidak ada di db_Menu uji = semua ditolak (fail closed)
@@ -3842,17 +3878,18 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     getArsipHartek: [], getArsipInsJar: [], getArsipInsDu: [],
     getMasterJadwalPadam: [], getJadwalPadam: [], getWaJadwalPadam: [], simpanJadwalPadam: [], ubahJadwalPadam: [], ubahStatusJadwalPadam: [], hapusJadwalPadam: [],
     // v1.0.17: kalender tim = petugas bertim (data tim sendiri, hanya baca). v1.0.18: semua akun (Beranda), non-tim = jadwal padam saja
-    getKalenderTim: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    getKalenderTim: ['yandal/MOBILE', 'row/MOBILE', 'admin/MOBILE', 'admin/WEB'],
     // v1.0.19: lonceng + update APK = semua akun bersesi; foto temuan per menu (menu uji tidak ada = ditolak)
-    getNotifikasi: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
-    tandaiNotifikasi: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
-    getUpdateApp: ['yandal/MOBILE', 'yandal/WEB', 'row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    getNotifikasi: ['yandal/MOBILE', 'row/MOBILE', 'admin/MOBILE', 'admin/WEB'],
+    tandaiNotifikasi: ['yandal/MOBILE', 'row/MOBILE', 'admin/MOBILE', 'admin/WEB'],
+    getUpdateApp: ['yandal/MOBILE', 'row/MOBILE', 'admin/MOBILE', 'admin/WEB'],
     getFotoTemuanInspeksi: [], getFotoTemuanInsJar: [], getFotoTemuanInsDu: [],
     getRiwayatGardu: [],
     updateUkurMasterGardu: [],
+    getHiGardu: [], updateHiGardu: [],   // v1.0.35
     // v0.75.0: OPS_VERIFIKASI_P0 tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test approval)
     getApprovalP0: [], getFotoApprovalP0: [], simpanApprovalP0: [], ubahJenisP0: [], simpanAturanYandal: [],
-    getArsipYandal: ['yandal/MOBILE'], getRankYandal: ['yandal/MOBILE', 'yandal/WEB', 'admin/MOBILE', 'admin/WEB'],
+    getArsipYandal: ['yandal/MOBILE'], getRankYandal: ['yandal/MOBILE', 'admin/MOBILE', 'admin/WEB'],
     // v0.99.0: menu ROW_LAPORAN tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test laporan Yandal)
     getLaporanTimYandal: [],
     simpanP0Yandal: ['yandal/MOBILE'], uploadFotoP0Yandal: ['yandal/MOBILE'],
@@ -3865,7 +3902,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     // getFotoRow baca: PETUGAS ROW tim sendiri, admin (menu *) semua tim
     getFotoRow: ['row/MOBILE', 'admin/MOBILE'],
     // v0.67.0: ganti password pemilik akun, semua platform; akun tim YANDAL ditolak (lewat admin)
-    gantiPassword: ['row/MOBILE', 'row/WEB', 'admin/MOBILE', 'admin/WEB'],
+    gantiPassword: ['row/MOBILE', 'admin/MOBILE', 'admin/WEB'],
     // v0.83.0: token notifikasi hanya dari HP, akun YANDAL + admin
     daftarNotif: ['yandal/MOBILE', 'admin/MOBILE'],
     // v0.85.0: menu OPS_ENGINE tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test pemakaian)
@@ -3874,8 +3911,15 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
 });
 
 // ---------- v0.67.0: sheet Gardu + BA (struktur dikunci) dan Ganti Password ----------
-test('v0.67.0: header Rekap_BA 112 / db_Gardu 89 (v1.0.23 blok LWBP + cover) / db_Pejabat_BA 9, unik, masuk skema; kategori beban v1; beda struktur', () => {
-  assert.deepStrictEqual([g.REKAP_BA_HEADER_.length, g.DB_GARDU_HEADER_.length, g.DB_PEJABAT_BA_HEADER_.length], [112, 89, 9]);
+test('v0.67.0: header Rekap_BA 112 / db_Gardu 228 (v1.0.23 blok LWBP + cover, v1.0.35 + 137 kolom HI + 2 sinkron) / db_Pejabat_BA 9, unik, masuk skema; kategori beban v1; beda struktur', () => {
+  assert.deepStrictEqual([g.REKAP_BA_HEADER_.length, g.DB_GARDU_HEADER_DASAR_.length, g.DB_GARDU_HEADER_.length, g.DB_PEJABAT_BA_HEADER_.length], [112, 89, 228, 9]);
+  // v1.0.35: kolom HI + sinkron disisip sebelum 'Diubah Oleh', struktur dasar tetap urut; katalog 182 isian semua punya kolom
+  const H = [...g.DB_GARDU_HEADER_], iHi = H.indexOf('Lokasi Kelas Gardu');
+  assert.deepStrictEqual([H[iHi - 1], H[H.indexOf('Diubah Oleh') - 1], g.HI_GARDU_KOLOM_BARU_.length], ['Jumperan Bawah', 'Hasil Sinkron Sheet Lama', 137]);
+  assert.deepStrictEqual(H.filter((h) => g.DB_GARDU_HEADER_DASAR_.includes(h)), [...g.DB_GARDU_HEADER_DASAR_]);
+  const kat = g.katalogHiGardu_();
+  assert.strictEqual(kat.length, 182);
+  assert.deepStrictEqual([...kat.filter((k) => k.kolom[0] !== "@" && !H.includes(k.kolom)).map((k) => k.kolom)], []);
   for (const h of [g.REKAP_BA_HEADER_, g.DB_GARDU_HEADER_]) assert.strictEqual(new Set(h).size, h.length);
   const sk = g.skemaHeader_();
   assert.deepStrictEqual([...sk.GARDU_SHEET_ID.Rekap_BA], [...g.REKAP_BA_HEADER_]);
@@ -5255,10 +5299,14 @@ test('v0.78.0: Kirim EAM format v1 (Pengoperasian) dengan file TTD terlampir + U
   const gIdx = () => x.sheets.g.db_Gardu.data.findIndex((row) => row[x.HG.indexOf('gardu_id')] === x.r.garduId);
   const m0 = JSON.parse(JSON.stringify(x.gg.updateMasterGarduBa_(x.admin, { baId: x.baId })));
   assert.deepStrictEqual([m0.status, m0.diubah, m0.noGarduMaster], ['TIDAK_BERUBAH', [], 'TB0422']);
+  assert.strictEqual(m0.sheet, null, 'master tidak berubah = sheet lama tidak ditulis');
   x.sheets.g.db_Gardu.data[gIdx()][x.HG.indexOf('Merk')] = 'Salah';
   x.sheets.g.db_Gardu.data[gIdx()][x.HG.indexOf('Alamat')] = 'Lama';
   const m1 = JSON.parse(JSON.stringify(x.gg.updateMasterGarduBa_(x.admin, { baId: x.baId })));
   assert.strictEqual(m1.status, 'OK');
+  // v1.0.35: db_Gardu berubah = 3 file sheet lama langsung mengikuti (file uji belum diatur = dilewati, hasil tercatat)
+  assert.deepStrictEqual([m1.sheet.ok, m1.sheet.hasil.length, m1.sheet.hasil.every((h) => h.lewat)], [true, 5, true]);
+  assert.match(x.objek(x.HG, x.sheets.g.db_Gardu.data[gIdx()])['Sinkron Sheet Lama'], /^\d{4}-/);
   assert.deepStrictEqual(m1.diubah.map((d) => [d.kolom, d.lama, d.baru]).sort(), [['Alamat', 'Lama', 'Jl. Raya Toboali – Desa Kampung Baru'], ['Merk', 'Salah', 'Trafindo']]);
   const g = x.objek(x.HG, x.sheets.g.db_Gardu.data[gIdx()]);
   assert.deepStrictEqual([g.Merk, g.ba_id_terakhir, g['Diubah Oleh']], ['Trafindo', x.baId, '16130.admin']);
@@ -5378,7 +5426,7 @@ function siapkanSinkron() {
   return { ...x, mg, dt, gRow, kol };
 }
 
-test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terbaru menang dua arah (WBP / LWBP), formula tidak ditimpa, gardu baru disisip per prefix, DATA TRAFO ikut', () => {
+test('v0.79.0 / v1.0.35: sinkron sheet lama SATU ARAH: identitas + pengukuran db -> Master_Gardu, pengukuran sheet lama yang lebih baru tidak ditarik, formula tidak ditimpa, gardu baru disisip per prefix, DATA TRAFO ikut', () => {
   const x = siapkanSinkron();
   // mati kalau target belum diisi; staging tidak boleh menulis file sumber produksi
   assert.deepStrictEqual([...x.gg.ADMIN_cekSinkronGarduLama().peringatan], ['SHEET_GARDU_ULP kosong: sinkron sheet lama mati']);
@@ -5390,7 +5438,7 @@ test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terb
   const sebelum = JSON.stringify(x.mg.data);
   const p = JSON.parse(JSON.stringify(x.gg.ADMIN_cekSinkronGarduLama()));
   assert.strictEqual(JSON.stringify(x.mg.data), sebelum);
-  assert.deepStrictEqual([p.master.identitas, p.master.ukurKeLama, p.master.ukurKeDb, p.master.baru, p.master.hanyaDiLama], [2, 1, 1, 1, 2]);
+  assert.deepStrictEqual([p.master.identitas, p.master.ukurKeLama, p.master.lamaLebihBaru, p.master.baru, p.master.hanyaDiLama], [2, 1, 1, 1, 2]);
   // tulis
   const h = JSON.parse(JSON.stringify(x.gg.ADMIN_sinkronGarduLama()));
   const cari = (no) => x.mg.data.findIndex((r) => r[2] === no);
@@ -5401,13 +5449,13 @@ test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terb
   assert.deepStrictEqual([tb2[56], tb2[62]], ['', ''], 'LWBP tidak disentuh');
   assert.deepStrictEqual([tb2[110], tb2[152]], [144.34, 60]);
   assert.strictEqual(x.mg.rumus[(cari('TB0002') + 1) + ',155'], 'R[0]C[-2]/R[0]C[-142]*100', 'sel formula EY tidak ditimpa');
-  // sheet lama lebih baru (TB0422, LWBP) -> db_Gardu dihitung ulang
+  // v1.0.35: sheet lama lebih baru (TB0422, LWBP) TIDAK ditarik ke db_Gardu (db_Gardu sumber utama)
   const g = x.objek(x.HG, x.gRow('TB0422'));
-  // v1.0.23: grup LWBP sheet lama -> blok LWBP db_Gardu
-  assert.deepStrictEqual([g['Tanggal Ukur LWBP'], g['Kode Ukur LWBP'], g['Beban R LWBP (A)'], g['Tegangan R-N LWBP (V)'], g['Tegangan R-S LWBP (V)'], g['Diubah Oleh']],
-    ['2026-10-05', 'SHEET LAMA', 70, 225, 390, 'sinkron-gardu']);
-  assert.strictEqual(g['Pembebanan LWBP (kVA)'], Math.round((70 * 225 + 60 * 226 + 65 * 227) / 1000 * 100) / 100);
-  assert.strictEqual(h.db.diubah, 1);
+  assert.deepStrictEqual([g['Tanggal Ukur LWBP'], g['Beban R LWBP (A)'], g['Kode Ukur LWBP']], ['', '', '']);
+  assert.ok(!('db' in h), 'tidak ada tulis sheet -> db');
+  // lintasan HI: gardu aktif yang belum pernah ditulis lengkap ikut ditulis (Suhu & Fisik tidak ada di file uji = gagal, dicoba lagi)
+  assert.ok(h.hi && h.hi.perlu >= 2 && h.hi.gagal >= 1);
+  assert.match(x.objek(x.HG, x.gRow('TB0002'))['Hasil Sinkron Sheet Lama'], /Master_Gardu: \d+; Suhu & Fisik Trafo: GAGAL SHEET_TIDAK_ADA/);
   // gardu baru: di bawah TB terakhir (TB0422), sebelum pemisah PG, formula baris acuan disalin
   const iBaru = cari('TB0500');
   assert.strictEqual(iBaru, cari('TB0422') + 1);
@@ -5425,7 +5473,7 @@ test('v0.79.0: sinkron sheet lama: identitas db -> Master_Gardu, pengukuran terb
   // jalan kedua: sudah sama = tidak ada yang ditulis
   const tulisAwal = x.mg.tulis.length;
   const h2 = x.gg.ADMIN_sinkronGarduLama();
-  assert.deepStrictEqual([h2.master.identitas, h2.master.ukurKeLama, h2.master.ukurKeDb, h2.master.baru], [0, 0, 0, 0]);
+  assert.deepStrictEqual([h2.master.identitas, h2.master.ukurKeLama, h2.master.baru], [0, 0, 0]);
   assert.strictEqual(x.mg.tulis.length, tulisAwal);
 });
 
@@ -5537,7 +5585,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (nama === 'getKalenderTim_') awal[k] = 'wajibSesiKalender_(sesi)';   // v1.0.17, v1.0.18 semua akun
     if (['getNotifikasi_', 'tandaiNotifikasi_'].includes(nama)) awal[k] = 'wajibSesiLonceng_(sesi)';   // v1.0.19
     if (nama === 'getUpdateApp_') awal[k] = 'wajibSesiUpdate_(sesi)';   // v1.0.19
-    if (nama === 'getRiwayatGardu_' || nama === 'updateUkurMasterGardu_') awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17, v1.0.22
+    if (['getRiwayatGardu_', 'updateUkurMasterGardu_', 'getHiGardu_', 'updateHiGardu_'].indexOf(nama) !== -1) awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17, v1.0.22, v1.0.35
     if (['getApprovalP0', 'getFotoApprovalP0', 'simpanApprovalP0', 'ubahJenisP0', 'simpanAturanYandal'].includes(k)) awal[k] = 'wajibAdminP0_(sesi)';
   }
   const bebasAwal = ['ping', 'login', 'mulaiShiftYandal', 'cekSesi', 'logout', 'getMaster'];   // publik / milik sesi sendiri (modul dicek per modul)
@@ -7886,6 +7934,38 @@ test('v1.0.6 laporan UP3/UIW: data inspeksi per penyulang (tiang, temuan Peralat
   assert.ok(kosong.includes('Penyulang : -'));
 });
 
+const J = (v) => JSON.parse(JSON.stringify(v));
+
+test('v1.0.34 laporan UP3 (aturan v1): InsJar Tier 2 dilaporkan H+1 (harian + komulatif), CARE FOR ASSET UIW tetap tanggal inspeksi', () => {
+  const x = konteksInsJar();
+  const hd = x.h.buatHeaderInsJar_(x.sesi, {});
+  x.h.simpanRealisasiInsJar_(x.sesi, { headerId: hd.headerId, penyulang: 'PNY-A', tier: 'Tier 1', totalTiang: 12, section: 'SEC-1' });
+  x.h.simpanRealisasiInsJar_(x.sesi, { headerId: hd.headerId, penyulang: 'PNY-A', tier: 'Tier 2', totalTiang: 30, section: 'SEC-2' });
+  const d = J(x.h.dataInspeksiHari_(x.hariIni));
+  assert.deepStrictEqual([d.perPenyulang, d.komulatif.jaringan], [{ 'PNY-A': { jaringan: 12 } }, 12], 'Tier 2 belum dilaporkan hari ini');
+  assert.deepStrictEqual(d.care.map((c) => [c.penyulang, c.tiang]), [['PNY-A', 42]], 'UIW tetap tanggal inspeksi');
+  const besok = x.h.tambahHari_(x.hariIni, 1);
+  const b = J(x.h.dataInspeksiHari_(besok));
+  if (besok.slice(0, 7) === x.hariIni.slice(0, 7)) {
+    assert.deepStrictEqual([b.perPenyulang, b.komulatif.jaringan, b.care.length], [{ 'PNY-A': { jaringan: 30 } }, 42, 0], 'Tier 2 = H+1');
+  } else {
+    assert.deepStrictEqual([b.perPenyulang, b.komulatif.jaringan], [{}, 0], 'Tier 2 akhir bulan tidak terbawa ke bulan berikutnya');
+  }
+});
+
+test('v1.0.34 laporan UP3: gardu hasil migrasi v1 (MIGRASI) dihitung 1 baris = 1 Unit tanpa LWBP, BATAL tetap tidak', () => {
+  const x = konteksInsDu();
+  const hd = x.h.buatHeaderInsDu_(x.sesi, {});
+  x.h.simpanRealisasiInsDu_(x.sesi, { headerId: hd.headerId, garduId: x.gid.a, tier: 'Tier 1' });
+  x.h.simpanRealisasiInsDu_(x.sesi, { headerId: hd.headerId, garduId: x.gid.b, tier: 'Tier 1' });
+  assert.strictEqual(x.h.dataInspeksiGarduHari_(x.hariIni).komulatif, 0, 'v2: belum LWBP = belum dihitung');
+  const dr = x.sheets.d.db_insdu_realisasi.data;
+  dr[1][x.kol('db_insdu_realisasi', 'dibuat_oleh')] = 'MIGRASI';
+  dr[2][x.kol('db_insdu_realisasi', 'dibuat_oleh')] = 'MIGRASI';
+  dr[2][x.kol('db_insdu_realisasi', 'status_ukur')] = x.h.INSDU_STATUS_UKUR_.batal;
+  assert.deepStrictEqual(J(x.h.dataInspeksiGarduHari_(x.hariIni)), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1, status: 'LAPOR', timLapor: 1 });
+});
+
 // ---------- v1.0.0: foto lapangan Hartek (grounding / pemerataan) + Inspeksi Jaringan (temuan / tiang) ----------
 function fotoUji(buf) {
   const b = buf || jpeg(1600, 1200);
@@ -8107,7 +8187,7 @@ test('v1.0.8 insdu: header IGD, gardu dari db_Gardu, GARDU_GANDA, LWBP (cover wa
   assert.deepStrictEqual([x.kg(1, 'Waktu Beban'), x.kg(1, 'Beban R (A)'), x.kg(1, 'Beban R LWBP (A)'), x.sheets.d.db_insdu_pengukuran.data.length], ['WBP', 100, 81, 2]);
   // laporan: r2 belum ada LWBP = tidak dihitung
   const lap = x.h.dataInspeksiGarduHari_(x.hariIni);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(lap)), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1 });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(lap)), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1, status: 'LAPOR', timLapor: 1 });
   const hr = x.h.getInsDuHarian_(x.sesi, {});
   assert.deepStrictEqual(JSON.parse(JSON.stringify(hr.realisasi.map((z) => [z.noGardu, z.statusUkur, z.masukLaporan]))), [['TB0101', 'LENGKAP', true], ['TB0102', 'BELUM', false]]);
   assert.strictEqual(hr.tunggakan, null);
@@ -8763,7 +8843,7 @@ test('v1.0.14 insdu: tier ganda Tier 1 & Tier 2, Tier 2 saja tanpa ukur (langsun
   let hr = x.h.getInsDuHarian_(x.sesi, {});
   assert.deepStrictEqual(JSON.parse(JSON.stringify(hr.realisasi.map((z) => [z.noGardu, z.perluUkur, z.statusUkur, z.masukLaporan]))),
     [['TB0101', true, 'BELUM', false], ['TB0102', false, 'TANPA_UKUR', true]]);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(x.h.dataInspeksiGarduHari_(x.hariIni))), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1 }, 'Tier 2 saja ikut laporan');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(x.h.dataInspeksiGarduHari_(x.hariIni))), { perPenyulang: { 'PNY-A': 1 }, komulatif: 1, status: 'LAPOR', timLapor: 1 }, 'Tier 2 saja ikut laporan');
   // temuan: gardu 2 tier = tier wajib dipilih; tier di luar tier gardu ditolak; koordinat wajib
   assert.strictEqual(kodeError(() => x.h.simpanTemuanInsDu_(x.sesi, { realisasiId: rDua.realisasiId, jenisTemuanId: 'jt-3' })), 'FIELD_WAJIB');
   assert.strictEqual(kodeError(() => x.h.simpanTemuanInsDu_(x.sesi, { realisasiId: rDua.realisasiId, jenisTemuanId: 'jt-3', koordinat: '-3.02, 106.51' })), 'FIELD_WAJIB', 'tier wajib untuk gardu 2 tier');
@@ -9481,4 +9561,122 @@ test('v1.0.20 riwayat gardu: periode ukur selalu LWBP / WBP (isian baku dipakai,
   const p = x.h.periodeUkurRg_;
   assert.deepStrictEqual([p('WBP', '10:00'), p('lwbp', '18:00'), p('', '17:00'), p('', '21:59'), p('', '22:00'), p('', '08:15'), p('', ''), p('Siang', '19:30')],
     ['WBP', 'LWBP', 'WBP', 'WBP', 'LWBP', 'LWBP', '', 'WBP']);
+});
+
+// ---------- v1.0.35: Data Gardu (HI v1, 182 isian): db_Gardu sumber utama, 3 file sheet lama mengikuti ----------
+function siapkanHi() {
+  const x = siapkanSinkron();   // Master_Gardu lama: TB0001, TB0002 (D Jl. Lama, L TRAFINDO, U 01/09/2026), TB0422, PG0005
+  const L = 100, baris = (isi) => { const b = new Array(L).fill(''); for (const [c, v] of Object.entries(isi)) b[Number(c) - 1] = v; return b; };
+  // Suhu & Fisik: Nomor Gardu kolom B; TB0001 punya formula di kolom 6 (disalin ke baris sisipan)
+  const sf = sheetLamaPalsu([baris({ 2: 'GARDU' }), baris({ 2: 'TB0001', 3: 'Jl. Hanya Lama' }), baris({ 2: 'PG0005' })], { '2,6': 'R[0]C[-1]*2' });
+  const dt = sheetLamaPalsu([baris({}), baris({ 3: 'GARDU' }), baris({ 2: 'TOBOALI', 3: 'TB0002', 4: 'Jl. Lama' })]);
+  const it = sheetLamaPalsu([baris({ 3: 'GARDU' }), baris({ 2: 'TOBOALI', 3: 'TB-0002', 4: 'Jl. Lama' })]);
+  const file = { hi1: { Master_Gardu: x.mg, 'Suhu & Fisik Trafo': sf }, hi2: { '1. DATA TRAFO': dt }, hi3: { 'INPUT TBL': it } };
+  const lama = x.gg.SpreadsheetApp.openById;
+  x.gg.SpreadsheetApp = { openById: (id) => (file[id] ? { getSheetByName: (n) => file[id][n] || null, getSheets: () => Object.values(file[id]) } : lama(id)) };
+  ['SHEET_GARDU_ULP:hi1', 'SHEET_GARDU_ES:hi2', 'SHEET_GARDU_UP3:hi3'].forEach((p) => x.props.setProperty(...p.split(':')));
+  const iMg = () => x.mg.data.findIndex((r) => r[2] === 'TB0002');
+  const db = (no = 'TB0002') => x.objek(x.HG, x.gRow(no));
+  return { ...x, sf, dt, it, file, iMg, db };
+}
+
+test('v1.0.35 getHiGardu: isi form dari db_Gardu (sumber utama), revision, sinkron; nomor / akses / endpoint', () => {
+  const x = siapkanHi();
+  const h = JSON.parse(JSON.stringify(x.gg.getHiGardu_(x.admin, { noGardu: 'tb-2' })));
+  assert.deepStrictEqual([h.noGardu, h.nilai.C, h.nilai.D, h.nilai.L, h.nilai.M, h.nilai.R, h.nilai.AD, h.nilai.CD], ['TB0002', 'TB0002', 'Jl. DB Baru', 'Trafindo', 100, '2026-10-01', 90, '']);
+  assert.strictEqual(Object.keys(h.nilai).length, 182);
+  assert.strictEqual(h.revision, x.db().revision);
+  assert.deepStrictEqual([h.gardu.no, h.sinkron.waktu], ['TB0002', '']);
+  assert.strictEqual(kodeError(() => x.gg.getHiGardu_(x.admin, { noGardu: 'TB9999' })), 'GARDU_TIDAK_DITEMUKAN');
+  assert.strictEqual(kodeError(() => x.gg.getHiGardu_(x.admin, { noGardu: 'abc' })), 'FORMAT_SALAH');
+  assert.strictEqual(kodeError(() => x.gg.getHiGardu_({ ...x.admin, role: 'PETUGAS' }, { noGardu: 'TB0002' })), 'AKSES_DITOLAK');
+  const ep = x.gg.endpoints_();
+  assert.deepStrictEqual([ep.getHiGardu.menu, ep.updateHiGardu.menu, !!ep.getHiGardu.tulis, !!ep.updateHiGardu.tulis], ['OPS_PENGUKURAN_GARDU', 'OPS_PENGUKURAN_GARDU', false, true]);
+});
+
+test('v1.0.35 updateHiGardu: tulis db_Gardu dulu (pengukuran dihitung ulang), lalu 3 file sheet lama mengikuti; kosong tidak mengosongkan sheet; tertunda disusul sinkron', () => {
+  const x = siapkanHi();
+  const rev = x.db().revision;
+  x.mg.rumus[(x.iMg() + 1) + ',13'] = 'R[0]C[1]';   // M (kVA) Master_Gardu berformula: tidak boleh ditimpa
+  const nilai = { D: 'Jl. HI Baru', L: 'Unindo', M: 160, R: '2026-10-20', Q: '18:30', AD: 120, AE: '110', AF: 100, AG: 9, AA: 231, AB: 230, AC: 229,
+    CD: 45, G: 'Kota', S: '=HYPERLINK("x")', coverFcoAtas: 'Ada' };
+  // ditolak = tidak ada yang ditulis (db maupun sheet)
+  const sebelum = JSON.stringify([x.sheets.g.db_Gardu.data, x.mg.data, x.sf.data, x.dt.data, x.it.data]);
+  for (const [d, kode] of [[{ revision: rev + 5, nilai }, 'KONFLIK_REVISION'], [{ revision: rev, nilai: { ZZ: 1 } }, 'FIELD_TIDAK_DIKENAL'],
+    [{ revision: rev, nilai: { C: 'TB9999' } }, 'KOLOM_TERKUNCI'], [{ revision: rev, nilai: { AD: 'abc' } }, 'TIPE_SALAH'],
+    [{ revision: rev, nilai: { R: '20/10/2026' } }, 'FORMAT_SALAH'], [{ revision: rev, nilai: { E: 'TB-01', F: 'Section Asing' } }, 'SECTION_TIDAK_VALID']]) {
+    assert.strictEqual(kodeError(() => x.gg.updateHiGardu_(x.admin, { noGardu: 'TB0002', ...d })), kode, kode);
+  }
+  assert.strictEqual(JSON.stringify([x.sheets.g.db_Gardu.data, x.mg.data, x.sf.data, x.dt.data, x.it.data]), sebelum);
+
+  const h = JSON.parse(JSON.stringify(x.gg.updateHiGardu_(x.admin, { noGardu: 'TB0002', revision: rev, nilai })));
+  // 1) db_Gardu = sumber utama
+  const g = x.db(), hari = x.gg.tglJakarta_(new Date());
+  const kva = Math.round((120 * 231 + 110 * 230 + 100 * 229) / 1000 * 100) / 100;
+  assert.deepStrictEqual([g.Alamat, g.Merk, g['Kapasitas (kVA)'], g['Tanggal Ukur Terakhir'], g['Beban R (A)'], g['Beban S (A)'], g['Kode Ukur Terakhir'], g['Sumber Data']],
+    ['Jl. HI Baru', 'Unindo', 160, '2026-10-20', 120, 110, 'WEB ADMIN', 'Website Admin']);
+  assert.deepStrictEqual([g['Pembebanan (kVA)'], g['Persentase Beban (%)'], g['Arus Maks per Fasa (A)']], [kva, Math.round(kva / 160 * 10000) / 100, 230.94]);
+  assert.deepStrictEqual([g['Suhu Body Trafo (°C)'], g['Lokasi Kelas Gardu'], g['Jam Ukur WBP'], g['Petugas Inspeksi'], g['Cover FCO Atas'], g['Tanggal Cover']],
+    [45, 'Kota', '18:30', '=HYPERLINK("x")', 'Ada', hari], 'teks berformat formula tersimpan sebagai teks');
+  assert.deepStrictEqual([g['Tanggal Ukur LWBP'], g['Beban R LWBP (A)']], ['', ''], 'blok LWBP tidak disentuh');
+  assert.strictEqual(h.revision, rev + 2, 'tulis isian + catat sinkron');
+  // 2) sheet lama mengikuti db_Gardu
+  const mg = x.mg.data[x.iMg()];
+  assert.deepStrictEqual([mg[3], mg[11], mg[6], mg[19], mg[33], mg[34], mg[30]], ['Jl. HI Baru', 'Unindo', 'Kota', '18:30', 120, 110, 231]);
+  assert.strictEqual(mg[22], "'=HYPERLINK(\"x\")", 'db -> sheet lama: teks berbentuk formula tetap diamankan (W)');
+  assert.ok(Object.prototype.toString.call(mg[20]) === '[object Date]' && mg[20].getDate() === 20, 'U = tanggal ukur terbaru');
+  assert.deepStrictEqual([mg[110], mg[152]], [230.94, kva], 'Arus Maks DG + Beban EW (khusus Master_Gardu)');
+  assert.strictEqual(x.mg.rumus[(x.iMg() + 1) + ',13'], 'R[0]C[1]', 'sel formula tidak ditimpa');
+  const iSf = x.sf.data.findIndex((r) => r[1] === 'TB0002');
+  assert.deepStrictEqual([iSf, x.sf.data[iSf][7], x.sf.data[iSf][2], x.sf.data[iSf + 1][1], x.sf.rumus[(iSf + 1) + ',6']], [2, 45, 'Jl. HI Baru', 'PG0005', 'R[0]C[-1]*2']);
+  assert.deepStrictEqual([x.dt.data[2][3], x.it.data[1][3], x.it.data[1][29], x.it.data[1][81]], ['Jl. HI Baru', 'Jl. HI Baru', 120, 45], 'INPUT TBL: kolom = kunci isian (AD, CD)');
+  assert.strictEqual(x.it.data[1][17].getDate(), 20);
+  const r = (tab) => h.sheet.hasil.find((y) => y.tab === tab);
+  // 2 sel formula dilewati: M (uji ini) + EY Persentase (formula bawaan sheet uji)
+  assert.deepStrictEqual([r('Master_Gardu').rumus, r('Suhu & Fisik Trafo').disisipkan, r('2. SUHU & FISIK TRAFO').ok, h.sheet.ok], [2, true, false, false]);
+  // tab gagal = belum ditandai sinkron (disusul harian), hasil tercatat
+  assert.deepStrictEqual([g['Sinkron Sheet Lama'], /2\. SUHU & FISIK TRAFO: GAGAL SHEET_TIDAK_ADA/.test(g['Hasil Sinkron Sheet Lama'])], ['', true]);
+  assert.ok(x.sheets.a.log_Audit.data.some((l) => l[4] === 'UPDATE_HI_GARDU' && l[5] === 'TB0002'));
+
+  // 3) kosong di db tidak mengosongkan sheet lama; isi sama = sheet tidak ditulis
+  const tulisAwal = x.mg.tulis.length;
+  x.gg.updateHiGardu_(x.admin, { noGardu: 'TB0002', revision: h.revision, nilai: { G: '' } });
+  assert.deepStrictEqual([x.db()['Lokasi Kelas Gardu'], x.mg.data[x.iMg()][6]], ['', 'Kota']);
+  assert.strictEqual(x.mg.tulis.length, tulisAwal);
+
+  // 4) sinkron harian menyusul: file ES dilengkapi tab Suhu & Fisik, gardu belum tersinkron ditulis ulang + ditandai
+  x.file.hi2['2. SUHU & FISIK TRAFO'] = sheetLamaPalsu([['', 'GARDU'], ['', 'TB0001']]);
+  x.props.setProperty('SHEET_GARDU_ULP', 'hi1');
+  const s = JSON.parse(JSON.stringify(x.gg.ADMIN_sinkronGarduLama()));
+  assert.ok(s.hi.ditulis >= 1, JSON.stringify(s.hi));
+  assert.match(x.db()['Sinkron Sheet Lama'], /^\d{4}-\d{2}-\d{2}T/);
+  assert.strictEqual(x.file.hi2['2. SUHU & FISIK TRAFO'].data.find((b) => b[1] === 'TB0002')[7], 45);
+});
+
+test('v1.0.35 ADMIN_imporHiGardu: data HI sheet lama -> kolom HI db_Gardu yang masih kosong (pratinjau dulu, aman diulang)', () => {
+  const x = siapkanHi();
+  x.mg.data[x.iMg()][6] = 'Pesisir Pantai';   // G Lokasi Kelas Gardu
+  x.mg.data[x.iMg()][3] = 'Jl. Sheet';        // D Alamat (kolom lama): tidak diimpor
+  x.sf.data.push(Object.assign(new Array(100).fill(''), { 1: 'TB0002', 7: 55, 26: 'Baik' }));   // H Suhu Body Trafo, AA Visual Bushing TR N
+  const sebelum = JSON.stringify(x.sheets.g.db_Gardu.data);
+  const p = JSON.parse(JSON.stringify(x.gg.ADMIN_cekImporHiGardu()));
+  assert.strictEqual(JSON.stringify(x.sheets.g.db_Gardu.data), sebelum, 'pratinjau tidak menulis');
+  assert.ok(p.gardu >= 1 && p.sel >= 3, JSON.stringify(p));
+  x.gg.ADMIN_imporHiGardu();
+  const g = x.db();
+  assert.deepStrictEqual([g['Lokasi Kelas Gardu'], g['Suhu Body Trafo (°C)'], g['Visual Bushing TR N'], g.Alamat], ['Pesisir Pantai', 55, 'Baik', 'Jl. DB Baru']);
+  assert.strictEqual(x.gg.ADMIN_imporHiGardu().sel, 0, 'diulang = tidak ada yang diisi lagi');
+});
+
+test('v1.0.35 status tim Inspeksi Jaringan / Gardu (kartu laporan UP3/UIW): aturan sama Hartek BELUM / LAPOR / SIAP', () => {
+  const tgl = (r) => r.tanggal;
+  const hdr = (o) => ({ header_id: 'h1', tim_id: 't1', tanggal: '2026-10-26', status: 'AKTIF', koordinat_awal: '-3.01, 106.4', koordinat_akhir: '', km_awal: 10, km_akhir: '', ...o });
+  const st = (H, R) => JSON.parse(JSON.stringify(g.statusTimHeader_(H, R, '2026-10-26', tgl)));
+  assert.deepStrictEqual(st([], []), { status: 'BELUM', timLapor: 0 });
+  assert.deepStrictEqual(st([hdr({ tanggal: '2026-10-25' }), hdr({ header_id: 'h9', status: 'BATAL' })], []), { status: 'BELUM', timLapor: 0 }, 'tanggal lain / batal');
+  assert.deepStrictEqual(st([hdr()], [{ header_id: 'h1' }]), { status: 'LAPOR', timLapor: 1 }, 'header belum ditutup (koordinat / km akhir)');
+  const tutup = hdr({ koordinat_akhir: '-3.02, 106.41', km_akhir: 25 });
+  assert.deepStrictEqual(st([tutup], []), { status: 'LAPOR', timLapor: 1 }, 'tanpa realisasi belum SIAP');
+  assert.deepStrictEqual(st([tutup], [{ header_id: 'h1', status: 'BATAL' }]), { status: 'LAPOR', timLapor: 1 }, 'realisasi batal tidak dihitung');
+  assert.deepStrictEqual(st([tutup, hdr({ header_id: 'h2', tim_id: 't2' })], [{ header_id: 'h1' }]), { status: 'SIAP', timLapor: 2 });
 });

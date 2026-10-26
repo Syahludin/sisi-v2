@@ -187,6 +187,10 @@ function endpoints_() {
     getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 },
     // v1.0.22: Update Pengukuran Gardu = satu pengukuran riwayat ditulis ke Master Gardu (pengukuran terbaru)
     updateUkurMasterGardu: { fn: updateUkurMasterGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 },
+    // v1.0.35: form Update Data Gardu v1 (HI): baca Master_Gardu + Suhu & Fisik, tulis ke 3 file sheet lama + db_Gardu.
+    // Lihat modules/81_HI_Gardu.js
+    getHiGardu: { fn: getHiGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 30 },
+    updateHiGardu: { fn: updateHiGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 },
     // v1.0.26: ubah pekerjaan WO DRAFT (sesudah foto Sebelum, sebelum foto Sesudah). Lihat modules/75_TindakLanjut.js
     ubahPekerjaanWo: { fn: ubahPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 30 }
   };
@@ -200,12 +204,19 @@ function doPost(e) {
     if (teks.length > PAYLOAD_MAKS_) throw new SisiError_('PAYLOAD_TERLALU_BESAR');
     var req;
     try { req = JSON.parse(teks || '{}'); } catch (x) { throw new SisiError_('JSON_TIDAK_VALID'); }
-    hasil = proses_(req, 'MOBILE');
+    hasil = proses_(req, platformDoPost_(req));
   } catch (err) {
     hasil = gagal_(err);
   }
   return ContentService.createTextOutput(JSON.stringify(hasil)).setMimeType(ContentService.MimeType.JSON);
 }
+
+/**
+ * v1.0.34 web admin (permintaan kvlar 26 Okt 2026): website admin di domain sendiri (Hostinger) memanggil doPost yang sama
+ * dengan HP, ditandai platform 'WEB' (selain itu = HP). Bukan batas keamanan: platform WEB hanya untuk role ROLE_WEB_
+ * (dicek saat login dan di guard_), menu disaring kolom platform db_Menu, kunci versi APK tidak berlaku.
+ */
+function platformDoPost_(req) { return req && typeof req === 'object' && req.platform === 'WEB' ? 'WEB' : 'MOBILE'; }
 
 /** Health check. Tidak pernah membaca token dari query string. */
 function doGet() {

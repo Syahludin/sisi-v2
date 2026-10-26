@@ -1,0 +1,24 @@
+# SiSi Panel Admin di Hostinger (Apache). Ikut ter-upload bersama isi folder dist.
+Options -Indexes
+DirectoryIndex index.html
+
+# Halaman web satu file: alamat yang bukan file / folder dibuka lewat index.html (aman saat refresh).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # index.html + config.js selalu diambil baru (ganti backend / rilis baru langsung terbaca)
+  <FilesMatch "^(index\.html|config\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # Hanya boleh bicara dengan backend Apps Script (script.google.com lalu dialihkan ke script.googleusercontent.com)
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>

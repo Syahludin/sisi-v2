@@ -10,6 +10,8 @@ var GUARD_TOLAK_DETIK_ = 300;        // v0.47: hash token yang sudah ditolak dii
 
 function guard_(token, ep, platform, nama) {
   var sesi = sesiDariToken_(token);
+  // v1.0.34 web admin: token petugas (dari HP) tidak bisa dipakai lewat website
+  if (platform === 'WEB' && ROLE_WEB_().indexOf(sesi.role) === -1) throw new SisiError_('AKSES_DITOLAK', 'WEB:' + sesi.role);
   // v0.63.4: sesudah akhir shift akun YANDAL hanya boleh endpoint syncShift (kirim data + logout), sampai syncSampai.
   if (sesi._sampai && sesi._sampai <= sekarangMsYandal_()) {
     if (!ep.syncShift) throw new SisiError_('SHIFT_BERAKHIR');

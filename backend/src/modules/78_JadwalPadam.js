@@ -277,7 +277,7 @@ function isiJadwalDariMaster_(d) {
   };
 }
 
-function simpanJadwalPadam_(sesi, data) {
+function simpanJadwalPadam_(sesi, data, platform) {
   wajibAdminJadwalPadam_(sesi);
   var s = Object.assign({ idBaris: { tipe: 'uuid' } }, JP_ISI_);
   var d = validasi_(data, s);
@@ -294,7 +294,7 @@ function simpanJadwalPadam_(sesi, data) {
     var baris = sisipAuditInsJar_(Object.assign({ nomor: t.rows.length + 1, kode_jadwal: kode, status_jadwal: JP_STATUS_.jadwal,
       jadwal_id: d.idBaris || uuid_() }, isi), sesi, sekarang);
     tambahBaris_(t, baris);
-    auditLog_(sesi, 'JADWAL_PADAM_SIMPAN', kode, isi.penyulang + ' ' + isi.section + ' ' + d.tanggal, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    auditLog_(sesi, 'JADWAL_PADAM_SIMPAN', kode, isi.penyulang + ' ' + isi.section + ' ' + d.tanggal, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { jadwalId: baris.jadwal_id, kode: kode, revision: 1, jadwal: jadwalKeHp_(baris) };
   }, 20000);
 }
@@ -307,7 +307,7 @@ function cariJadwal_(t, jadwalId) {
 }
 
 /** Ubah jadwal (hanya selama Terjadwal; jadwal terealisasi / batal terkunci untuk audit). */
-function ubahJadwalPadam_(sesi, data) {
+function ubahJadwalPadam_(sesi, data, platform) {
   wajibAdminJadwalPadam_(sesi);
   var s = Object.assign({ jadwalId: { tipe: 'uuid', wajib: true }, revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 } }, JP_ISI_);
   var d = validasi_(data, s);
@@ -320,13 +320,13 @@ function ubahJadwalPadam_(sesi, data) {
     isi.timestamp_update = sekarangIso_();
     isi.diubah_oleh = sesi.userId;
     var rev = ubahBaris_(t, 'jadwal_id', d.jadwalId, isi, d.revision);
-    auditLog_(sesi, 'JADWAL_PADAM_UBAH', teksJp_(r.kode_jadwal), isi.penyulang + ' ' + isi.section + ' ' + d.tanggal, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    auditLog_(sesi, 'JADWAL_PADAM_UBAH', teksJp_(r.kode_jadwal), isi.penyulang + ' ' + isi.section + ' ' + d.tanggal, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { jadwalId: d.jadwalId, kode: teksJp_(r.kode_jadwal), revision: rev, jadwal: jadwalKeHp_(Object.assign({}, r, isi, { revision: rev })) };
   }, 20000);
 }
 
 /** Terealisasi / Batal Pemadaman (v1 updateStatusJadwalPadam; "Batal Pekerjaan" v1 = Batal Pemadaman). */
-function ubahStatusJadwalPadam_(sesi, data) {
+function ubahStatusJadwalPadam_(sesi, data, platform) {
   wajibAdminJadwalPadam_(sesi);
   var d = validasi_(data, {
     jadwalId: { tipe: 'uuid', wajib: true }, revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 },
@@ -341,13 +341,13 @@ function ubahStatusJadwalPadam_(sesi, data) {
     if (Number(r.revision) !== d.revision) throw new SisiError_('KONFLIK_REVISION', d.jadwalId);
     var u = { status_jadwal: status, timestamp_update: sekarangIso_(), diubah_oleh: sesi.userId };
     var rev = ubahBaris_(t, 'jadwal_id', d.jadwalId, u, d.revision);
-    auditLog_(sesi, 'JADWAL_PADAM_STATUS', teksJp_(r.kode_jadwal), status, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    auditLog_(sesi, 'JADWAL_PADAM_STATUS', teksJp_(r.kode_jadwal), status, platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { jadwalId: d.jadwalId, revision: rev, jadwal: jadwalKeHp_(Object.assign({}, r, u, { revision: rev })) };
   }, 20000);
 }
 
 /** Hapus (v1 hapusJadwalPadam): hanya Terjadwal. v2 = ditandai Dihapus (baris tetap untuk audit). */
-function hapusJadwalPadam_(sesi, data) {
+function hapusJadwalPadam_(sesi, data, platform) {
   wajibAdminJadwalPadam_(sesi);
   var d = validasi_(data, { jadwalId: { tipe: 'uuid', wajib: true }, revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 } });
   return denganLock_(function () {
@@ -358,7 +358,7 @@ function hapusJadwalPadam_(sesi, data) {
     if (teksJp_(r.status_jadwal) !== JP_STATUS_.jadwal) throw new SisiError_('JADWAL_TERKUNCI', teksJp_(r.status_jadwal));
     if (Number(r.revision) !== d.revision) throw new SisiError_('KONFLIK_REVISION', d.jadwalId);
     var rev = ubahBaris_(t, 'jadwal_id', d.jadwalId, { status_jadwal: JP_STATUS_.hapus, timestamp_update: sekarangIso_(), diubah_oleh: sesi.userId }, d.revision);
-    auditLog_(sesi, 'JADWAL_PADAM_HAPUS', teksJp_(r.kode_jadwal), '', 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    auditLog_(sesi, 'JADWAL_PADAM_HAPUS', teksJp_(r.kode_jadwal), '', platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return { jadwalId: d.jadwalId, revision: rev };
   }, 20000);
 }

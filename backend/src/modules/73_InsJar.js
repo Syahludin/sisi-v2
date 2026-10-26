@@ -889,28 +889,35 @@ function rentangSectionInsJar_(pen, names) {
  *  perPenyulang: { penyulang: { jaringan: total tiang } }   (D. Inspeksi UP3, Gawang)
  *  komulatif: { jaringan: total tiang tgl 1 s.d. tanggal }
  *  care: [{ penyulang, section (rentang), tiang, peralatan, row }]   (CARE FOR ASSET UIW)
+ *  status, timLapor: kartu Status tim (v1.0.35, statusTimHeader_)
  * Penyulang utama hanya dihitung kalau header-nya AKTIF. Temuan admin (tanpa header) ikut dihitung.
+ * v1.0.34 (aturan v1 Tek-LapUP3UIWHarian, permintaan kvlar 26 Okt 2026): Tier 2 dilaporkan H+1 di D. Inspeksi UP3
+ * (harian + komulatif); Tier 2 di tanggal akhir bulan tidak terbawa ke bulan berikutnya. CARE FOR ASSET UIW tetap
+ * pada tanggal inspeksinya (sama v1).
  * Konfigurasi belum lengkap = kosong (laporan tetap jalan).
  */
 function dataInspeksiHari_(tanggal) {
-  var kosong = { perPenyulang: {}, komulatif: { jaringan: 0 }, care: [] };
+  // v1.0.35: status / timLapor = kartu Status tim laporan (statusTimHeader_); V1 = modul belum disiapkan di server
+  var kosong = { perPenyulang: {}, komulatif: { jaringan: 0 }, care: [], status: 'V1', timLapor: 0 };
   var c = cfg_();
   if (!c.INSJAR_SHEET_ID || !c.TEMUAN_SHEET_ID) return kosong;
   var bulan = tanggal.slice(0, 7);
-  var aktif = {};
-  tabelInsJar_(INSJAR_SHEET_.HEADER).rows.forEach(function (h) {
+  var aktif = {}, H = tabelInsJar_(INSJAR_SHEET_.HEADER).rows, R = tabelInsJar_(INSJAR_SHEET_.REALISASI).rows;
+  H.forEach(function (h) {
     if (String(h.status || 'AKTIF') === 'AKTIF') aktif[String(h.header_id)] = true;
   });
   var perPenyulang = {}, komulatif = 0, urutPen = [], agg = {};
-  tabelInsJar_(INSJAR_SHEET_.REALISASI).rows.forEach(function (r) {
+  R.forEach(function (r) {
     if (!aktif[String(r.header_id)]) return;
     var t = tglInsJar_(r);
-    if (t.slice(0, 7) !== bulan || t > tanggal) return;
-    var tiang = Number(r.total_tiang) || 0;
-    komulatif += tiang;
+    if (t.slice(0, 7) !== bulan) return;
+    var tiang = Number(r.total_tiang) || 0, p = String(r.penyulang || '').trim() || '-';
+    var efektif = /tier\s*2/i.test(String(r.tier || '')) ? tambahHari_(t, 1) : t;
+    if (efektif.slice(0, 7) === bulan && efektif <= tanggal) {
+      komulatif += tiang;
+      if (efektif === tanggal) perPenyulang[p] = { jaringan: (perPenyulang[p] ? perPenyulang[p].jaringan : 0) + tiang };
+    }
     if (t !== tanggal) return;
-    var p = String(r.penyulang || '').trim() || '-';
-    perPenyulang[p] = { jaringan: (perPenyulang[p] ? perPenyulang[p].jaringan : 0) + tiang };
     if (!agg[p]) { agg[p] = { tiang: 0, sections: [], peralatan: 0, row: 0 }; urutPen.push(p); }
     agg[p].tiang += tiang;
     var sec = String(r.section || '').trim();
@@ -930,7 +937,8 @@ function dataInspeksiHari_(tanggal) {
     var a = agg[p];
     return { penyulang: p, section: rentangSectionInsJar_(p, a.sections) || '-', tiang: a.tiang, peralatan: a.peralatan, row: a.row };
   });
-  return { perPenyulang: perPenyulang, komulatif: { jaringan: komulatif }, care: care };
+  return Object.assign({ perPenyulang: perPenyulang, komulatif: { jaringan: komulatif }, care: care },
+    statusTimHeader_(H, R, tanggal, tglInsJar_));
 }
 
 /* ===== cek konfigurasi (dipanggil ADMIN_cekKonfigurasi) ===== */

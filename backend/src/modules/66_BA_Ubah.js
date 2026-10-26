@@ -99,7 +99,7 @@ function getPdfBaGardu_(sesi, data) {
   return Object.assign(jawabPdf_(r), { namaFile: file.getName(), mime: 'application/pdf', ukuranByte: bytes.length, data: Utilities.base64Encode(bytes) });
 }
 
-function ubahBaGarduPenggantian_(sesi, data, awal, tahunIni) {
+function ubahBaGarduPenggantian_(sesi, data, awal, tahunIni, platform) {
   var d = validasi_(data, {
     baId: { tipe: 'uuid', wajib: true },
     revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 },
@@ -234,7 +234,7 @@ function ubahBaGarduPenggantian_(sesi, data, awal, tahunIni) {
     }
     revisi.forEach(function (x) { try { x.f.setDescription(PENANDA_FOTO_ + d.baId + '-' + x.s.slot); } catch (eD) { /* penanda tetap REVISI */ } });
     buang.forEach(function (id) { try { DriveApp.getFileById(id).setTrashed(true); } catch (eB) { /* sudah tidak ada */ } });
-    auditLog_(sesi, 'BA_GARDU_UBAH', teksBa_(r['ID BA']), beda.join(', ') + (d.alasan ? ' | ' + d.alasan : ''), 'MOBILE', tLog);
+    auditLog_(sesi, 'BA_GARDU_UBAH', teksBa_(r['ID BA']), beda.join(', ') + (d.alasan ? ' | ' + d.alasan : ''), platform, tLog);
     if (revisi.length) diubah = r;
     return Object.assign(jawabBa_(r, 'OK', { peringatan: peringatan }), { revision: Number(r.revision) || 0, revisiBa: u['Revisi BA'], diubah: beda });
   });
@@ -242,14 +242,14 @@ function ubahBaGarduPenggantian_(sesi, data, awal, tahunIni) {
   return hasil;
 }
 
-function ubahBaGardu_(sesi, data) {
+function ubahBaGardu_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var tahunIni = Number(tglJakarta_(new Date()).slice(0, 4));
   if (data && data.baId && typeof data.baId === 'string') {
     var cekAwal = barisBa_(cekStrukturGardu_('GARDU_SHEET_ID', 'Rekap_BA').rows, data.baId);
     if (cekAwal && teksBa_(cekAwal['Jenis Pekerjaan']) === 'Penggantian Trafo') {
       if (teksBa_(cekAwal['Status BA']).toUpperCase() === 'BATAL') throw new SisiError_('BA_SUDAH_BATAL', teksBa_(cekAwal['ID BA']));
-      return ubahBaGarduPenggantian_(sesi, data, cekAwal, tahunIni);
+      return ubahBaGarduPenggantian_(sesi, data, cekAwal, tahunIni, platform);
     }
   }
   var d = validasi_(data, {
@@ -351,7 +351,7 @@ function ubahBaGardu_(sesi, data) {
     // foto pengganti jadi foto utama, foto lama dibuang SESUDAH baris menunjuk foto baru
     revisi.forEach(function (x) { try { x.f.setDescription(PENANDA_FOTO_ + d.baId + '-' + x.s.slot); } catch (eD) { /* penanda tetap REVISI */ } });
     buang.forEach(function (id) { try { DriveApp.getFileById(id).setTrashed(true); } catch (eB) { /* sudah tidak ada */ } });
-    auditLog_(sesi, 'BA_GARDU_UBAH', teksBa_(r['ID BA']), beda.join(', ') + (d.alasan ? ' | ' + d.alasan : ''), 'MOBILE', tLog);
+    auditLog_(sesi, 'BA_GARDU_UBAH', teksBa_(r['ID BA']), beda.join(', ') + (d.alasan ? ' | ' + d.alasan : ''), platform, tLog);
     if (revisi.length) diubah = r;
     return Object.assign(jawabBa_(r, 'OK', { peringatan: peringatan }), { revision: Number(r.revision) || 0, revisiBa: u['Revisi BA'], diubah: beda });
   });

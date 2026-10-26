@@ -325,6 +325,12 @@ function loginInti_(d, username, platform, c, batas) {
 
   var profil = profilUser_(String(user.user_id), users);   // db_Users tidak dibaca ulang
   w('baca_tim');
+  // v1.0.34 web admin (permintaan kvlar 26 Okt 2026): website hanya untuk Admin / Admin ES. Dicek sesudah password benar
+  // (tidak membocorkan role ke penebak password) dan tidak menambah hitungan gagal login.
+  if (platform === 'WEB' && ROLE_WEB_().indexOf(profil.role) === -1) {
+    if (catatAudit) auditLog_(profil, 'LOGIN_WEB_DITOLAK', '', 'role ' + profil.role, platform);
+    throw new SisiError_('WEB_KHUSUS_ADMIN');
+  }
   // v0.63.0 (keputusan kvlar 7 Okt 2026): akun tim YANDAL = login 2 tahap. Password benar -> tiket (bukan token),
   // lalu pilih 1-2 petugas + konfirmasi (mulaiShiftYandal) baru token dibuat. Menit peralihan shift = ditolak.
   var yandal = petugasYandal_(profil) ? siapkanLoginYandal_(profil) : null;

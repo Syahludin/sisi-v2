@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/backend.test.js",
+    "test:web": "npm --prefix web test",
+    "build:web": "npm --prefix web run build",
     "push:staging": "npm --prefix backend run push:staging",
     "push:production": "npm --prefix backend run push:production",
     "deploy:staging": "npm --prefix backend run deploy:staging --",

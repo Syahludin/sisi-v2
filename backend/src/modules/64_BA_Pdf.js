@@ -186,7 +186,7 @@ function jawabPdf_(r) {
  * buatPdfBaGardu {baId} -> { baId, idBa, statusPdf: SELESAI, urlPdf, fileId, waktuPdf, namaFile, fotoHilang }.
  * Buat ulang = PDF baru, file lama dibuang SESUDAH baris menunjuk file baru. Gagal = Status PDF GAGAL (BA tetap utuh).
  */
-function buatPdfBaGardu_(sesi, data) {
+function buatPdfBaGardu_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var d = validasi_(data, { baId: { tipe: 'uuid', wajib: true } });
   var konf = konfigPdf_();
@@ -222,7 +222,7 @@ function buatPdfBaGardu_(sesi, data) {
       bytes = bytesPdfEngine_(kirimPdfEngine_(konf, j.jalur, { versi: 1, idBa: teksBa_(awal['ID BA']), data: dataPdfBa_(awal), foto: foto.foto }));
     } catch (eE) {
       try { tandai({ 'Status PDF': 'GAGAL', 'Waktu PDF': waktuPdfWib_() }); } catch (eT) { /* status tetap PROSES, kedaluwarsa sendiri */ }
-      auditLog_(sesi, 'BA_GARDU_PDF_GAGAL', teksBa_(awal['ID BA']), (eE && (eE.kode + ' ' + (eE.detail || ''))) || String(eE), 'MOBILE');
+      auditLog_(sesi, 'BA_GARDU_PDF_GAGAL', teksBa_(awal['ID BA']), (eE && (eE.kode + ' ' + (eE.detail || ''))) || String(eE), platform);
       throw eE;
     }
     var nama = namaFilePdfBa_(j.awalan, awal['ID BA']);
@@ -248,7 +248,7 @@ function buatPdfBaGardu_(sesi, data) {
     }
     rapikanSesudahBa_(tulis.baris);   // v0.77.0: foto BA lama (folder sebelum v0.77.0) ikut pindah
     auditLog_(sesi, 'BA_GARDU_PDF', teksBa_(awal['ID BA']), jenis + (tulis.fileLama ? ' (buat ulang)' : '') +
-      (foto.hilang.length ? ', foto kosong: ' + foto.hilang.join(', ') : ''), 'MOBILE');
+      (foto.hilang.length ? ', foto kosong: ' + foto.hilang.join(', ') : ''), platform);
     return Object.assign(jawabPdf_(tulis.baris), { namaFile: nama, fotoHilang: foto.hilang });
   } finally {
     cache.remove(kunci);

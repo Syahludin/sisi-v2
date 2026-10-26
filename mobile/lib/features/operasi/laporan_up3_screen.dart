@@ -325,7 +325,9 @@ class _LaporanUp3ScreenState extends State<LaporanUp3Screen> {
     return SectionCard(judul: 'Status tim', ikon: Icons.groups_rounded, children: [
       for (final t in status) _BarisStatus(nama: '${t['nama']}', status: '${t['status']}'),
       _BarisStatus(nama: 'Hartek', status: statusHartek),
-      for (final n in const ['Inspeksi Jaringan', 'Inspeksi Gardu']) _BarisStatus(nama: n, status: 'V1'),
+      // v1.0.35: status dari server (aturan sama Hartek); server lama tanpa `inspeksi` = BELUM DI V2
+      for (final (n, k) in const [('Inspeksi Jaringan', 'jaringan'), ('Inspeksi Gardu', 'gardu')])
+        _BarisStatus(nama: n, status: '${((d['inspeksi'] as Map<String, dynamic>?)?[k] as Map<String, dynamic>?)?['status'] ?? 'V1'}'),
       const Divider(height: 22),
       const Text('ROW HARI INI (TARGET / REALISASI)',
           style: TextStyle(fontSize: 10.5, letterSpacing: .6, fontWeight: FontWeight.w800, color: AppColors.neutral500)),

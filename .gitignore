@@ -27,3 +27,11 @@ Thumbs.db
 graphify-out/
 __pycache__/
 docs/android/.gradle/
+
+# Website admin (web/): hasil build, paket upload Hostinger, config.js berisi URL /exec (lihat config.example.js)
+web/dist/
+web/*.zip
+web/public/config.js
+
+# Mockup brainstorming lokal
+.superpowers/

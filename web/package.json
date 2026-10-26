@@ -1,0 +1,22 @@
+{
+  "name": "sisi-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SiSi Panel Admin (website khusus Admin / Admin ES, di-hosting statis di Hostinger)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/inti.test.js test/laporan.test.js test/approvalP0.test.js test/jadwalPadam.test.js test/pengukuranGardu.test.js test/beritaAcara.test.js"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.5.0",
+    "vite": "6.3.5"
+  },
+  "engines": { "node": ">=20" }
+}

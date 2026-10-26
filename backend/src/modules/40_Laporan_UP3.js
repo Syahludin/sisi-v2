@@ -9,7 +9,8 @@
  *      lap_C4A_UP3    : 1 baris per penyulang; Realisasi kmS diisi langsung; Temuan, Tindak Lanjut, Eksekusi (tim) teks
  *      lap_Harian_UIW : 1 baris AKTIF per tanggal, induk lap_C4A_UIW (Cuaca, Tim ROW, salinan teks Laporan UIW)
  *      lap_C4A_UIW    : 1 baris per section (Jumlah Tiang -> Panjang kmS = tiang x 0,05), Care for Asset
- *  - Modul yang belum pindah ke v2 (Gangguan, Hartek, Inspeksi, P0, Tindak Lanjut gangguan) tampil "-".
+ *  - Modul yang belum pindah ke v2 (Gangguan, P0, Tindak Lanjut gangguan) tampil "-". Hartek (v0.98.7), Inspeksi Jaringan
+ *    (v1.0.6) dan Inspeksi Gardu (v1.0.8) sudah dari v2; status timnya ikut kartu Status tim (v1.0.35: inspeksi.jaringan / .gardu).
  * Format teks mengikuti Tek-LapUP3UIWHarian.js lama. Target ROW per hari (Script Property, default 20 rabas /
  * 6 tebang) dibagi rata ke penyulang hari itu, sisa ke penyulang pertama.
  *
@@ -810,6 +811,31 @@ function ringkasHartek_(htk) {
   };
 }
 
+/**
+ * v1.0.35 (laporan kvlar 26 Okt 2026, kartu Status tim masih "BELUM DI V2"): status tim modul berheader (Inspeksi Jaringan,
+ * Inspeksi Gardu; kolom header = db_Hartek_Header) dengan aturan yang sama dengan Hartek (dataHartekLaporan_):
+ * BELUM = tidak ada header AKTIF tanggal itu, LAPOR = ada, SIAP = ada header lengkap (koordinat + km awal & akhir) yang
+ * punya realisasi tanggal itu. tglFn = tanggal baris (tglInsJar_). Hasil { status, timLapor }.
+ */
+function statusTimHeader_(headers, realisasi, tanggal, tglFn) {
+  var hari = {}, tim = {};
+  headers.forEach(function (h) {
+    if (!h.header_id || String(h.status || 'AKTIF') !== 'AKTIF' || tglFn(h) !== tanggal) return;
+    hari[String(h.header_id)] = h;
+    tim[String(h.tim_id || h.header_id)] = true;
+  });
+  var lengkap = function (h) {
+    return lapTeks_(h.koordinat_awal) && lapTeks_(h.koordinat_akhir) && h.km_awal !== '' && h.km_awal !== null && h.km_awal !== undefined &&
+      h.km_akhir !== '' && h.km_akhir !== null && h.km_akhir !== undefined;
+  };
+  var siap = realisasi.some(function (r) {
+    var h = hari[String(r.header_id)];
+    return h && String(r.status || 'AKTIF') !== 'BATAL' && lengkap(h);
+  });
+  var n = Object.keys(tim).length;
+  return { status: siap ? 'SIAP' : n ? 'LAPOR' : 'BELUM', timLapor: n };
+}
+
 /** Hasil satu laporan (get & simpan). ganti = { c4a, cuaca } yang belum ditulis; kosong = dari sheet. */
 function susunBagian_(sesi, B, tanggal, waktu, T, ganti) {
   ganti = ganti || {};
@@ -829,9 +855,13 @@ function susunBagian_(sesi, B, tanggal, waktu, T, ganti) {
   };
   var rkH = ringkasHartek_(row.hartek);
   if (rkH) h.hartek = rkH;
+  // v1.0.35: status tim Inspeksi Jaringan / Inspeksi Gardu (V1 = modul belum disiapkan di server)
+  h.inspeksi = { jaringan: ringkasStatusIns_(row.inspeksi), gardu: ringkasStatusIns_(row.inspeksiGardu) };
   if (B.cuaca) h.cuaca = cuaca;
   return h;
 }
+
+function ringkasStatusIns_(x) { return { status: (x && x.status) || 'V1', timLapor: (x && x.timLapor) || 0 }; }
 
 /** Baca satu laporan. Tanggal > 7 hari = salinan tersimpan (hanya lihat). */
 function getLaporanBagian_(sesi, data, bagian) {

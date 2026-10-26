@@ -30,7 +30,7 @@ var REKAP_BA_HEADER_ = [
   'revision', 'dibuat_oleh', 'diubah_oleh'
 ];
 
-var DB_GARDU_HEADER_ = [
+var DB_GARDU_HEADER_DASAR_ = [
   'No', 'No Gardu', 'Prefix', 'ULP', 'Status Gardu', 'Asal Nomor', 'Lanjutan Dari Gardu', 'Nomor Dipakai Ulang',
   'Alamat', 'Penyulang', 'Section', 'PTS/LBS', 'Lat', 'Long', 'Konstruksi', 'Kapasitas (kVA)', 'Merk', 'Nomor Seri',
   'Tahun', 'Jurusan Terpasang', 'Asal Trafo', 'Merk PHB-TR', 'Nomor Seri PHB-TR', 'Tahun PHB-TR', 'Kepemilikan',
@@ -51,6 +51,224 @@ var DB_GARDU_HEADER_ = [
   'Timestamp', 'Timestamp Update', 'gardu_id', 'gardu_id_lanjutan', 'gardu_id_nomor_baru', 'section_id',
   'ba_id_pengoperasian', 'ba_id_terakhir', 'ukur_id_terakhir', 'ukur_id_lwbp', 'revision', 'dibuat_oleh', 'diubah_oleh'
 ];
+
+/**
+ * v1.0.35 (keputusan kvlar 26 Okt 2026): db_Gardu = SUMBER UTAMA data gardu. Form Update Data Gardu v1 (HI, 182 isian) dari
+ * website ditulis ke db_Gardu; 3 file sheet lama (Master HI Toboali / HP / UP3) mengikuti db_Gardu (81_HI_Gardu.js).
+ * Satu baris per isian: kunci form v1 (data-col) | tab.huruf kolom sheet lama (mg = Master_Gardu & 1. DATA TRAFO,
+ * sf = Suhu & Fisik Trafo & 2. SUHU & FISIK TRAFO; kunci berhuruf juga = kolom INPUT TBL) | kolom db_Gardu | tipe.
+ * Kolom db yang sudah ada dipakai ulang (identitas, blok WBP / LWBP, cover); @TANGGAL_UKUR = tanggal blok pengukuran.
+ * Kolom baru (HI_GARDU_KOLOM_BARU_) ditambah di db_Gardu lewat ADMIN_rombakDbGardu. Urutan baris = urutan form v1.
+ */
+var HI_GARDU_KATALOG_TEKS_ = [
+  'B|mg.B|ULP|text',
+  'C|mg.C|No Gardu|text',
+  'E|mg.E|Penyulang|select',
+  'F|mg.F|Section|select',
+  'D|mg.D|Alamat|text',
+  'G|mg.G|Lokasi Kelas Gardu|select',
+  'H|mg.H|Line Primer Gardu|select',
+  'I|mg.I|Lat|text',
+  'J|mg.J|Long|text',
+  'K|mg.K|Konstruksi|select',
+  'L|mg.L|Merk|select',
+  'M|mg.M|Kapasitas (kVA)|select',
+  'N|mg.N|Nomor Seri|text',
+  'O|mg.O|Tahun|text',
+  'P|mg.P|Type Seal|select',
+  'kepemilikan|mg.V|Kepemilikan|select',
+  'phbMerk|mg.Q|Merk PHB-TR|text',
+  'phbSeri|mg.R|Nomor Seri PHB-TR|text',
+  'phbTahun|mg.S|Tahun PHB-TR|text',
+  'R|mg.U|@TANGGAL_UKUR|date',
+  'Q|mg.T|Jam Ukur WBP|time',
+  'S|mg.W|Petugas Inspeksi|text',
+  'T|mg.X|Jurusan Terpasang|number',
+  'U|mg.Y|Jurusan TR Terpakai|number',
+  'V|mg.Z|Tap Trafo (Nomor/Tap)|text',
+  'W|mg.AA|Tap Trafo Tegangan (V)|text',
+  'X|mg.AB|Tegangan R-S (V)|number',
+  'Y|mg.AC|Tegangan S-T (V)|number',
+  'Z|mg.AD|Tegangan R-T (V)|number',
+  'AA|mg.AE|Tegangan R-N (V)|number',
+  'AB|mg.AF|Tegangan S-N (V)|number',
+  'AC|mg.AG|Tegangan T-N (V)|number',
+  'AD|mg.AH|Beban R (A)|number',
+  'AE|mg.AI|Beban S (A)|number',
+  'AF|mg.AJ|Beban T (A)|number',
+  'AG|mg.AK|Beban N (A)|number',
+  'AX|mg.BB|Cos Phi R WBP|number',
+  'AY|mg.BC|Cos Phi S WBP|number',
+  'AZ|mg.BD|Cos Phi T WBP|number',
+  'AH|mg.AL|Beban Jurusan A R WBP (A)|number',
+  'AI|mg.AM|Beban Jurusan A S WBP (A)|number',
+  'AJ|mg.AN|Beban Jurusan A T WBP (A)|number',
+  'AK|mg.AO|Beban Jurusan A N WBP (A)|number',
+  'AL|mg.AP|Beban Jurusan B R WBP (A)|number',
+  'AM|mg.AQ|Beban Jurusan B S WBP (A)|number',
+  'AN|mg.AR|Beban Jurusan B T WBP (A)|number',
+  'AO|mg.AS|Beban Jurusan B N WBP (A)|number',
+  'AP|mg.AT|Beban Jurusan C R WBP (A)|number',
+  'AQ|mg.AU|Beban Jurusan C S WBP (A)|number',
+  'AR|mg.AV|Beban Jurusan C T WBP (A)|number',
+  'AS|mg.AW|Beban Jurusan C N WBP (A)|number',
+  'AT|mg.AX|Beban Jurusan D R WBP (A)|number',
+  'AU|mg.AY|Beban Jurusan D S WBP (A)|number',
+  'AV|mg.AZ|Beban Jurusan D T WBP (A)|number',
+  'AW|mg.BA|Beban Jurusan D N WBP (A)|number',
+  'BA|mg.BE|Tegangan R-S LWBP (V)|number',
+  'BB|mg.BF|Tegangan S-T LWBP (V)|number',
+  'BC|mg.BG|Tegangan R-T LWBP (V)|number',
+  'BD|mg.BH|Tegangan R-N LWBP (V)|number',
+  'BE|mg.BI|Tegangan S-N LWBP (V)|number',
+  'BF|mg.BJ|Tegangan T-N LWBP (V)|number',
+  'BG|mg.BK|Beban R LWBP (A)|number',
+  'BH|mg.BL|Beban S LWBP (A)|number',
+  'BI|mg.BM|Beban T LWBP (A)|number',
+  'BJ|mg.BN|Beban N LWBP (A)|number',
+  'CA|mg.CE|Cos Phi R LWBP|number',
+  'CB|mg.CF|Cos Phi S LWBP|number',
+  'CC|mg.CG|Cos Phi T LWBP|number',
+  'BK|mg.BO|Beban Jurusan A R LWBP (A)|number',
+  'BL|mg.BP|Beban Jurusan A S LWBP (A)|number',
+  'BM|mg.BQ|Beban Jurusan A T LWBP (A)|number',
+  'BN|mg.BR|Beban Jurusan A N LWBP (A)|number',
+  'BO|mg.BS|Beban Jurusan B R LWBP (A)|number',
+  'BP|mg.BT|Beban Jurusan B S LWBP (A)|number',
+  'BQ|mg.BU|Beban Jurusan B T LWBP (A)|number',
+  'BR|mg.BV|Beban Jurusan B N LWBP (A)|number',
+  'BS|mg.BW|Beban Jurusan C R LWBP (A)|number',
+  'BT|mg.BX|Beban Jurusan C S LWBP (A)|number',
+  'BU|mg.BY|Beban Jurusan C T LWBP (A)|number',
+  'BV|mg.BZ|Beban Jurusan C N LWBP (A)|number',
+  'BW|mg.CA|Beban Jurusan D R LWBP (A)|number',
+  'BX|mg.CB|Beban Jurusan D S LWBP (A)|number',
+  'BY|mg.CC|Beban Jurusan D T LWBP (A)|number',
+  'BZ|mg.CD|Beban Jurusan D N LWBP (A)|number',
+  'CD|sf.H|Suhu Body Trafo (°C)|number',
+  'CO|sf.S|Suhu PHB-TR (°C)|number',
+  'CP|sf.T|Suhu Outlet (°C)|number',
+  'CE|sf.I|Suhu FCO R (°C)|number',
+  'CF|sf.J|Suhu FCO S (°C)|number',
+  'CG|sf.K|Suhu FCO T (°C)|number',
+  'CH|sf.L|Suhu Bushing TM R (°C)|number',
+  'CI|sf.M|Suhu Bushing TM S (°C)|number',
+  'CJ|sf.N|Suhu Bushing TM T (°C)|number',
+  'CK|sf.O|Suhu Bushing TR R (°C)|number',
+  'CL|sf.P|Suhu Bushing TR S (°C)|number',
+  'CM|sf.Q|Suhu Bushing TR T (°C)|number',
+  'CN|sf.R|Suhu Bushing TR N (°C)|number',
+  'CX|sf.AB|Visual Body Trafo|select',
+  'CY|sf.AC|Kebocoran|select',
+  'CQ|sf.U|Visual Bushing TM R|select',
+  'CR|sf.V|Visual Bushing TM S|select',
+  'CS|sf.W|Visual Bushing TM T|select',
+  'CT|sf.X|Visual Bushing TR R|select',
+  'CU|sf.Y|Visual Bushing TR S|select',
+  'CV|sf.Z|Visual Bushing TR T|select',
+  'CW|sf.AA|Visual Bushing TR N|select',
+  'CZ|sf.AD|Conector Outlet|select',
+  'DA|sf.AE|Jenis Arrester|select',
+  'DB|sf.AF|Arrester R|select',
+  'DC|sf.AG|Arrester S|select',
+  'DD|sf.AH|Arrester T|select',
+  'DE|sf.AI|Jenis FCO|select',
+  'DF|sf.AJ|FCO R|select',
+  'DG|sf.AK|FCO S|select',
+  'DH|sf.AL|FCO T|select',
+  'DI|sf.AM|PHB-TR Kondisi Pintu|select',
+  'DJ|sf.AN|PHB-TR Kondisi Lantai|select',
+  'DK|sf.AO|PHB-TR Kondisi Dinding|select',
+  'DL|sf.AP|PHB-TR Kondisi Engsel|select',
+  'DM|sf.AQ|PHB-TR Kunci|select',
+  'DN|sf.AR|PHB-TR Instalasi|select',
+  'DO|sf.AS|Rating Onload|text',
+  'DP|sf.AT|Kondisi Onload|text',
+  'DQ|sf.AU|Grounding Arrester Nilai|text',
+  'DR|sf.AV|Grounding Arrester Kondisi|select',
+  'DS|sf.AW|Grounding Netral Nilai|text',
+  'DT|sf.AX|Grounding Netral Kondisi|select',
+  'DU|sf.AY|Konstruksi Grounding Trafo|select',
+  'DV|sf.AZ|NH A R Rating|text',
+  'DW|sf.BA|NH A R Kondisi|select',
+  'DX|sf.BB|NH A S Rating|text',
+  'DY|sf.BC|NH A S Kondisi|select',
+  'DZ|sf.BD|NH A T Rating|text',
+  'EA|sf.BE|NH A T Kondisi|select',
+  'EB|sf.BF|NH B R Rating|text',
+  'EC|sf.BG|NH B R Kondisi|select',
+  'ED|sf.BH|NH B S Rating|text',
+  'EE|sf.BI|NH B S Kondisi|select',
+  'EF|sf.BJ|NH B T Rating|text',
+  'EG|sf.BK|NH B T Kondisi|select',
+  'EH|sf.BL|NH C R Rating|text',
+  'EI|sf.BM|NH C R Kondisi|select',
+  'EJ|sf.BN|NH C S Rating|text',
+  'EK|sf.BO|NH C S Kondisi|select',
+  'EL|sf.BP|NH C T Rating|text',
+  'EM|sf.BQ|NH C T Kondisi|select',
+  'EN|sf.BR|NH D R Rating|text',
+  'EO|sf.BS|NH D R Kondisi|select',
+  'EP|sf.BT|NH D S Rating|text',
+  'EQ|sf.BU|NH D S Kondisi|select',
+  'ER|sf.BV|NH D T Rating|text',
+  'ES|sf.BW|NH D T Kondisi|select',
+  'ET|sf.BX|Kabel Utama Jenis|select',
+  'EU|sf.BY|Kabel Utama Ukuran (mm²)|select',
+  'EV|sf.BZ|Kabel Utama Kondisi|select',
+  'EW|sf.CA|Kabel Jurusan A Jenis|select',
+  'EX|sf.CB|Kabel Jurusan A Ukuran (mm²)|select',
+  'EY|sf.CC|Kabel Jurusan A Kondisi|select',
+  'EZ|sf.CD|Kabel Jurusan B Jenis|select',
+  'FA|sf.CE|Kabel Jurusan B Ukuran (mm²)|select',
+  'FB|sf.CF|Kabel Jurusan B Kondisi|select',
+  'FC|sf.CG|Kabel Jurusan C Jenis|select',
+  'FD|sf.CH|Kabel Jurusan C Ukuran (mm²)|select',
+  'FE|sf.CI|Kabel Jurusan C Kondisi|select',
+  'FF|sf.CJ|Kabel Jurusan D Jenis|select',
+  'FG|sf.CK|Kabel Jurusan D Ukuran (mm²)|select',
+  'FH|sf.CL|Kabel Jurusan D Kondisi|select',
+  'FI|sf.CM|Pipa Jenis|select',
+  'FJ|sf.CN|Pipa Kondisi|select',
+  'FK|sf.CO|Busbar Kondisi|select',
+  'FL|sf.CP|Sepatu Kabel Incoming|select',
+  'FM|sf.CQ|Sepatu Kabel Jurusan A|select',
+  'FN|sf.CR|Sepatu Kabel Jurusan B|select',
+  'FO|sf.CS|Sepatu Kabel Jurusan C|select',
+  'FP|sf.CT|Sepatu Kabel Jurusan D|select',
+  'coverFcoAtas|mg.FP|Cover FCO Atas|select',
+  'coverFcoBawah|mg.FQ|Cover FCO Bawah|select',
+  'coverBushingTm|mg.FR|Cover Bushing TM|select',
+  'coverBushingTr|mg.FS|Cover Bushing TR|select',
+  'coverArrester|mg.FT|Cover Arrester|select',
+  'coverJumperanAtas|mg.FU|Jumperan Atas|select',
+  'coverJumperanBawah|mg.FV|Jumperan Bawah|select',
+];
+
+/** [{kunci, tab, huruf, kolom, tipe}] dari HI_GARDU_KATALOG_TEKS_. */
+function katalogHiGardu_() {
+  if (katalogHiGardu_.memo) return katalogHiGardu_.memo;
+  katalogHiGardu_.memo = HI_GARDU_KATALOG_TEKS_.map(function (s) {
+    var p = s.split('|'), t = p[1].split('.');
+    return { kunci: p[0], tab: t[0], huruf: t[1], kolom: p[2], tipe: p[3] };
+  });
+  return katalogHiGardu_.memo;
+}
+
+/** Kolom db_Gardu baru untuk isian HI (yang belum punya kolom di struktur dasar), urutan form v1. */
+var HI_GARDU_KOLOM_BARU_ = HI_GARDU_KATALOG_TEKS_.map(function (s) { return s.split('|')[2]; }).filter(function (k) {
+  return k.charAt(0) !== '@' && DB_GARDU_HEADER_DASAR_.indexOf(k) === -1;
+});
+
+/** v1.0.35: kapan baris ini terakhir berhasil ditulis ke 3 file sheet lama + ringkasan hasilnya (lihat 81_HI_Gardu.js). */
+var SINKRON_SHEET_KOLOM_ = ['Sinkron Sheet Lama', 'Hasil Sinkron Sheet Lama'];
+
+/** Struktur db_Gardu terkini: dasar + kolom HI + kolom sinkron, disisip sebelum 'Diubah Oleh'. */
+var DB_GARDU_HEADER_ = (function () {
+  var h = DB_GARDU_HEADER_DASAR_.slice(), i = h.indexOf('Diubah Oleh');
+  h.splice.apply(h, [i, 0].concat(HI_GARDU_KOLOM_BARU_, SINKRON_SHEET_KOLOM_));
+  return h;
+})();
 
 /**
  * v1.0.23: kolom blok pengukuran per periode. Kolom lama (Tanggal Ukur Terakhir, 10 angka, Pembebanan, Persentase,

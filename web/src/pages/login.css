@@ -1,0 +1,235 @@
+/* Login web admin: panggung SiSi 70% + panel kaca gelap 30% (mockup arah B, alur tombol Login seperti HP). */
+
+.lg {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: #fff;
+  background: var(--gradien-sisi);
+}
+
+/* ===== kiri 70% ===== */
+.lg-kiri {
+  position: relative;
+  flex: 1 1 70%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 40px 64px;
+  text-align: center;
+}
+.lg-motif { position: absolute; left: 0; bottom: 0; width: 100%; height: 44%; pointer-events: none; }
+.lg-stg {
+  position: absolute; top: 24px; left: 24px;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--accent-400); color: var(--brand-950);
+  font-size: 12px; font-weight: 900; letter-spacing: .8px;
+}
+.lg-logo {
+  position: relative;
+  width: clamp(104px, 9vw, 148px); aspect-ratio: 1;
+  padding: clamp(12px, 1.1vw, 16px);
+  border-radius: 28%;
+  background: #fff;
+  box-shadow: 0 0 40px 3px rgba(242, 201, 76, .38), 0 12px 22px rgba(0, 0, 0, .28);
+  opacity: 0;
+  animation: lgMuncul .7s 1.5s cubic-bezier(.34, 1.56, .64, 1) forwards;
+}
+.lg-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.lg-teks { position: relative; display: flex; flex-direction: column; align-items: center; opacity: 0; animation: lgNaik .6s 1.75s ease-out forwards; }
+.lg-sisi { margin: 26px 0 0; font-size: clamp(44px, 4.4vw, 68px); line-height: 1; font-weight: 900; letter-spacing: -1px; }
+.lg-kicker {
+  display: flex; align-items: center; gap: 9px; margin-top: 8px;
+  font-size: clamp(12px, 1vw, 14.5px); font-weight: 800; letter-spacing: 2.6px; color: rgba(255, 255, 255, .86);
+}
+.lg-percik { width: 4px; height: 13px; border-radius: 4px; background: var(--accent-400); }
+.lg-pill {
+  display: flex; align-items: center; gap: 5px; margin-top: 16px; padding: 6px 14px;
+  border-radius: 999px; background: rgba(0, 0, 0, .18);
+  font-size: 12.5px; font-weight: 800; letter-spacing: .6px;
+}
+.lg-pill-ikon { color: var(--accent-400); }
+.lg-desc { max-width: 440px; margin: 20px 0 0; font-size: 15px; line-height: 1.6; color: rgba(255, 255, 255, .72); }
+.lg-foot { position: absolute; left: 0; right: 0; bottom: 16px; font-size: 12px; color: rgba(255, 255, 255, .6); }
+
+/* ===== kanan 30%: panel kaca gelap ===== */
+.lg-auth {
+  position: relative;
+  flex: 0 0 30%;
+  min-width: 360px;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 88px 36px 64px;
+  background: rgba(255, 255, 255, .07);
+  border-left: 1px solid rgba(255, 255, 255, .14);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.lg-pln {
+  position: absolute; top: 20px; right: 20px; z-index: 2;
+  width: 46px; height: 46px; padding: 5px;
+  border-radius: 11px; background: var(--neutral-100); border: 1px solid var(--neutral-200);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .08);
+}
+.lg-pln img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.lg-ver {
+  position: absolute; left: 0; right: 0; bottom: 18px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12px; color: rgba(255, 255, 255, .5);
+}
+.lg-ver--putus, .lg-ver--config { color: #ffb4bb; }
+
+/* tombol kuning Login (sebelum form) */
+.lg-pintu {
+  position: absolute; left: 36px; right: 36px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  opacity: 0;
+  animation: lgGeser .6s 2.1s ease-out forwards;
+  transition: opacity .3s ease, transform .3s ease;
+}
+.lg-pintu--tutup { opacity: 0 !important; transform: translateY(-14px); pointer-events: none; animation: none; }
+.lg-tombol-login {
+  width: 100%; max-width: 340px; height: 58px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 0; border-radius: 18px;
+  background: var(--accent-400); color: var(--brand-950);
+  font-size: 17px; font-weight: 900;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .3);
+  transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+}
+.lg-tombol-login:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 12px 24px rgba(0, 0, 0, .34); }
+.lg-tombol-login:active { transform: translateY(0); }
+.lg-pintu small { font-size: 12.5px; color: rgba(255, 255, 255, .72); }
+
+/* form (muncul pelan sesudah Login diklik) */
+.lg-form {
+  position: relative;
+  width: 100%; max-width: 400px;
+  opacity: 0; transform: translateY(22px); pointer-events: none;
+  transition: opacity .45s ease, transform .45s ease;
+}
+.lg-form--buka { opacity: 1; transform: none; pointer-events: auto; }
+.lg-head { display: flex; align-items: center; gap: 12px; }
+.lg-tile {
+  flex: 0 0 auto; width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 13px;
+}
+.lg-tile--kaca { background: rgba(255, 255, 255, .12); color: var(--accent-400); }
+.lg-tile--biru { background: linear-gradient(135deg, var(--brand-700), var(--brand-500)); color: #fff; }
+.lg-tile--kuning { background: linear-gradient(135deg, var(--accent-400), var(--accent-600)); color: var(--brand-950); }
+.lg-h { flex: 1; margin: 0; font-size: 21px; font-weight: 900; }
+.lg-x {
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff;
+}
+.lg-x:hover:not(:disabled) { background: rgba(255, 255, 255, .18); }
+.lg-sub { margin: 8px 0 18px; font-size: 13.5px; color: rgba(255, 255, 255, .66); }
+.lg-galat {
+  display: flex; gap: 8px; align-items: flex-start; margin-bottom: 14px; padding: 10px 12px;
+  border-radius: 11px; background: rgba(209, 59, 70, .2); border: 1px solid rgba(255, 140, 150, .45);
+  font-size: 13px; line-height: 1.45; color: #ffe1e4;
+}
+.lg-galat svg { flex: 0 0 auto; margin-top: 1px; color: #ff9aa3; }
+
+.lg-cred { border-radius: 18px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); }
+.lg-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; cursor: text; transition: background .2s ease, box-shadow .2s ease; }
+.lg-row + .lg-row { border-top: 1px solid rgba(255, 255, 255, .12); }
+.lg-row:focus-within { background: rgba(20, 166, 199, .13); box-shadow: inset 3px 0 0 var(--brand-500); }
+.lg-isian { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lg-lbl { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: rgba(255, 255, 255, .66); transition: color .2s ease; }
+.lg-row:focus-within .lg-lbl { color: #8fe0f0; }
+.lg-isian input {
+  width: 100%; margin-top: 2px; padding: 2px 0;
+  border: 0; outline: 0; background: transparent;
+  font-size: 16px; font-weight: 700; color: #fff;
+}
+.lg-isian input::placeholder { color: rgba(255, 255, 255, .42); font-weight: 600; }
+.lg-isian input:disabled { opacity: .7; }
+.lg-isian input:focus-visible { outline: none; }
+.lg-mata {
+  flex: 0 0 auto; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 10px; background: transparent; color: rgba(255, 255, 255, .62);
+}
+.lg-mata:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.lg-masuk {
+  width: 100%; height: 54px; margin-top: 18px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 0; border-radius: 15px;
+  background: var(--accent-400); color: var(--brand-950);
+  font-size: 16px; font-weight: 900;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+  transition: filter .15s ease, transform .15s ease;
+}
+.lg-masuk:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+.lg-masuk:disabled { cursor: progress; }
+.lg-note { margin: 14px 0 0; font-size: 11.5px; line-height: 1.5; text-align: center; color: rgba(255, 255, 255, .55); }
+
+/* kartu Login Berhasil (sama dengan HP) */
+.lg-ok {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(16, 42, 54, .72);
+  animation: lgPudar .3s ease-out;
+}
+.lg-okc {
+  width: 100%; max-width: 360px; padding: 28px 26px 24px;
+  border-radius: 24px; background: #fff; color: var(--neutral-900); text-align: center;
+  animation: lgMuncul .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+.lg-okr {
+  width: 76px; height: 76px; margin: 0 auto 16px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: #fff; background: linear-gradient(135deg, var(--success-600), var(--success-700));
+}
+.lg-okk { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--success-700); }
+.lg-okh { margin-top: 6px; font-size: 20px; font-weight: 800; color: var(--brand-900); }
+.lg-okp { margin-top: 16px; padding: 12px; border-radius: 14px; background: var(--neutral-100); }
+.lg-okp b { display: block; font-size: 15px; }
+.lg-okp span { font-size: 12px; color: var(--neutral-500); }
+.lg-oks { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--neutral-500); }
+
+/* ===== motif tiang & kawat (MotifJaringan) ===== */
+.motif-tiang, .motif-palang { fill: none; stroke: rgba(255, 255, 255, .26); stroke-width: 3.2; stroke-linecap: round; }
+.motif-kawat { fill: none; stroke: rgba(255, 255, 255, .2); stroke-width: 2; stroke-linecap: round; }
+.motif--animasi .motif-tiang { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lgGaris .7s ease-out forwards; }
+.motif--animasi .motif-palang { opacity: 0; animation: lgPudar .3s ease-out forwards; }
+.motif--animasi .motif-kawat { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lgGaris .55s ease-in-out forwards; }
+
+@keyframes lgGaris { to { stroke-dashoffset: 0; } }
+@keyframes lgPudar { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lgMuncul { 0% { opacity: 0; transform: scale(.4); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes lgNaik { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes lgGeser { from { opacity: 0; transform: translateX(34px); } to { opacity: 1; transform: none; } }
+
+/* layar sempit (tablet / browser HP): bertumpuk, logo di atas, tombol Login di bawah */
+@media (max-width: 900px) {
+  .lg { flex-direction: column; }
+  .lg-kiri { flex: 0 0 auto; min-height: 56vh; min-height: 56dvh; padding: 72px 24px 56px; }
+  .lg-motif { height: 30%; }
+  .lg-auth {
+    flex: 1 0 auto; min-width: 0; max-width: none; width: 100%;
+    padding: 40px 20px 56px; border-left: 0; border-top: 1px solid rgba(255, 255, 255, .14);
+    align-items: flex-start;
+  }
+  .lg-pln { top: 18px; right: 18px; }
+  .lg-pintu { position: relative; left: auto; right: auto; width: 100%; }
+  .lg-pintu--tutup { display: none; }
+  .lg-form { margin: 0 auto; }
+  .lg-form:not(.lg-form--buka) { display: none; }
+}
+
+/* "Kurangi animasi" di sistem: semua langsung tampil */
+@media (prefers-reduced-motion: reduce) {
+  .lg-logo, .lg-teks, .lg-pintu, .motif--animasi .motif-tiang, .motif--animasi .motif-palang, .motif--animasi .motif-kawat, .lg-ok, .lg-okc {
+    animation: none !important; opacity: 1; stroke-dashoffset: 0;
+  }
+  .lg-pintu--tutup { opacity: 0 !important; }
+  .lg-form, .lg-pintu, .lg-tombol-login, .lg-masuk { transition: none; }
+}

@@ -15,6 +15,7 @@
  *                    minta ke ULP. EAM_EMAIL kosong = "File BA : terlampir" saja. Dicatat di riwayat_meta.eam + log_Audit.
  *  updateMasterGarduBa {baId} terapkan isian BA ke db_Gardu (sama v1 updateMasterGarduDariBA): hanya kalau BA TTD
  *                    sudah diupload (SUDAH TTD) dan tidak ada BA lebih baru untuk gardu itu. Hasil: kolom yang berubah.
+ *                    v1.0.35: db_Gardu berubah = gardu itu langsung ditulis ke 3 file sheet lama (sheet: {ok, hasil}).
  *
  * Status TTD: BELUM TTD -> SUDAH TTD -> TTD ULANG (PDF dibuat ulang / BA diedit sesudah TTD = TTD lama tidak berlaku,
  * Kirim EAM + Update Master dikunci sampai BA TTD baru diupload).
@@ -96,7 +97,7 @@ function bagikanKeEam_(file) {
 
 function namaBagianTtd_(uploadId, ke) { return 'ttd-' + uploadId + '-' + ke + '.part'; }
 
-function uploadTtdBaGardu_(sesi, data) {
+function uploadTtdBaGardu_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var d = validasi_(data, {
     baId: { tipe: 'uuid', wajib: true },
@@ -163,7 +164,7 @@ function uploadTtdBaGardu_(sesi, data) {
         'Link BA TTD': urlPdf_(file.getId()), ttd_file_id: file.getId(), 'Status TTD': 'SUDAH TTD', 'Waktu TTD': waktu,
         'Timestamp Update': sekarangIso_(), diubah_oleh: sesi.userId || sesi.username || ''
       } }], [], { bolehId: ['ttd_file_id'] });
-      auditLog_(sesi, 'BA_GARDU_TTD', teksBa_(x2['ID BA']), (lama ? 'upload ulang ' : 'upload ') + namaTtd + ' (' + semua.length + ' byte)', 'MOBILE', tLog);
+      auditLog_(sesi, 'BA_GARDU_TTD', teksBa_(x2['ID BA']), (lama ? 'upload ulang ' : 'upload ') + namaTtd + ' (' + semua.length + ' byte)', platform, tLog);
       return { baris: x2, lama: lama };
     });
   } catch (eS) {
@@ -271,7 +272,7 @@ function teksEamBa_(r, namaFile, link) {
   ].concat(ekor).join('\n');
 }
 
-function kirimEamBaGardu_(sesi, data) {
+function kirimEamBaGardu_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var d = validasi_(data, { baId: { tipe: 'uuid', wajib: true } });
   var awal = barisBaAktif_(cekStrukturGardu_('GARDU_SHEET_ID', 'Rekap_BA').rows, d.baId);
@@ -288,7 +289,7 @@ function kirimEamBaGardu_(sesi, data) {
     var rw = riwayatBa_(r), waktu = waktuPdfWib_();
     rw.eam = { waktu: waktu, oleh: sesi.username || '', kali: ((rw.eam && Number(rw.eam.kali)) || 0) + 1 };
     tulisBlok_(t, [{ r: r, u: { riwayat_meta: JSON.stringify(rw), 'Timestamp Update': sekarangIso_(), diubah_oleh: sesi.userId || sesi.username || '' } }], []);
-    auditLog_(sesi, 'BA_GARDU_EAM', teksBa_(r['ID BA']), 'kirim EAM ke-' + rw.eam.kali, 'MOBILE', tLog);
+    auditLog_(sesi, 'BA_GARDU_EAM', teksBa_(r['ID BA']), 'kirim EAM ke-' + rw.eam.kali, platform, tLog);
     return Object.assign({ baId: d.baId, idBa: teksBa_(r['ID BA']), teks: teks, namaFile: namaFile, aksesEam: akunEam,
       peringatan: akunEam ? [] : ['EAM_EMAIL belum diisi: EAM hanya menerima lampiran, belum bisa membuka lagi lewat link'] }, infoTtdBa_(r));
   });
@@ -308,7 +309,7 @@ function nilaiBanding_(v) {
   return String(v === null || v === undefined ? '' : v).trim();
 }
 
-function updateMasterGarduBa_(sesi, data) {
+function updateMasterGarduBa_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var d = validasi_(data, { baId: { tipe: 'uuid', wajib: true } });
   return denganLock_(function () {
@@ -347,17 +348,21 @@ function updateMasterGarduBa_(sesi, data) {
     var diubah = Object.keys(u).filter(function (k) { return nilaiBanding_(g[k]) !== nilaiBanding_(u[k]); }).map(function (k) {
       return { kolom: k, lama: nilaiBanding_(g[k]), baru: nilaiBanding_(u[k]) };
     });
-    var sekarang = sekarangIso_(), oleh = sesi.userId || sesi.username || '', waktu = waktuPdfWib_();
+    var sekarang = sekarangIso_(), oleh = sesi.userId || sesi.username || '', waktu = waktuPdfWib_(), sheet = null;
     if (diubah.length) {
       tulisBlok_(tG, [{ r: g, u: Object.assign(u, { 'Diubah Oleh': sesi.username || '', 'Timestamp Update': sekarang, diubah_oleh: oleh }) }], [],
         { bolehId: ['section_id', 'ba_id_terakhir'] });
+      // v1.0.35 (keputusan kvlar 26 Okt 2026): db_Gardu sumber utama, 3 file sheet lama langsung mengikuti (gagal = disusul 05:00)
+      var t = tulisGarduKeSheetLama_(konteksSheetLama_(), g);
+      catatSinkronHi_(tG, g, t);
+      sheet = { ok: t.ok, hasil: t.hasil };
     }
     var rw = riwayatBa_(r);
     rw.master = { waktu: waktu, oleh: sesi.username || '', kolom: diubah.length };
     tulisBlok_(tR, [{ r: r, u: { 'Diterapkan ke Master': 'YA', riwayat_meta: JSON.stringify(rw), 'Timestamp Update': sekarang, diubah_oleh: oleh } }], []);
     auditLog_(sesi, 'BA_GARDU_MASTER', teksBa_(r['ID BA']), teksBa_(g['No Gardu']) + ': ' +
-      (diubah.length ? diubah.map(function (x) { return x.kolom; }).join(', ') : 'sudah sama'), 'MOBILE', tLog);
-    return Object.assign({ status: diubah.length ? 'OK' : 'TIDAK_BERUBAH', baId: d.baId, noGarduMaster: teksBa_(g['No Gardu']), diubah: diubah },
+      (diubah.length ? diubah.map(function (x) { return x.kolom; }).join(', ') : 'sudah sama'), platform, tLog);
+    return Object.assign({ status: diubah.length ? 'OK' : 'TIDAK_BERUBAH', baId: d.baId, noGarduMaster: teksBa_(g['No Gardu']), diubah: diubah, sheet: sheet },
       infoTtdBa_(r));
   });
 }

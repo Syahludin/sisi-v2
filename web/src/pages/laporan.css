@@ -1,0 +1,42 @@
+/* Laporan UP3 / UIW (komponen umum di styles/komponen.css). */
+.lap .hlm-header { flex-wrap: wrap; }
+
+/* Layar sangat lebar: input + status di kiri, teks WA menempel di kanan. Sedang: tabel input selebar halaman,
+   status dan teks WA berdampingan di bawahnya. Sempit: satu kolom. */
+.lap-grid {
+  display: grid; gap: 16px; align-items: start; transition: opacity .15s;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "input input" "status wa";
+}
+.lap-grid--muat { opacity: .55; pointer-events: none; }
+.lap-grid > .hlm-kartu { margin-bottom: 0; min-width: 0; }
+.lap-g-input { grid-area: input; }
+.lap-g-status { grid-area: status; }
+.lap-g-wa { grid-area: wa; }
+@media (min-width: 1680px) {
+  .lap-grid { grid-template-columns: minmax(0, 1fr) 420px; grid-template-areas: "input wa" "status wa"; }
+  .lap-wa { position: sticky; top: 0; }
+}
+
+/* --- Cuaca --- */
+.lap-cuaca { display: grid; gap: 6px; max-width: 720px; }
+.lap-cuaca .k-input { max-width: 420px; }
+
+/* --- Tabel C4A --- */
+.lap .k-tabel input.k-input:not(.k-input--angka) { min-width: 150px; }
+.lap-kunci { padding-top: 13px !important; white-space: nowrap; }
+.lap-kunci b { color: var(--brand-950); }
+.lap-hitung { padding-top: 13px !important; color: var(--brand-800); font-weight: 700; }
+.lap-aksi-sel { width: 40px; padding-top: 7px !important; }
+
+/* --- Status tim --- */
+.lap-status { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.lap-status li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13.5px; font-weight: 700; color: var(--brand-950); }
+
+/* --- Teks WA --- */
+.lap-wa .k-wa-teks { max-height: calc(100vh - 290px); min-height: 160px; }
+
+@media (max-width: 1679px) { .lap-wa .k-wa-teks { max-height: 560px; } }
+@media (max-width: 1000px) {
+  .lap-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "input" "wa" "status"; }
+}

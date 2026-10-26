@@ -1,0 +1,113 @@
+/* Jadwal Padam: kalender + ringkasan kiri, tabel per tanggal kanan (komponen umum di styles/komponen.css). */
+.jp .hlm-header { flex-wrap: wrap; }
+.jp-aksi { flex-wrap: wrap; justify-content: flex-end; }
+.jp-bulan { cursor: default; min-width: 170px; justify-content: center; }
+.jp-pesan { margin: 0 0 12px; }
+
+.jp-grid { display: grid; gap: 16px; grid-template-columns: 300px minmax(0, 1fr); align-items: start; transition: opacity .15s; }
+.jp-grid--muat { opacity: .55; pointer-events: none; }
+.jp-grid .hlm-kartu { margin-bottom: 0; }
+.jp-kiri { display: grid; gap: 16px; position: sticky; top: 0; }
+.jp-kanan { min-width: 0; }
+
+/* --- Kalender --- */
+.jp-kal { padding: 14px; }
+.jp-kal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.jp-kal-kepala { margin-bottom: 4px; }
+.jp-kal-kepala span { text-align: center; font-size: 10.5px; font-weight: 800; color: var(--neutral-500); }
+.jp-kal-grid + .jp-kal-grid { margin-top: 3px; }
+.jp-kal-hari {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; color: var(--brand-950); font-size: 12.5px; font-weight: 700;
+}
+.jp-kal-hari:hover { background: var(--brand-50); border-color: var(--brand-100); }
+.jp-kal-hari--libur { color: var(--red-700); }
+.jp-kal-hari--ini { border-color: var(--brand-500); }
+.jp-kal-hari--pilih { background: var(--brand-700); color: #fff; border-color: var(--brand-700); }
+.jp-kal-hari--pilih:hover { background: var(--brand-800); }
+.jp-kal-tanda { display: flex; gap: 3px; height: 6px; }
+.jp-titik { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.jp-titik--padam { background: var(--red-600); }
+.jp-titik--tanpa { background: var(--brand-500); }
+.jp-kal-hari--pilih .jp-titik { box-shadow: 0 0 0 1.5px #fff; }
+.jp-kal-legenda { display: flex; gap: 14px; margin: 10px 0 0; font-size: 11.5px; color: var(--neutral-500); }
+.jp-kal-legenda span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* --- Ringkasan --- */
+.jp-angka { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.jp-angka span { display: grid; padding: 9px 11px; border-radius: 10px; background: var(--neutral-50); border: 1px solid var(--neutral-150); }
+.jp-angka small { font-size: 11px; font-weight: 700; color: var(--neutral-500); }
+.jp-angka b { font-size: 20px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+.jp-angka--ok b { color: var(--success-700); }
+.jp-angka--batal b { color: var(--red-700); }
+.jp-dampak-ringkas { display: grid; gap: 8px; margin: 14px 0 0; }
+.jp-dampak-ringkas div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.jp-dampak-ringkas dt { color: var(--neutral-700); }
+.jp-dampak-ringkas dd { margin: 0; font-weight: 800; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+
+/* --- Saring + tabel --- */
+.jp-saring { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.jp-saring select.k-input { width: auto; min-width: 160px; }
+.jp-chip-hari { display: inline-flex; align-items: center; gap: 6px; }
+.jp-tabel td { vertical-align: middle; }
+.jp-tabel .k-angka { white-space: nowrap; }
+.jp-tgl-baris th {
+  padding: 14px 6px 6px; border-bottom: 1px solid var(--neutral-200); background: #fff;
+  font-size: 13px; font-weight: 900; color: var(--brand-950); text-align: left;
+}
+.jp-tgl-baris em { font-style: normal; color: var(--brand-700); }
+.jp-tgl-baris small { float: right; font-size: 11.5px; font-weight: 700; color: var(--neutral-500); }
+.jp-baris { cursor: pointer; }
+.jp-baris--batal td { color: var(--neutral-400); }
+.jp-baris--batal .jp-buka b { text-decoration: line-through; color: var(--neutral-500); }
+.jp-jam { white-space: nowrap; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--brand-900); }
+.jp-buka { display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; color: inherit; }
+.jp-buka b { font-size: 13px; color: var(--brand-950); }
+.jp-buka span { font-size: 12px; color: var(--neutral-700); }
+.jp-buka:hover b { text-decoration: underline; }
+.jp-jenis { max-width: 280px; }
+.jp-jenis small { display: block; font-size: 11px; color: var(--neutral-400); }
+.jp-status { white-space: nowrap; }
+.jp-status .k-badge + .k-badge { margin-left: 4px; }
+.jp-badge-padam { background: #fdebe3; color: #b4451b; }
+.jp-badge-tanpa { background: var(--brand-100); color: var(--brand-800); }
+
+/* --- Detail --- */
+.jp-detail-badge { display: flex; gap: 6px; margin-top: -4px; }
+.jp-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+.jp-detail dt { font-size: 11px; font-weight: 800; color: var(--neutral-500); }
+.jp-detail dd { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: var(--brand-950); overflow-wrap: anywhere; }
+.jp-detail-aksi { align-items: center; flex-wrap: wrap; }
+
+/* --- Form --- */
+.jp-form { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px 20px; }
+.jp-form-isi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; align-content: start; }
+.jp-penuh { grid-column: 1 / -1; }
+.jp-penuh-form { grid-column: 1 / -1; margin: 0; }
+.jp-jam-isi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jp-pilihan { border: 0; padding: 0; margin: 0; min-width: 0; }
+.jp-pilihan-isi { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.jp-pilihan legend { padding: 0; margin-bottom: 6px; }
+.jp-pilihan label { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; color: var(--brand-950); cursor: pointer; }
+.jp-pilihan input { accent-color: var(--brand-700); width: 16px; height: 16px; }
+.jp-form-dampak { padding: 14px; border-radius: 12px; background: var(--brand-50); border: 1px solid var(--brand-100); align-self: start; }
+.jp-form-dampak h3 { margin: 0 0 8px; font-size: 12px; font-weight: 900; letter-spacing: .4px; color: var(--brand-800); text-transform: uppercase; }
+.jp-form-dampak h3:not(:first-child) { margin-top: 16px; }
+.jp-form-dampak dl { display: grid; gap: 7px; margin: 0; }
+.jp-form-dampak dl div { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.jp-form-dampak dt { color: var(--neutral-700); }
+.jp-form-dampak dd { margin: 0; font-weight: 800; color: var(--brand-950); text-align: right; }
+.jp-lain { margin: 0; padding-left: 16px; font-size: 12px; color: var(--neutral-700); display: grid; gap: 4px; }
+
+/* --- Format WA --- */
+.jp-wa-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; }
+
+@media (max-width: 1100px) {
+  .jp-grid { grid-template-columns: minmax(0, 1fr); }
+  .jp-kiri { position: static; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .jp-form, .jp-form-isi, .jp-wa-form { grid-template-columns: minmax(0, 1fr); }
+  .jp-detail { grid-template-columns: minmax(0, 1fr); }
+}

@@ -286,7 +286,7 @@ function jawabBa_(r, status, tambahan) {
 }
 
 /** simpanBaGardu (Pengoperasian Trafo) -> { status OK | DUPLIKAT, baId, idBa, noBaFull, noGardu, garduId, ownerId, ... }. */
-function simpanBaGarduPenggantian_(sesi, data, tahunIni) {
+function simpanBaGarduPenggantian_(sesi, data, tahunIni, platform) {
   var d = validasi_(data, {
     baId: { tipe: 'uuid', wajib: true },
     jenis: { tipe: 'pilihan', wajib: true, pilihan: ['Penggantian Trafo'] },
@@ -432,7 +432,7 @@ function simpanBaGarduPenggantian_(sesi, data, tahunIni) {
       foto_meta: JSON.stringify(fotoMeta), install_id: d.installId || '', revision: 1, dibuat_oleh: oleh, diubah_oleh: oleh
     });
     tulisBlok_(tR, [], [ba]);
-    auditLog_(sesi, 'BA_GARDU_SIMPAN', nomor.idBa, d.jenis + ' ' + noGardu, 'MOBILE', tLog);
+    auditLog_(sesi, 'BA_GARDU_SIMPAN', nomor.idBa, d.jenis + ' ' + noGardu, platform, tLog);
     tersimpan = ba;
     return jawabBa_(ba, 'OK', { peringatan: [] });
   });
@@ -441,10 +441,10 @@ function simpanBaGarduPenggantian_(sesi, data, tahunIni) {
   return hasil;
 }
 
-function simpanBaGardu_(sesi, data) {
+function simpanBaGardu_(sesi, data, platform) {
   wajibAdminBa_(sesi);
   var tahunIni = Number(tglJakarta_(new Date()).slice(0, 4));
-  if (data && data.jenis === 'Penggantian Trafo') return simpanBaGarduPenggantian_(sesi, data, tahunIni);
+  if (data && data.jenis === 'Penggantian Trafo') return simpanBaGarduPenggantian_(sesi, data, tahunIni, platform);
   var d = validasi_(data, {
     baId: { tipe: 'uuid', wajib: true },
     jenis: { tipe: 'pilihan', wajib: true, pilihan: BA_JENIS_PEKERJAAN_.TRAFO.concat(BA_JENIS_PEKERJAAN_.SWITCHING) },
@@ -565,7 +565,7 @@ function simpanBaGardu_(sesi, data) {
     });
     tulisBlok_(tR, [], [ba]);
     if (ns && ns.pesanan) tulisBlok_(ns.tRes, [{ r: ns.pesanan, u: { Status: 'DIPAKAI', 'Timestamp Update': sekarang } }], []);
-    auditLog_(sesi, 'BA_GARDU_SIMPAN', nomor.idBa, d.jenis + ' ' + noGardu + ' (' + asal + ')', 'MOBILE', tLog);
+    auditLog_(sesi, 'BA_GARDU_SIMPAN', nomor.idBa, d.jenis + ' ' + noGardu + ' (' + asal + ')', platform, tLog);
     tersimpan = ba;
     return jawabBa_(ba, 'OK', { peringatan: owner.ditemukan ? [] : ['OwnerId / External Reference kosong: ' + owner.pesan] });
   });

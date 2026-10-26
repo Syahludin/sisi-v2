@@ -3,7 +3,12 @@
  * lalu 2 sheet lain (1. DATA TRAFO, INPUT TBL) mengikuti hasilnya. Tidak ada tulis langsung ke sheet lama saat BA /
  * pengukuran disimpan: semua lewat sinkron ini.
  *
- * Arah data:
+ * v1.0.35 (keputusan kvlar 26 Okt 2026): db_Gardu = SUMBER UTAMA, sinkron SATU ARAH db_Gardu -> sheet lama. Pengukuran
+ * sheet lama yang lebih baru TIDAK lagi ditarik ke db_Gardu (hanya dihitung di laporan). Sesudah lintasan massal di bawah,
+ * gardu yang berubah sejak tulis sheet lama terakhir ditulis lengkap (isian HI, 3 file) oleh sinkronHiTertunda_
+ * (81_HI_Gardu.js); website menulis gardu yang disimpan langsung saat itu juga.
+ *
+ * Arah data (sebelum v1.0.35, bagian pengukuran dua arah sudah dihapus):
  *  - Identitas (alamat, penyulang, section, koordinat, konstruksi, trafo, PHB-TR, jurusan): db_Gardu -> sheet lama
  *    (sheet lama disamakan dengan db_Gardu). Nilai kosong di db_Gardu tidak mengosongkan sheet lama.
  *  - Pengukuran: yang TERBARU menang, dua arah, dibanding Tanggal Ukur Terakhir (db_Gardu) vs kolom U Tanggal
@@ -212,38 +217,6 @@ function ukurKeSheet_(b, ubah, i, g) {
   return n;
 }
 
-/**
- * Pengukuran sheet lama -> kolom db_Gardu. v1.0.23: grup WBP dan LWBP yang berisi beban masuk ke bloknya masing-masing
- * (tanggal sama, hasil dihitung ulang per grup). Tanpa angka per fasa = hasil tertulis di sheet lama ke blok WBP.
- */
-function ukurDariSheet_(b, i, g, tgl) {
-  var S = SINKRON_GARDU_, tampil = b.tampil[i], u = {}, ada = false;
-  var ambil = function (grup) {
-    var o = {}, isi = false;
-    Object.keys(S.grup[grup]).forEach(function (k) { var v = angkaGarduLama_(tampil[S.grup[grup][k] - 1]); o[k] = v; if (v !== '' && /^Beban/.test(k)) isi = true; });
-    return isi ? o : null;
-  };
-  ['WBP', 'LWBP'].forEach(function (p) {
-    var nilai = ambil(p);
-    if (!nilai) return;
-    var n = {};
-    YAN_NILAI_GARDU_.forEach(function (x) { n[x.kunci] = nilai[x.kolom] === '' ? 0 : nilai[x.kolom]; });
-    var h = hasilUkurGardu_(n, g['Kapasitas (kVA)']);
-    Object.assign(u, kolomUkurPeriode_(p, Object.assign({}, nilai, { 'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': 'SHEET LAMA', ukur_id_terakhir: '',
-      'Pembebanan (kVA)': h.kva, 'Persentase Beban (%)': h.persen, 'Kategori Beban': h.kategori })));
-    u['Arus Maks per Fasa (A)'] = h.arusMaks;
-    ada = true;
-  });
-  if (!ada) {
-    // tanpa angka per fasa: pakai hasil yang tertulis di sheet lama (sama migrasi v0.68.0)
-    var persen = angkaGarduLama_(tampil[S.kolPersen - 1]);
-    Object.assign(u, { 'Tanggal Ukur Terakhir': tgl, 'Kode Ukur Terakhir': 'SHEET LAMA', ukur_id_terakhir: '', 'Waktu Beban': 'WBP',
-      'Arus Maks per Fasa (A)': angkaGarduLama_(tampil[S.kolArus - 1]) || arusNominalGardu_(g['Kapasitas (kVA)']),
-      'Pembebanan (kVA)': angkaGarduLama_(tampil[S.kolBeban - 1]), 'Persentase Beban (%)': persen, 'Kategori Beban': kategoriBeban_(persen) });
-  }
-  return u;
-}
-
 /** Sisip gardu baru: di bawah gardu terakhir ber-prefix sama (atau baris data terakhir), formula baris acuan disalin. */
 function sisipGarduSinkron_(b, baru, peta, kolGardu, denganUkur) {   // denganUkur = Master_Gardu (ULP + pengukuran ikut)
   var hasil = 0;
@@ -307,7 +280,7 @@ function cekTargetSinkron_(id, nama) {
 function sinkronGarduLama_(tulis) {
   var c = cfg_(), pp = PropertiesService.getScriptProperties(), S = SINKRON_GARDU_, mulai = Date.now();
   var idMaster = String(pp.getProperty('SHEET_GARDU_ULP') || '').trim();
-  var hasil = { tulis: !!tulis, master: null, db: { diubah: 0 }, target: [], peringatan: [] };
+  var hasil = { tulis: !!tulis, master: null, target: [], hi: null, peringatan: [] };
   if (!c.GARDU_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'GARDU_SHEET_ID');
   if (!idMaster) { hasil.peringatan.push('SHEET_GARDU_ULP kosong: sinkron sheet lama mati'); return hasil; }
   cekTargetSinkron_(idMaster, S.master.tab);
@@ -318,7 +291,7 @@ function sinkronGarduLama_(tulis) {
 
   // 1) Master_Gardu <-> db_Gardu
   var b = bacaSheetSinkron_(sheetSinkron_(idMaster, S.master.tab), S.master.barisData, S.master.lebar, S.kolGardu);
-  var ubah = [], keDb = [], baru = [], m = { identitas: 0, perKolom: {}, ukurKeLama: 0, ukurKeDb: 0, baru: 0, hanyaDiLama: 0, ganda: b.ganda.slice(0, 10) };
+  var ubah = [], keDb = [], baru = [], m = { identitas: 0, perKolom: {}, ukurKeLama: 0, lamaLebihBaru: 0, baru: 0, hanyaDiLama: 0, ganda: b.ganda.slice(0, 10) };
   var adaDiDb = {};
   dbAktif.forEach(function (g) {
     var no = parseNoGarduLama_(g['No Gardu']).nomor;
@@ -331,28 +304,13 @@ function sinkronGarduLama_(tulis) {
     kolId.forEach(function (k) { m.perKolom[k] = (m.perKolom[k] || 0) + 1; });
     var tDb = tglUkurTerbaruGardu_(g), tLama = tanggalLama_(b.nilai[i][S.kolTgl - 1], b.tampil[i][S.kolTgl - 1]);
     if (tDb && (!tLama || tDb > tLama)) { if (ukurKeSheet_(b, ubah, i, g)) m.ukurKeLama++; }
-    else if (tLama && (!tDb || tLama > tDb)) { keDb.push({ g: g, u: ukurDariSheet_(b, i, g, tLama), tLama: tLama }); }
+    else if (tLama && (!tDb || tLama > tDb)) m.lamaLebihBaru++;   // v1.0.35: satu arah, tidak ditarik ke db_Gardu
   });
   Object.keys(b.perNo).forEach(function (no) { if (!adaDiDb[no]) m.hanyaDiLama++; });
-  m.ukurKeDb = keDb.length;
   m.baru = baru.length;
   if (tulis) {
     m.panggilTulis = tulisSelSinkron_(b, ubah);
     m.baru = sisipGarduSinkron_(b, baru, S.identitas, S.kolGardu, true);
-    if (keDb.length) {
-      denganLock_(function () {
-        var t2 = cekStrukturGardu_('GARDU_SHEET_ID', 'db_Gardu'), sekarang = sekarangIso_(), isi = [];
-        keDb.forEach(function (x) {
-          var g2 = t2.rows.filter(function (r) { return String(r.gardu_id) === String(x.g.gardu_id); })[0];
-          if (!g2) return;
-          var tKini = tglUkurTerbaruGardu_(g2);
-          if (tKini && tKini >= x.tLama) return;   // diukur dari HP sementara sinkron berjalan
-          isi.push({ r: g2, u: Object.assign({}, x.u, { 'Diubah Oleh': S.oleh, 'Timestamp Update': sekarang, diubah_oleh: S.oleh }) });
-        });
-        if (isi.length) tulisBlok_(t2, isi, [], { bolehId: ['ukur_id_terakhir', 'ukur_id_lwbp'] });
-        hasil.db.diubah = isi.length;
-      });
-    }
   }
   hasil.master = m;
   hasil.peringatan = hasil.peringatan.concat(b.peringatan || []);
@@ -384,6 +342,11 @@ function sinkronGarduLama_(tulis) {
     }
     hasil.target.push(r);
   });
+
+  // 3) v1.0.35: gardu yang berubah sejak tulis sheet lama terakhir = ditulis lengkap (isian HI, 3 file), sisa waktu saja
+  try { hasil.hi = sinkronHiTertunda_(tG, mulai, S.batasMs, tulis); } catch (e) {
+    hasil.peringatan.push('Tulis HI tertunda gagal: ' + ((e && (e.kode || e.message)) || e));
+  }
   return hasil;
 }
 
@@ -392,7 +355,7 @@ function cetakSinkronGardu_(h) {
   h.peringatan.forEach(function (p) { console.warn(p); });
   if (m) {
     console.log('Master_Gardu: ' + m.identitas + ' gardu identitas disamakan, ' + m.ukurKeLama + ' pengukuran db -> sheet lama, ' +
-      m.ukurKeDb + ' pengukuran sheet lama -> db_Gardu' + (h.tulis ? ' (' + h.db.diubah + ' ditulis)' : '') + ', ' + m.baru + ' gardu baru' +
+      m.lamaLebihBaru + ' pengukuran sheet lama lebih baru (tidak ditarik, db_Gardu sumber utama), ' + m.baru + ' gardu baru' +
       (h.tulis ? ' disisipkan' : ' akan disisipkan') + ', ' + m.hanyaDiLama + ' gardu hanya ada di sheet lama (tidak diubah)' +
       (m.ganda.length ? ', No Gardu ganda dilewati: ' + m.ganda.join(', ') : ''));
     var pk = Object.keys(m.perKolom);
@@ -400,7 +363,8 @@ function cetakSinkronGardu_(h) {
   }
   h.target.forEach(function (r) {
     console.log(r.sheet + ': ' + (r.lewat ? 'dilewati (' + r.lewat + ')' : r.galat ? 'GAGAL ' + r.galat : r.identitas + ' gardu identitas disamakan, ' + r.baru + ' gardu baru'));
-  });
+  });  if (h.hi) console.log('Data HI lengkap ke 3 file: ' + h.hi.perlu + ' gardu perlu ditulis' + (h.tulis ? ', ' + h.hi.ditulis + ' berhasil, ' + h.hi.gagal +
+    ' gagal' + (h.hi.sisa ? ', ' + h.hi.sisa + ' tersusul besok (waktu habis)' : '') : ''));
 }
 
 /** Editor: pratinjau sinkron (tidak menulis apa pun). */
@@ -425,7 +389,8 @@ function sinkronGarduLamaPemicu_() {
   try {
     var m = h.master || {};
     auditLog_({ userId: SINKRON_GARDU_.oleh, username: SINKRON_GARDU_.oleh, role: 'SISTEM' }, 'SINKRON_GARDU_LAMA', 'Master_Gardu',
-      'identitas ' + (m.identitas || 0) + ', ukur ke lama ' + (m.ukurKeLama || 0) + ', ukur ke db ' + (h.db.diubah || 0) + ', baru ' + (m.baru || 0), 'SISTEM');
+      'identitas ' + (m.identitas || 0) + ', ukur ke lama ' + (m.ukurKeLama || 0) + ', baru ' + (m.baru || 0) +
+      (h.hi ? ', HI ditulis ' + h.hi.ditulis + ' gagal ' + h.hi.gagal + ' sisa ' + h.hi.sisa : ''), 'SISTEM');
   } catch (e) { /* log audit gagal tidak membatalkan sinkron */ }
   return h;
 }

@@ -1,0 +1,52 @@
+/* Palet SiSi, sama dengan aplikasi HP (mobile/lib/theme/app_colors.dart). */
+:root {
+  --brand-950: #102a36;
+  --brand-900: #123847;
+  --brand-800: #135268;
+  --brand-700: #086d8a;
+  --brand-600: #0788aa;
+  --brand-500: #14a6c7;
+  --brand-100: #ddf4f7;
+  --brand-50: #f1fafb;
+
+  --accent-700: #b47a00;
+  --accent-600: #e3a600;
+  --accent-400: #f2c94c;
+  --accent-100: #fff3c4;
+
+  --neutral-950: #10252e;
+  --neutral-900: #17313b;
+  --neutral-700: #405a63;
+  --neutral-500: #667d85;
+  --neutral-400: #8ea1a7;
+  --neutral-300: #bcc9cd;
+  --neutral-200: #d8e2e5;
+  --neutral-150: #e5ecee;
+  --neutral-100: #f0f5f6;
+  --neutral-50: #f7fafa;
+  --surface: #fcfefe;
+
+  --red-700: #b4232f;
+  --red-600: #d13b46;
+  --red-100: #ffe8ea;
+  --success-700: #167451;
+  --success-600: #219064;
+  --success-100: #e3f5ec;
+
+  /* gradien header / latar SiSi (SisiMotif.gradien) */
+  --gradien-sisi: linear-gradient(135deg, var(--brand-950) 0%, var(--brand-800) 62%, var(--brand-700) 100%);
+  --font: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--neutral-900);
+  background: var(--brand-950);
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent-400); outline-offset: 2px; }
