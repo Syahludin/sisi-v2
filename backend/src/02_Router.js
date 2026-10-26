@@ -41,6 +41,8 @@ function endpoints_() {
     getLaporanUp3: { fn: getLaporanUp3_, menu: 'OPS_LAP_UP3', batasMenit: 20 },
     simpanLaporanUp3: { fn: simpanLaporanUp3_, menu: 'OPS_LAP_UP3', tulis: true, batasMenit: 10 },
     getLaporanUiw: { fn: getLaporanUiw_, menu: 'OPS_LAP_UIW', batasMenit: 20 },
+    // v1.0.36: Laporan UP3 + UIW 7 hari untuk dibaca offline di HP admin (hanya tanggal yang berubah)
+    getRingkasanLaporan: { fn: getRingkasanLaporan_, menu: 'OPS_LAP_UP3', batasMenit: 20 },
     simpanLaporanUiw: { fn: simpanLaporanUiw_, menu: 'OPS_LAP_UIW', tulis: true, batasMenit: 10 },
     // v0.63.0: Pindah Tim Petugas Yandal (ADMIN / SUPER)
     getPetugasYandal: { fn: getPetugasYandal_, menu: 'OPS_PETUGAS_YANDAL', batasMenit: 20 },
@@ -247,6 +249,7 @@ function proses_(req, platform) {
   var data = req.data === undefined || req.data === null ? {} : req.data;
   if (typeof data !== 'object' || Array.isArray(data)) throw new SisiError_('DATA_TIDAK_VALID');
   var isi = ep.fn(sesi, data, platform);
+  catatKirimanLaporan_(ep, data);   // v1.0.36: kiriman petugas = ringkasan laporan tanggal itu disusun ulang (~1 menit)
   // v0.64.2: jam server (dicap SETELAH proses) = patokan jam terpercaya HP (jam monoton). Ada di semua jawaban.
   // v0.81.0: versi backend di setiap jawaban (HP tahu backend baru di-deploy, lalu cek update)
   // v1.0.22: revisi master (ADMIN_lengkapiMaster) di setiap jawaban: berubah = HP mengunduh ulang Master Data + Gardu

@@ -1007,7 +1007,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
     uploadFotoRow: /wajibPetugasRow_\(sesi\)[\s\S]*BUKAN_MILIK_TIM/,
     getFotoRow: /timLaporan_/, getLaporanRow: /timLaporan_/, getArsipRow: /timLaporan_/,
     getArsipHariRow: /timLaporan_/, getFotoArsipRow: /kunciArsipFoto_\(sesi/,
-    getLaporanUp3: /peranLaporanUp3_\(sesi, false\)/, getLaporanUiw: /peranLaporanUp3_\(sesi, false\)/,
+    getRingkasanLaporan: /peranLaporanUp3_\(sesi, false\)/, getLaporanUp3: /peranLaporanUp3_\(sesi, false\)/, getLaporanUiw: /peranLaporanUp3_\(sesi, false\)/,
     simpanLaporanUp3: /peranLaporanUp3_\(sesi, true\)/, simpanLaporanUiw: /peranLaporanUp3_\(sesi, true\)/,
     getPetugasYandal: /peranPetugasYandal_\(sesi, false\)/, simpanPetugasYandal: /peranPetugasYandal_\(sesi, true\)/,
     // v0.99.0: Laporan per Tim Yandal = data bersama ULP, khusus admin (bukan PETUGAS) paling awal
@@ -3855,7 +3855,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
   assert.deepStrictEqual(JSON.parse(JSON.stringify(matriks)), {
     cekSesi: semua, getMaster: semua,
     // menu ROW_LAPORAN / OPS_LAP_* tidak ada di db_Menu uji = semua ditolak (fail closed)
-    getArsipHariRow: [], getArsipRow: [], getFotoArsipRow: [], getLaporanRow: [], getLaporanUiw: [], getLaporanUp3: [],
+    getArsipHariRow: [], getArsipRow: [], getFotoArsipRow: [], getLaporanRow: [], getLaporanUiw: [], getLaporanUp3: [], getRingkasanLaporan: [],
     simpanLaporanUiw: [], simpanLaporanUp3: [],
     // v0.70.0: OPS_BA_GARDU tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test BA sendiri)
     getNomorGarduBaru: [], getOwnerIdGardu: [], simpanBaGardu: [], uploadFotoBaGardu: [],
@@ -5564,7 +5564,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     getKodeRow: 'wajibPetugasRow_(sesi)', syncRow: 'wajibPetugasRow_(sesi)', uploadFotoRow: 'wajibPetugasRow_(sesi)',
     getFotoRow: 'timLaporan_(sesi, null)', getLaporanRow: 'timLaporan_(sesi, null)', getArsipRow: 'timLaporan_(sesi, null)',
     getArsipHariRow: 'timLaporan_(sesi, null)', getFotoArsipRow: 'timLaporan_(sesi, null)',
-    getLaporanUp3: 'peranLaporanUp3_(sesi, false)', getLaporanUiw: 'peranLaporanUp3_(sesi, false)',
+    getRingkasanLaporan: 'peranLaporanUp3_(sesi, false)', getLaporanUp3: 'peranLaporanUp3_(sesi, false)', getLaporanUiw: 'peranLaporanUp3_(sesi, false)',
     simpanLaporanUp3: 'peranLaporanUp3_(sesi, true)', simpanLaporanUiw: 'peranLaporanUp3_(sesi, true)',
     getPetugasYandal: 'peranPetugasYandal_(sesi, false)', simpanPetugasYandal: 'peranPetugasYandal_(sesi, true)',
     getLaporanTimYandal: 'wajibAdminLaporanYandal_(sesi)',
@@ -9703,4 +9703,62 @@ test('v1.0.35 ADMIN_lengkapiGardu: gardu_id hilang dipulihkan dari rujukan (Reka
   assert.match(String(b.Timestamp), /^\d{4}-\d{2}-\d{2}T/);
   assert.strictEqual(g('TB0002').gardu_id, asli.tb2, 'UUID valid tidak disentuh');
   assert.strictEqual(x.gg.ADMIN_lengkapiGardu().gardu, 0, 'diulang = tidak ada yang diubah');
+});
+
+test('v1.0.36 ringkasan Laporan UP3 / UIW: disimpan sekali, dibaca ulang tanpa menyusun, kiriman petugas = kotor + satu pemicu ~1 menit, getRingkasanLaporan hanya yang berubah', () => {
+  const x = siapkanUp3();
+  x.g.pastikanPemilik_ = () => {};
+  const props = x.g.PropertiesService.getScriptProperties();
+  const pemicu = [], dibuat = [];
+  const pembuat = (fn) => { const b = { timeBased: () => b, after: (ms) => { b.ms = ms; return b; }, create: () => { dibuat.push([fn, b.ms]); pemicu.push({ getHandlerFunction: () => fn }); } }; return b; };
+  x.g.ScriptApp = { getProjectTriggers: () => pemicu.slice(), deleteTrigger: (t) => pemicu.splice(pemicu.indexOf(t), 1), newTrigger: pembuat };
+  let disusun = 0;
+  const asli = x.g.dataRowHari_;
+  x.g.dataRowHari_ = (...a) => { disusun++; return asli(...a); };
+  const ep = x.g.endpoints_();
+  const kirim = () => x.g.catatKirimanLaporan_(ep.syncRow, { ops: [{ kode: x.kodeH }] });
+
+  // belum disiapkan: laporan tetap jalan (disusun langsung), kiriman tidak menandai / membuat pemicu
+  assert.strictEqual(x.getUp3(x.admin).sumber, 'LANGSUNG');
+  kirim();
+  assert.deepStrictEqual([dibuat.length, props.getProperty('LAP_KOTOR')], [0, null]);
+
+  x.sheets.l.lap_Ringkasan = sheetPalsu(x.log)('lap_Ringkasan', [x.g.LAP_RINGKAS_HEADER_.slice()]);
+  x.g.ADMIN_siapkanRingkasanLaporan();
+  disusun = 0;
+  const a = x.getUp3(x.admin), b = x.getUp3(x.admin), u = x.getUiw(x.admin);
+  assert.deepStrictEqual([a.sumber, b.sumber, u.sumber, disusun], ['LANGSUNG', 'RINGKASAN', 'RINGKASAN', 1], 'disusun sekali, UP3 + UIW memakai ringkasan yang sama');
+  assert.strictEqual(b.waText, a.waText, 'teks dari ringkasan = teks disusun langsung');
+  assert.deepStrictEqual(b.row, a.row);
+  assert.ok(b.disusunPada);
+  assert.strictEqual(x.getUp3(x.admin, { segar: true }).sumber, 'LANGSUNG', 'segar = disusun ulang');
+
+  // kiriman petugas: tanggal kotor + SATU pemicu sekali jalan 1 menit (kiriman berikutnya tidak menambah pemicu)
+  kirim(); kirim();
+  assert.deepStrictEqual(dibuat, [['ADMIN_pemicuRingkasanLaporan', 60000]]);
+  assert.deepStrictEqual(JSON.parse(props.getProperty('LAP_KOTOR')), [x.hariIni]);
+  x.g.catatKirimanLaporan_(ep.simpanLaporanUp3, {});   // bukan kiriman petugas modul laporan
+  x.g.catatKirimanLaporan_(ep.getLaporanUp3, {});
+  assert.strictEqual(dibuat.length, 1);
+  // pemicu: susun tanggal kotor, hapus dirinya, tanda bersih; dibuka sesudahnya = dari ringkasan
+  disusun = 0;
+  assert.deepStrictEqual([...x.g.ADMIN_pemicuRingkasanLaporan()], [x.hariIni]);
+  assert.deepStrictEqual([disusun, pemicu.length, props.getProperty('LAP_KOTOR'), props.getProperty('LAP_PEMICU')], [1, 0, '[]', null]);
+  assert.strictEqual(x.getUp3(x.admin).sumber, 'RINGKASAN');
+  // pemicu gagal (tidak jalan): admin membuka = tetap terbaru (disusun saat itu)
+  kirim();
+  disusun = 0;
+  assert.deepStrictEqual([x.getUp3(x.admin).sumber, disusun], ['LANGSUNG', 1]);
+  assert.strictEqual(x.sheets.l.lap_Ringkasan.data.length, 2, 'satu baris per tanggal (ditimpa)');
+
+  // HP admin offline: 7 hari + hari ini, UP3 + UIW; kirim versi = hanya yang berubah
+  const r1 = JSON.parse(JSON.stringify(x.g.getRingkasanLaporan_(x.admin, {})));
+  assert.strictEqual(r1.laporan.length, 8);
+  assert.deepStrictEqual([r1.laporan[0].tanggal, r1.laporan[0].berubah, r1.laporan[0].up3.waText, !!r1.laporan[0].uiw], [x.hariIni, true, a.waText, true]);
+  const versi = Object.fromEntries(r1.laporan.map((l) => [l.tanggal, l.versi]));
+  const r2 = JSON.parse(JSON.stringify(x.g.getRingkasanLaporan_(x.admin, { versi })));
+  assert.deepStrictEqual(r2.laporan.map((l) => l.berubah), new Array(8).fill(false));
+  assert.ok(!('up3' in r2.laporan[0]));
+  assert.strictEqual(kodeError(() => x.g.getRingkasanLaporan_(x.admin, { versi: { besok: 'x' } })), 'FORMAT_SALAH');
+  assert.strictEqual(kodeError(() => x.g.getRingkasanLaporan_({ ...x.admin, role: 'PETUGAS' }, {})), 'AKSES_DITOLAK');
 });

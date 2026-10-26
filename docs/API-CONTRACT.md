@@ -45,3 +45,11 @@
 - `getKalenderTim`: isi per tim / umum + bulan di-cache 60 detik.
 - DIHAPUS: `ubahPgHartek` (tidak dipakai HP). Lokasi PG Hartek tidak bisa diubah / dihapus lewat endpoint.
 - Audit guard: semua endpoint lewat guard_ + rem per menit + cek peran di baris pertama (tes audit). Endpoint tulis tanpa menu hanya milik sesi sendiri (Yandal HP + token shift, gantiPassword, tandaiNotifikasi).
+
+## v1.0.36 — Ringkasan Laporan UP3 / UIW (backend; versi HP tetap 1.0.34 sampai APK baru)
+
+- Tab baru `lap_Ringkasan` (LAPORAN_SHEET_ID), dibuat `ADMIN_siapkanRingkasanLaporan` (sekaligus menyalakan Script Property `LAP_RINGKAS_AKTIF=YA`; hapus = mati). Satu baris per tanggal: hasil data modul (ROW + Hartek + Inspeksi) dalam `json_1..json_4`.
+- Kiriman petugas (menu ROW_EKSEKUSI, OPS_HARTEK_INPUT, OPS_INSJAR_INPUT, OPS_INSDU_INPUT) berhasil = tanggal kirimannya s.d. hari ini ditandai kotor (`LAP_KOTOR`) + satu pemicu sekali jalan `ADMIN_pemicuRingkasanLaporan` ~1 menit (debounce, `LAP_PEMICU`). Tidak ada pemicu berkala.
+- `getLaporanUp3` / `getLaporanUiw`: field baru `segar` (bool, susun ulang paksa). Jawaban: `sumber` `RINGKASAN` (dari simpanan) / `LANGSUNG` (disusun saat itu: belum ada, kotor, atau segar), `disusunPada` (ISO).
+- `getLaporanUp3` / `getLaporanUiw` / `getRingkasanLaporan` yang menemukan tanggal kotor menyusun saat itu juga (cadangan bila pemicu gagal).
+- Endpoint baru `getRingkasanLaporan` (menu OPS_LAP_UP3, baca): `{ versi?: { 'yyyy-MM-dd': string } }` -> `{ hariIni, batasTgl, laporan: [{ tanggal, versi, berubah, up3?, uiw? }] }`, hari ini s.d. 7 hari lalu; `up3` / `uiw` = bentuk sama dengan getLaporanUp3 / Uiw, hanya dikirim bila versi berbeda (HP admin offline).

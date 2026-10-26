@@ -837,16 +837,19 @@ function statusTimHeader_(headers, realisasi, tanggal, tglFn) {
 }
 
 /** Hasil satu laporan (get & simpan). ganti = { c4a, cuaca } yang belum ditulis; kosong = dari sheet. */
-function susunBagian_(sesi, B, tanggal, waktu, T, ganti) {
+function susunBagian_(sesi, B, tanggal, waktu, T, ganti, rh) {
   ganti = ganti || {};
+  // v1.0.36: data modul dari ringkasan tersimpan (lap_Ringkasan), disusun hanya bila belum ada / kotor / segar
+  rh = rh || rowHariLaporan_(tanggal, waktu, !!ganti.segar);
   var lap = barisHarian_(T[B.sheet], tanggal);
   // v0.62.9: belum ada baris harian tapi simpan pertama sempat menulis C4A = tampilkan C4A itu (tertunda)
   var induk = lap || { lap_id: lapIdBaru_(T[B.sheet], B.bagian, tanggal) };
   var c4a = ganti.c4a || barisC4a_(T[B.c4a], induk).map(B.dariBaris);
   var cuaca = B.cuaca ? (ganti.cuaca !== undefined ? ganti.cuaca : (lap ? lapTeks_(lap.Cuaca) : '')) : undefined;
-  var row = dataRowHari_(sesi, tanggal, waktu);
+  var row = rh.row;
   var h = {
-    bagian: B.bagian, tanggal: tanggal, sumber: 'LANGSUNG', hariIni: tanggal === waktu.hariIni,
+    bagian: B.bagian, tanggal: tanggal, sumber: rh.dariSimpanan ? 'RINGKASAN' : 'LANGSUNG', disusunPada: rh.disusunPada,
+    hariIni: tanggal === waktu.hariIni,
     bisaUbah: tanggal === waktu.hariIni && (sesi.role === 'ADMIN' || sesi.role === 'SUPER') &&
               aksesUntuk_(sesi.role, sesi.jenisTim, B.menu) === 'UBAH',
     laporan: ringkasLap_(lap), revision: lap ? Number(lap.revision) || 0 : 0, c4a: c4a,
@@ -867,7 +870,7 @@ function ringkasStatusIns_(x) { return { status: (x && x.status) || 'V1', timLap
 function getLaporanBagian_(sesi, data, bagian) {
   peranLaporanUp3_(sesi, false);
   var B = bagianLap_(bagian);
-  var d = validasi_(data, { tanggal: { tipe: 'tanggal' } });
+  var d = validasi_(data, { tanggal: { tipe: 'tanggal' }, segar: { tipe: 'bool' } });
   var waktu = waktuRow_();
   var tanggal = d.tanggal || waktu.hariIni;
   if (tanggal > waktu.hariIni) throw new SisiError_('TANGGAL_DI_LUAR_BATAS', tanggal);
@@ -876,7 +879,7 @@ function getLaporanBagian_(sesi, data, bagian) {
   w('baca');
   var hasil;
   if (tanggal >= waktu.batasTgl) {
-    hasil = susunBagian_(sesi, B, tanggal, waktu, T);
+    hasil = susunBagian_(sesi, B, tanggal, waktu, T, { segar: d.segar === true });
   } else {
     var lap = barisHarian_(T[B.sheet], tanggal);
     hasil = { bagian: B.bagian, tanggal: tanggal, sumber: 'ARSIP', hariIni: false, bisaUbah: false, laporan: ringkasLap_(lap),
