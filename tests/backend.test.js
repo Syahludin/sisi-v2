@@ -9680,3 +9680,27 @@ test('v1.0.35 status tim Inspeksi Jaringan / Gardu (kartu laporan UP3/UIW): atur
   assert.deepStrictEqual(st([tutup], [{ header_id: 'h1', status: 'BATAL' }]), { status: 'LAPOR', timLapor: 1 }, 'realisasi batal tidak dihitung');
   assert.deepStrictEqual(st([tutup, hdr({ header_id: 'h2', tim_id: 't2' })], [{ header_id: 'h1' }]), { status: 'SIAP', timLapor: 2 });
 });
+
+test('v1.0.35 ADMIN_lengkapiGardu: gardu_id hilang dipulihkan dari rujukan (Rekap_BA), tanpa rujukan = UUID baru, section_id dari db_Jaringan, data bergeser dibersihkan', () => {
+  const x = siapkanSinkron();   // db_Gardu: TB0002, TB0010 (BATAL), TB0422 (BA v2 di Rekap_BA), TB0500
+  const k = x.kol, g = (no) => x.objek(x.HG, x.gRow(no));
+  const asli = { tb422: g('TB0422').gardu_id, sec422: g('TB0422').section_id, tb2: g('TB0002').gardu_id };
+  assert.ok(asli.tb422 && asli.sec422);
+  Object.assign(x.gRow('TB0422'), { [k('gardu_id')]: '', [k('section_id')]: '', [k('Timestamp')]: '' });
+  Object.assign(x.gRow('TB0500'), { [k('gardu_id')]: '67,8', [k('ba_id_terakhir')]: '397', [k('revision')]: 231, [k('Timestamp')]: 'Y17-16130261015003-SHF3.001-P0.005-GRD.001' });
+  const sebelum = JSON.stringify(x.sheets.g.db_Gardu.data);
+  const p = JSON.parse(JSON.stringify(x.gg.ADMIN_cekLengkapiGardu()));
+  assert.strictEqual(JSON.stringify(x.sheets.g.db_Gardu.data), sebelum, 'pratinjau tidak menulis');
+  assert.deepStrictEqual([p.idDipulihkan, p.idBaru, p.sampah], [1, 1, 1], JSON.stringify(p));
+  x.gg.ADMIN_lengkapiGardu();
+  const a = g('TB0422'), b = g('TB0500');
+  assert.strictEqual(a.gardu_id, asli.tb422, 'ID lama dari Rekap_BA (riwayat BA tetap tersambung)');
+  assert.strictEqual(a.section_id, asli.sec422, 'section_id dari Penyulang + Section');
+  assert.match(String(a.Timestamp), /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(b.gardu_id, /^[0-9a-f-]{36}$/);
+  assert.notStrictEqual(b.gardu_id, asli.tb422);
+  assert.deepStrictEqual([b.ba_id_terakhir, b.revision, b.dibuat_oleh, b.Alamat], ['', 1, 'admin-tools', 'Jl. Gardu Baru']);
+  assert.match(String(b.Timestamp), /^\d{4}-\d{2}-\d{2}T/);
+  assert.strictEqual(g('TB0002').gardu_id, asli.tb2, 'UUID valid tidak disentuh');
+  assert.strictEqual(x.gg.ADMIN_lengkapiGardu().gardu, 0, 'diulang = tidak ada yang diubah');
+});
