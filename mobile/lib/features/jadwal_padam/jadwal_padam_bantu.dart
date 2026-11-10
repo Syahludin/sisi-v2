@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
-/// v1.0.17: bantuan murni Jadwal Padam (sama dengan rumus server 78_JadwalPadam.js).
+/// v1.0.17: bantuan murni Jadwal Padam (sama dengan rumus server 70_JadwalPadam.js).
 
 class StatusJadwalPadam {
   StatusJadwalPadam._();

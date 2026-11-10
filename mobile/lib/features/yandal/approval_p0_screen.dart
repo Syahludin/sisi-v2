@@ -11,6 +11,7 @@ import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/foto_slot.dart';
 import '../../widgets/kolom_pilih.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../gardu/gardu_model.dart';
 import '../gardu/gardu_widgets.dart';
@@ -21,7 +22,7 @@ import 'switching_panel.dart' show PilihIndikator;
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.75.0 (permintaan kvlar 10 Okt 2026): menu Approval P0 (ADMIN / SUPER). Alur sama dengan Verifikasi P0 v1:
+/// v0.75.0 (permintaan Master Guswan 10 Okt 2026): menu Approval P0 (ADMIN / SUPER). Alur sama dengan Verifikasi P0 v1:
 /// pilih tanggal > tab Menunggu / Disetujui / Ditolak (jumlah) > cari > kartu P0 dengan 3 foto (Sebelum / Pekerjaan /
 /// Sesudah) di kartu utama sebagai acuan awal > Setujui / Tolak (alasan) / Edit jenis pekerjaan (petugas salah input).
 /// Diperbarui untuk v2: keputusan langsung ke server (point + rekap shift dihitung saat itu), lampiran Pengecekan
@@ -134,6 +135,39 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
     }
   }
 
+  /// Setujui / tolak: kartu langsung keluar dari daftar, kartu "berhasil" tampil, lalu keputusan dikirim di latar.
+  /// Server menolak / sinyal putus = pesan galat + daftar dimuat ulang (P0 kembali ke daftar).
+  void _putuskanLatar(ItemApprovalP0 x, String keputusan, {String alasan = '', double? bobot}) {
+    if (_sibuk.contains(x.p0Id)) return;
+    final asal = x.status;
+    final hasil = keputusan == 'Approved' ? 'disetujui' : 'ditolak';
+    setState(() {
+      _sibuk.add(x.p0Id);
+      _list = _list.where((y) => y.p0Id != x.p0Id).toList();
+      final tadi = _jumlah[asal] ?? 0;
+      _jumlah = {..._jumlah, asal: tadi > 0 ? tadi - 1 : 0, keputusan: (_jumlah[keputusan] ?? 0) + 1};
+    });
+    unawaited(tampilPopupBerhasil(context, judul: 'Data berhasil disimpan', keterangan: '${x.kodeP0} $hasil', tembus: true));
+    unawaited(_kirimKeputusan(x, keputusan, alasan: alasan, bobot: bobot));
+  }
+
+  Future<void> _kirimKeputusan(ItemApprovalP0 x, String keputusan, {required String alasan, double? bobot}) async {
+    String? galat;
+    try {
+      await _repo.putuskan(widget.sesi, x, keputusan, alasan: alasan, bobot: bobot);
+    } on ApiException catch (e) {
+      galat = KodeError.pesan(e.kode);
+    } catch (_) {
+      galat = 'Gagal menyimpan. Periksa sinyal lalu coba lagi.';
+    }
+    if (!mounted) return;
+    if (galat != null) {
+      tampilPesan(context, '${x.kodeP0}: $galat');
+      await _ambil();
+    }
+    if (mounted) setState(() => _sibuk.remove(x.p0Id));
+  }
+
   // ---------------- aksi ----------------
 
   Future<void> _setujui(ItemApprovalP0 x) async {
@@ -227,7 +261,7 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
         return;
       }
     }
-    await _jalankan(x, () => _repo.putuskan(widget.sesi, x, 'Approved', bobot: bobot), '${x.kodeP0} disetujui.');
+    _putuskanLatar(x, 'Approved', bobot: bobot);
   }
 
   Future<void> _tolak(ItemApprovalP0 x) async {
@@ -240,7 +274,7 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
       builder: (_) => _SheetAlasan(kode: x.kodeP0),
     );
     if (alasan == null || alasan.trim().isEmpty || !mounted) return;
-    await _jalankan(x, () => _repo.putuskan(widget.sesi, x, 'Rejected', alasan: alasan), '${x.kodeP0} ditolak.');
+    _putuskanLatar(x, 'Rejected', alasan: alasan);
   }
 
   Future<void> _ubahJenis(ItemApprovalP0 x) async {

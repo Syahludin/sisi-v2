@@ -7,7 +7,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'sesi.dart';
 import 'sync_controller.dart';
 
-/// v1.0.12 (permintaan kvlar 21 Okt 2026): sinkron tetap berjalan saat app TIDAK ditutup tetapi sedang di latar
+/// v1.0.12 (permintaan Master Guswan 21 Okt 2026): sinkron tetap berjalan saat app TIDAK ditutup tetapi sedang di latar
 /// belakang (pindah ke WhatsApp, kamera, dsb).
 ///
 /// Masalahnya: Android 12+ membekukan proses app yang tidak terlihat (cached app freezer, Doze, penghemat baterai
@@ -137,7 +137,7 @@ class SinkronLatar with WidgetsBindingObserver {
     if (_sedangAtur) return;
     _sedangAtur = true;
     try {
-      // v1.0.17: teks notifikasi baru (permintaan kvlar 22 Okt 2026)
+      // v1.0.17: teks notifikasi baru (permintaan Master Guswan 22 Okt 2026)
       final judul = teksNotifSinkron.judul;
       final teks = teksNotifSinkron.isi(n);
       if (!_sudahMintaIzin) {

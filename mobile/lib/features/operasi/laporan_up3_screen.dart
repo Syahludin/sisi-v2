@@ -18,7 +18,7 @@ import 'laporan_up3_repository.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// Operasi > Laporan UP3 atau Laporan UIW (v0.57: menu dipecah, satu layar per laporan; keputusan kvlar 5 Okt 2026).
+/// Operasi > Laporan UP3 atau Laporan UIW (v0.57: menu dipecah, satu layar per laporan; keputusan Master Guswan 5 Okt 2026).
 /// Status tim + input harian laporan itu saja (UP3: C4A per penyulang; UIW: Cuaca + C4A per section) + teks WA dari server.
 /// Input hanya ADMIN / SUPER untuk hari ini (bisaUbah dari server); ADMIN_ES dan tanggal lewat = hanya lihat.
 class LaporanUp3Screen extends StatefulWidget {

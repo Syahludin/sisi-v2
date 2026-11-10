@@ -10,7 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.67.0 (keputusan kvlar 9 Okt 2026): Ganti Password pemilik akun (Pengaturan). Wajib online.
+/// v0.67.0 (keputusan Master Guswan 9 Okt 2026): Ganti Password pemilik akun (Pengaturan). Wajib online.
 /// Password lama wajib benar; baru minimal 10 karakter, beda dari lama dan username. Sukses = HP lain yang login
 /// dengan akun ini dikeluarkan (HP ini tetap masuk). Akun tim YANDAL tidak bisa (dipakai bergantian, lewat admin).
 class GantiPasswordScreen extends StatefulWidget {

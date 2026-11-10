@@ -42,9 +42,22 @@ class HartekRepository {
     return hasil;
   }
 
-  /// v0.97.0 (kvlar 15 Okt 2026): rincian grounding hanya untuk pekerjaan yang namanya mengandung "grounding"
+  /// v0.97.0 (Master Guswan 15 Okt 2026): rincian grounding hanya untuk pekerjaan yang namanya mengandung "grounding"
   /// (aturan sama dengan server: groundingBolehHartek_).
   static bool groundingBoleh(String namaPekerjaan) => namaPekerjaan.toLowerCase().contains('grounding');
+
+  /// v1.0.38 (keputusan Master Guswan 27 Okt 2026): pekerjaan yang WAJIB punya hasil grounding sebelum laporan dikirim ke WA.
+  /// Hanya aturan HP untuk petugas (server tetap menerima). Pasang / Perbaikan Grounding TR dan Grounding Rod
+  /// tidak termasuk.
+  static const _groundingWajib = {
+    'pemasangan grounding arrester trafo', 'pemasangan grounding body trafo', 'perbaikan grounding arrester trafo', 'perbaikan grounding body trafo',
+    'pemasangan grounding arrester', 'pemasangan grounding cld', 'pemasangan grounding gsw', 'pemasangan grounding igsw',
+    'pemasangan grounding lbs motorized', 'pemasangan grounding recloser', 'pemasangan grounding surge arrester',
+    'perbaikan grounding arrester jaringan', 'perbaikan grounding cld', 'perbaikan grounding gsw', 'perbaikan grounding igsw',
+    'perbaikan grounding lbs motorized', 'perbaikan grounding recloser', 'perbaikan grounding surge arrester',
+  };
+  static bool groundingWajib(String namaPekerjaan) =>
+      _groundingWajib.contains(namaPekerjaan.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' '));
 
   /// "Pasang Grounding" = grounding baru, jadi hanya ada nilai SESUDAH. Perbaikan = sebelum + sesudah.
   static bool groundingHanyaSesudah(String namaPekerjaan) {

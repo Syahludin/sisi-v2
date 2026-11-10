@@ -23,6 +23,9 @@ import '../hartek/hartek_store.dart' show GudangHartekSql;
 import '../row/row_repository.dart' show RowError;
 import '../wo/wo_admin_screen.dart';
 import '../wo/wo_bantu.dart';
+import '../wo/wo_penerusan.dart';
+import '../wo/wo_pilih_tim.dart';
+import '../wo/wo_teruskan.dart';
 import 'insjar_form.dart';
 import 'insjar_header.dart';
 import 'insjar_lokal.dart';
@@ -32,15 +35,15 @@ import 'temuan_admin_antre.dart';
 import 'temuan_offline.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.0 (permintaan kvlar 19 Okt 2026): Input Temuan Inspeksi khusus admin (menu OPS_INPUT_TEMUAN).
+/// v1.0.0 (permintaan Master Guswan 19 Okt 2026): Input Temuan Inspeksi khusus admin (menu OPS_INPUT_TEMUAN).
 /// Form sama dengan petugas Inspeksi Jaringan + pilihan penyulang. Online (admin di kantor): simpan langsung ke server
 /// (simpanTemuanInspeksi, idBaris dibuat sekali per form, jadi kirim ulang = duplikat, bukan baris kembar), lalu foto
 /// temuan / tiang (uploadFotoTemuanInspeksi). Foto yang gagal terkirim ditandai di kartu dan bisa dikirim ulang.
 /// v1.0.11: object Gardu memilih gardu AKTIF (db_Gardu); kartu menampilkan status WO + tombol Penerusan WO di header.
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): Simpan tidak menunggu server. Form langsung tertutup, pop up "Data Berhasil
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): Simpan tidak menunggu server. Form langsung tertutup, pop up "Data Berhasil
 /// disimpan", temuan masuk daftar HP lalu dikirim di latar (AntreanTemuanAdmin), tanpa chip / pesan kirim.
 ///
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): menu bernama "Temuan Inspeksi", dua tab:
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): menu bernama "Temuan Inspeksi", dua tab:
 ///  1. Input: kosong, hanya keterangan + tombol + (kanan bawah) untuk membuka form temuan.
 ///  2. Daftar Temuan: temuan rentang tanggal diunduh sekali dan disimpan di HP (offline, langsung tampil), filter
 ///     multi-pilihan (jenis temuan, tanggal inspeksi, penyulang, tim inspeksi), kartu ringkasan jumlah per jenis temuan
@@ -98,12 +101,14 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   void initState() {
     super.initState();
     _antre.addListener(_antreBerubah);
+    PenerusanWo.i.addListener(_woBerubah);
     unawaited(_mulai());
   }
 
   @override
   void dispose() {
     _antre.removeListener(_antreBerubah);
+    PenerusanWo.i.removeListener(_woBerubah);
     _tab.dispose();
     super.dispose();
   }
@@ -119,6 +124,40 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       if (mounted && o != null) setState(() => _offline = o);
     }));
     if (berkurang) unawaited(_unduh(diam: true));
+  }
+
+  /// v1.0.58: antrean penerusan WO berubah: kartu temuan menampilkan "sedang dikirim" / tombol lagi.
+  void _woBerubah() {
+    if (mounted) setState(() {});
+  }
+
+  /// v1.0.58: Teruskan ke tim dari kartu temuan (hanya akun UBAH di Penerusan WO). Pemilih tim sama dengan layar Penerusan WO;
+  /// pengiriman lewat antrean latar yang sama, daftar temuan diperbarui diam-diam sesudah berhasil.
+  Future<void> _teruskanKeTim(Map<String, dynamic> t) async {
+    List<Map<String, dynamic>> tim;
+    try {
+      tim = await timTujuanWo(userId: _sesi.userId, api: _api);
+    } catch (_) {
+      if (mounted) _pesan('Butuh sinyal untuk memuat daftar tim.');
+      return;
+    }
+    if (!mounted) return;
+    final p = await pilihTimWo(context, temuan: t, tim: tim);
+    if (p == null || !mounted) return;
+    final nama = _teks(tim.where((x) => _teks(x['timId']) == p.$1).map((x) => x['nama']).firstOrNull);
+    teruskanWoKeAntre(
+      userId: _sesi.userId,
+      api: _api,
+      temuan: t,
+      timId: p.$1,
+      namaTim: nama,
+      catatan: p.$2,
+      selesai: (ok) {
+        if (ok && mounted) unawaited(_unduh(diam: true));
+      },
+    );
+    // v1.0.58: kirim di latar tanpa chip proses, hanya kartu berhasil
+    unawaited(tampilPopupBerhasil(context, judul: 'Data berhasil disimpan', keterangan: keteranganKirimWo(_teks(t['kodeTemuan']), nama), tembus: true));
   }
 
   int _hitungAntre() => _semua.where((t) => _antre.item(_sesi.userId, _teks(t['temuanId'])) != null).length;
@@ -261,24 +300,48 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
         ? 'WO: belum diteruskan ke tim'
         : 'WO ${StatusWo.label(s).toLowerCase()}${teksWo(wo['tim']).isEmpty ? '' : ' · ${teksWo(wo['tim'])}'}'
             '${s == StatusWo.selesai && teksWo(wo['tindakLanjut']).isNotEmpty ? '\n${teksWo(wo['tindakLanjut'])}' : ''}';
-    final warna = s == StatusWo.selesai
+    // v1.0.58: antrean kirim WO tiap temuan: sedang dikirim = keterangan tim tujuan; gagal = galat merah (tombol tetap ada)
+    final item = PenerusanWo.i.antre.where((x) => x.temuanId == _teks(t['temuanId'])).firstOrNull;
+    final dikirim = item != null && item.status != PenerusanWo.gagal;
+    final gagal = item != null && item.status == PenerusanWo.gagal;
+    final isiKotak = dikirim
+        ? 'WO: ${item.judul}'
+        : gagal
+            ? 'WO gagal dikirim: ${item.judul}${(item.galat ?? '').isEmpty ? '' : '\n${item.galat}'}'
+            : teks;
+    final warna = gagal
+        ? AppColors.red700
+        : s == StatusWo.selesai
         ? AppColors.success700
         : s == StatusWo.dikerjakan
             ? AppColors.accent700
             : s == StatusWo.terkirim
                 ? HartekGaya.merek
                 : HartekGaya.redup;
-    // v1.0.29: kotak berwarna di bawah kartu daftar temuan
-    return Container(
+    // v1.0.58: WO belum diteruskan + akun berhak = tombol Teruskan ke tim
+    final tombol = !dikirim && bolehTeruskanDariDaftar(_sesi, t);
+    final kotak = Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
       decoration: BoxDecoration(color: warna.withValues(alpha: .08), borderRadius: BorderRadius.circular(12)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(Icons.assignment_turned_in_outlined, size: 17, color: warna),
         const SizedBox(width: 8),
-        Expanded(child: Text(teks, style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: warna))),
+        Expanded(child: Text(isiKotak, style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: warna))),
       ]),
     );
+    if (!tombol) return kotak;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      kotak,
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: FilledButton.icon(
+          onPressed: _sibuk ? null : () => unawaited(_teruskanKeTim(t)),
+          icon: const Icon(Icons.send_rounded, size: 18),
+          label: const Text('Teruskan ke tim'),
+        ),
+      ),
+    ]);
   }
 
   /// Tombol + (tab Input): form temuan. Tanggal temuan = hari ini.
@@ -458,7 +521,15 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
                           CheckboxListTile(
                             value: dipilih.contains(v),
                             onChanged: (b) => setSheet(() => b == true ? dipilih.add(v) : dipilih.remove(v)),
-                            title: Text(k == KategoriFilterTemuan.tanggal && v != '-' ? tanggalHartek(v) : v),
+                            dense: true,
+                            checkboxShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            // satu baris seperti dropdown: nama panjang dipotong (...), tidak turun ke baris berikutnya
+                            title: Text(
+                              k == KategoriFilterTemuan.tanggal && v != '-' ? tanggalHartek(v) : v,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
                             secondary: Text('${jumlah[v] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w800, color: HartekGaya.redup)),
                             controlAffinity: ListTileControlAffinity.leading,
                           ),
@@ -548,7 +619,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // v1.0.21 (permintaan kvlar 23 Okt 2026): keterangan offline / diunduh diganti satu kolom rentang tanggal selebar layar
+              // v1.0.21 (permintaan Master Guswan 23 Okt 2026): keterangan offline / diunduh diganti satu kolom rentang tanggal selebar layar
               Material(
                 color: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: HartekGaya.garis)),

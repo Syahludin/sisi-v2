@@ -14,8 +14,8 @@ import '../../widgets/sisi_widgets.dart';
 import 'arsip_p0_view.dart' show angkaPoint;
 import 'yandal_login.dart' show inisialPetugas;
 
-/// v0.63.5 (keputusan kvlar 8 Okt 2026): Rank Yandal bulan berjalan di Beranda (akun YANDAL + admin).
-/// v0.75.1 (permintaan kvlar 10 Okt 2026): tampilan baru: podium 3 besar, bilah nilai, komponen Jam / Shift / P0.
+/// v0.63.5 (keputusan Master Guswan 8 Okt 2026): Rank Yandal bulan berjalan di Beranda (akun YANDAL + admin).
+/// v0.75.1 (permintaan Master Guswan 10 Okt 2026): tampilan baru: podium 3 besar, bilah nilai, komponen Jam / Shift / P0.
 /// Rumus server (v1): Jam 55% + Shift 15% + P0 18% + VCC 12%. Point & jam hanya P0 Approved; shift = semua shift (v0.63.6). Data terakhir disimpan di HP.
 
 /// Periode 'yyyy-MM' bulan berjalan (WIB).
@@ -105,7 +105,7 @@ class _KartuRankYandalState extends State<KartuRankYandal> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        // v1.0.22 (permintaan kvlar 23 Okt 2026): latar Jaringan SiSi (gradien + motif tiang & kawat) seperti header / kartu utama
+        // v1.0.22 (permintaan Master Guswan 23 Okt 2026): latar Jaringan SiSi (gradien + motif tiang & kawat) seperti header / kartu utama
         gradient: SisiMotif.gradien,
         boxShadow: [BoxShadow(color: AppColors.brand900.withValues(alpha: .25), blurRadius: 16, offset: const Offset(0, 6))],
       ),
@@ -400,7 +400,7 @@ class RankYandalScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: sisiAppBar('Rank Yandal', subjudul: bulan),
       body: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 40), children: [
-        // v0.65.13 (permintaan kvlar 9 Okt 2026): kotak keterangan cara penilaian dihapus
+        // v0.65.13 (permintaan Master Guswan 9 Okt 2026): kotak keterangan cara penilaian dihapus
         if (semua.isEmpty)
           const SisiKosong(ikon: Icons.emoji_events_outlined, judul: 'Belum ada data rank bulan ini.')
         else ...[

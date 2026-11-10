@@ -10,7 +10,7 @@ import '../yandal/arsip_p0_view.dart';
 import 'arsip_tim.dart';
 import 'arsip_tim_view.dart';
 
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): tab Arsip di bottom bar tim tindak lanjut (ROW / HARTEK / YANDAL), supaya
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): tab Arsip di bottom bar tim tindak lanjut (ROW / HARTEK / YANDAL), supaya
 /// bottom bar berisi 5 menu dan Beranda tepat di tengah: Laporan · WO · Beranda · Arsip · Pengaturan.
 /// Isi = arsip yang dulu ada di dalam menu Laporan / Shift (ROW = arsip laporan, Hartek = arsip Hartek, Yandal = Arsip P0).
 class TabArsipTim extends StatefulWidget {

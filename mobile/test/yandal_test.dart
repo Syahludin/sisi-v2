@@ -40,7 +40,7 @@ void main() {
     expect(togglePetugas(d, 'p1', 2), ['p3']);
   });
 
-  test('teks verifikasi sesuai keputusan kvlar', () {
+  test('teks verifikasi sesuai keputusan Master Guswan', () {
     expect(teksKonfirmasiPetugas(['Andi', 'Candra']),
         'Apakah user yang masuk saat ini adalah\n1. Andi\n2. Candra\nJika sudah betul silahkan lanjut login');
     expect(teksKonfirmasiPetugas(['Andi']), 'Apakah user yang masuk saat ini adalah\n1. Andi\nJika sudah betul silahkan lanjut login');

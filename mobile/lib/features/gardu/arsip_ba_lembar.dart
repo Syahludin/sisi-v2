@@ -22,7 +22,7 @@ import '../../widgets/sisi_loader.dart';
 /// v0.86.0: boleh membuka Daftar BA (+ arsip v1) = menu Berita Acara + admin BA (sama dengan server).
 bool bolehLihatBa(Sesi s) => s.aksiMenu('OPS_BA_GARDU') != null && (s.role == 'ADMIN' || s.role == 'SUPER');
 
-/// v0.86.0 (keputusan kvlar 13 Okt 2026): lembar BA lama dari arsip v1, BACA SAJA (satu halaman dengan BA v2 di Daftar BA).
+/// v0.86.0 (keputusan Master Guswan 13 Okt 2026): lembar BA lama dari arsip v1, BACA SAJA (satu halaman dengan BA v2 di Daftar BA).
 /// Lihat PDF / BA TTD lama lewat server, salin link Drive, [onCari] = tampilkan semua BA peralatan ini (tracking).
 Future<void> tampilArsipBa(BuildContext context, {required Deps deps, required Sesi sesi, required ItemArsipBa b, ValueChanged<String>? onCari}) {
   final repo = ArsipBaRepository(deps.api);

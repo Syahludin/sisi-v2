@@ -5,6 +5,7 @@ import '../../widgets/kartu_laporan_tim.dart';
 import 'hartek_form.dart' show angkaDari;
 import 'hartek_gaya.dart';
 import 'hartek_lokal.dart';
+import 'hartek_repository.dart' show HartekRepository;
 
 /// v0.93.1: rincian Hartek dipisah dari HartekScreen supaya bisa diuji tanpa server (temuan review: layar rincian
 /// v0.93.0 belum punya test). Status buka-tutup dipegang pemanggil ([terbuka] + [onBukaTutup]) supaya tidak hilang
@@ -84,7 +85,7 @@ String _jumlahSatuanWaHartek(Object? jml, Object? sat) {
   return '$j $s'.trim();
 }
 
-/// v0.97.3 (kvlar 15 Okt 2026): teks pelaporan Hartek untuk WhatsApp sesuai format baku ULP Toboali.
+/// v0.97.3 (Master Guswan 15 Okt 2026): teks pelaporan Hartek untuk WhatsApp sesuai format baku ULP Toboali.
 /// Urutan seksi: Pekerjaan Gardu, Pekerjaan Jaringan, Pekerjaan Non-Teknik (tiap seksi selalu tampil; kosong = Nihil).
 String waTeksHartek({
   String kodeHeader = '',
@@ -285,6 +286,8 @@ class RincianHartek extends StatelessWidget {
     required this.onTambahLokasi,
     required this.onTambahPekerjaan,
     required this.onTambahMaterial,
+    this.onTambahGrounding,
+    this.onTambahPemerataan,
     this.boleh = true,
     this.sibuk = false,
     this.onCobaUlang,
@@ -298,7 +301,7 @@ class RincianHartek extends StatelessWidget {
     this.perLokasi = false,
   });
 
-  /// v1.0.20 (permintaan kvlar 23 Okt 2026): halaman utama laporan Hartek (pola ROW): satu kartu per lokasi
+  /// v1.0.20 (permintaan Master Guswan 23 Okt 2026): halaman utama laporan Hartek (pola ROW): satu kartu per lokasi
   /// (penyulang / gardu / non-teknik), di dalamnya rincian pekerjaan, di dalam pekerjaan material yang dipakai.
   /// Tanpa kepala rincian / kartu jenis.
   final bool perLokasi;
@@ -312,6 +315,12 @@ class RincianHartek extends StatelessWidget {
   final VoidCallback onTambahLokasi;
   final void Function(Map<String, dynamic> pg) onTambahPekerjaan;
   final void Function(Map<String, dynamic> pk) onTambahMaterial;
+
+  /// v1.0.38: "+ Hasil Grounding" langsung di kartu pekerjaan grounding. null = tidak boleh tambah.
+  final void Function(Map<String, dynamic> pg, Map<String, dynamic> pk)? onTambahGrounding;
+
+  /// v1.0.40: "+ Pemerataan Beban" di kartu Pemerataan / Pembagian Beban Gardu. null = tidak boleh tambah.
+  final void Function(Map<String, dynamic> pg, Map<String, dynamic> pk)? onTambahPemerataan;
   final bool boleh, sibuk;
 
   /// v0.95.0: data ditolak server (ID node).
@@ -392,10 +401,10 @@ class RincianHartek extends StatelessWidget {
     );
   }
 
-  // v0.95.0 (permintaan kvlar 14 Okt 2026): rincian lebih mudah dibaca. Lokasi = judul berikon (bukan teks tautan),
+  // v0.95.0 (permintaan Master Guswan 14 Okt 2026): rincian lebih mudah dibaca. Lokasi = judul berikon (bukan teks tautan),
   // rincian pekerjaan bernomor, material berlabel di bawah pekerjaannya, jumlah rata kanan.
 
-  // v1.0.28 (permintaan kvlar 23 Okt 2026): pola WO Tindak Lanjut Inspeksi. Tiap pekerjaan = kartu sendiri dengan
+  // v1.0.28 (permintaan Master Guswan 23 Okt 2026): pola WO Tindak Lanjut Inspeksi. Tiap pekerjaan = kartu sendiri dengan
   // kepala berwarna jenis; di dalamnya tiap material = kartu kuning sendiri.
 
   Widget _materialRincian(Map<String, dynamic> m) => KotakAksen(
@@ -453,6 +462,10 @@ class RincianHartek extends StatelessWidget {
       if (pm > 0) '$pm pemerataan',
     ].join(' · ');
     final bentuk = BorderRadius.circular(16);
+    final perluGr = HartekRepository.groundingWajib(teksHartek(pk['pekerjaan']));
+    final perluPm = HartekRepository.pemerataanBoleh(teksHartek(pk['pekerjaan']));
+    final kurangGr = HartekLokal.hasilKurang(pk);
+    final warna = kurangGr ? AppColors.red700 : j.warna;
     return Padding(
       key: ValueKey('pekerjaan-${teksHartek(pk['pekerjaanId'])}'),
       padding: const EdgeInsets.only(top: 12),
@@ -464,10 +477,11 @@ class RincianHartek extends StatelessWidget {
         child: Material(
           color: AppColors.surface,
           clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(borderRadius: bentuk, side: BorderSide(color: j.warna.withValues(alpha: .28))),
+          shape: RoundedRectangleBorder(
+              borderRadius: bentuk, side: BorderSide(color: kurangGr ? AppColors.red700 : j.warna.withValues(alpha: .28), width: kurangGr ? 1.6 : 1)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Material(
-              color: j.warna.withValues(alpha: .08),
+              color: warna.withValues(alpha: .08),
               child: InkWell(
                 onTap: sibuk ? null : () => onBukaPekerjaan(teksHartek(pg['pgId']), teksHartek(pk['pekerjaanId'])),
                 child: Padding(
@@ -495,6 +509,18 @@ class RincianHartek extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(lain, style: const TextStyle(fontSize: 12.5, color: HartekGaya.redup)),
                         ],
+                        if (kurangGr)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(children: [
+                              const Icon(Icons.error_outline_rounded, size: 15, color: AppColors.red700),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(perluPm ? 'Hasil pemerataan beban wajib diisi' : 'Hasil grounding wajib diisi',
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.red700)),
+                              ),
+                            ]),
+                          ),
                         _tanda(pk, teksHartek(pk['pekerjaanId'])),
                         _tandaUbah(pk),
                       ]),
@@ -535,11 +561,10 @@ class RincianHartek extends StatelessWidget {
                   ),
                 for (final m in mat) _materialRincian(m),
                 if (boleh)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: TextButton.icon(
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(spacing: 8, children: [
+                      TextButton.icon(
                         key: ValueKey('tambah-material-${teksHartek(pk['pekerjaanId'])}'),
                         onPressed: sibuk ? null : () => onTambahMaterial(pk),
                         style: TextButton.styleFrom(
@@ -551,7 +576,33 @@ class RincianHartek extends StatelessWidget {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('Material'),
                       ),
-                    ),
+                      if (perluGr && onTambahGrounding != null)
+                        TextButton.icon(
+                          key: ValueKey('tambah-grounding-${teksHartek(pk['pekerjaanId'])}'),
+                          onPressed: sibuk ? null : () => onTambahGrounding!(pg, pk),
+                          style: TextButton.styleFrom(
+                            foregroundColor: kurangGr ? AppColors.red700 : AppColors.brand700,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Hasil Grounding'),
+                        ),
+                      if (perluPm && onTambahPemerataan != null)
+                        TextButton.icon(
+                          key: ValueKey('tambah-pemerataan-${teksHartek(pk['pekerjaanId'])}'),
+                          onPressed: sibuk ? null : () => onTambahPemerataan!(pg, pk),
+                          style: TextButton.styleFrom(
+                            foregroundColor: kurangGr ? AppColors.red700 : AppColors.brand700,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Pemerataan Beban'),
+                        ),
+                    ]),
                   ),
               ]),
             ),
@@ -777,7 +828,7 @@ class RincianHartek extends StatelessWidget {
     );
   }
 
-  /// v0.97.0 (kvlar 15 Okt 2026): kepala rincian dirancang ulang. Satu kartu putih, satu garis aksen, kode laporan
+  /// v0.97.0 (Master Guswan 15 Okt 2026): kepala rincian dirancang ulang. Satu kartu putih, satu garis aksen, kode laporan
   /// monospace, judul besar, lalu satu baris angka. Tenang, mudah dibaca, tanpa warna mewah di mana-mana.
   Widget _kepala() {
     final satu = jenis;

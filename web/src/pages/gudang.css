@@ -1,0 +1,34 @@
+/* Material Gudang (menu OPS_GUDANG_MATERIAL) */
+.gd-isi { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.gd-kartu { background: var(--putih); border: 1px solid var(--neutral-200); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.gd-kartu > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gd-kartu h2, .gd-kartu h3 { margin: 0; }
+.gd-kartu h2 small, .gd-kartu h3 small, .gd-isi > h2 small { margin-left: 6px; font-size: 12px; font-weight: 700; color: var(--neutral-500); }
+.gd-form { display: flex; flex-direction: column; gap: 10px; }
+.gd-baris { display: flex; gap: 10px; flex-wrap: wrap; }
+.gd-baris > .k-medan { flex: 1 1 130px; }
+.gd-saring { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.gd-angka { text-align: right; font-variant-numeric: tabular-nums; }
+.gd-aksi { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; white-space: nowrap; }
+.gd-tanpa-izin { border-top: 1px dashed var(--red-600); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.gd-selisih p { margin: 0; }
+.gd-batal td { color: var(--neutral-400); text-decoration: line-through; }
+.gd-centang { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.gd-pilih { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.gd-material { max-width: 360px; }
+.gd-foto { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto 12px; border-radius: 10px; }
+
+/* ringkasan angka besar + status berwarna agar terbaca sekilas */
+.gd-kpi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.gd-kpi > div { background: var(--putih); border: 1px solid var(--neutral-200); border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+.gd-kpi small { font-size: 12.5px; font-weight: 700; color: var(--neutral-700); }
+.gd-kpi b { font-size: 30px; line-height: 1; font-weight: 900; color: var(--brand-800); }
+.gd-kpi .gd-kpi--hijau, .gd-kpi--hijau b { color: var(--success-700); }
+.gd-kpi div.gd-kpi--merah { background: var(--red-100); border-color: var(--red-600); }
+.gd-kpi div.gd-kpi--merah b { color: var(--red-700); }
+.gd-status { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; }
+.gd-status--baru { background: var(--success-100); color: var(--success-700); }
+.gd-status--ex { background: var(--accent-100); color: var(--accent-700); }
+.gd-besar { font-size: 18px; }
+.gd-kartu .k-tabel td { padding-top: 9px; padding-bottom: 9px; }
+@media (max-width: 640px) { .gd-kpi b { font-size: 24px; } }

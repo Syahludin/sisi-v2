@@ -23,11 +23,25 @@ function skemaHeader_() {
       db_Jenis_Pekerjaan: ['jenis_id', 'modul', 'nama', 'satuan', 'diameter_min', 'diameter_max', 'urutan', 'aktif', 'bobot', 'jenis_pekerjaan', 'kolom_gaspol'],
       db_Menu: ['menu_kode', 'nama', 'platform', 'khusus_super', 'urutan', 'aktif'],
       db_Akses: ['role', 'jenis_tim', 'menu_kode', 'aksi'],
-      // v0.63.0: petugas Yandal (orang), tim_yandal = tim_id tim YANDAL. Diubah lewat menu Pindah Tim Petugas Yandal.
-      db_Petugas: ['petugas_id', 'nama', 'tim_yandal', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
+      // v0.63.0: petugas Yandal (orang), tim = tim_id tim YANDAL. Diubah lewat menu Pindah Tim Petugas Yandal.
+      db_Petugas: ['petugas_id', 'nama', 'tim', 'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
       // v0.67.0: pejabat penandatangan BA (Pemeriksa / Mengetahui). Dibuat ADMIN_siapkanSheetGardu.
-      db_Pejabat_BA: DB_PEJABAT_BA_HEADER_.slice()
+      db_Pejabat_BA: DB_PEJABAT_BA_HEADER_.slice(),
+      // v1.0.57: izin pemakaian material per tim (modul 75_Gudang_Data.js), dibuat ADMIN_siapkanSheetGudang
+      db_Material_Tim: GUD_IZIN_HEADER_.slice(),
+      // master merk MCB (dropdown HP), dibuat ADMIN_siapkanSheetGudang
+      db_Merk_MCB: GUD_MERK_HEADER_.slice(),
+      // master keperluan penggunaan MCB (dropdown HP), dibuat ADMIN_siapkanSheetGudang
+      db_Keperluan_MCB: GUD_KEPERLUAN_HEADER_.slice(),
+      // 8 Nov 2026: referensi master tiang (db_Konstruksi, db_Tiang_Pemetaan), dibuat ADMIN_siapkanSheetTiang
+      db_Konstruksi: TIANG_MASTER_HEADER_.db_Konstruksi.slice(),
+      db_Ukuran_Tiang: TIANG_MASTER_HEADER_.db_Ukuran_Tiang.slice(),   // pilihan ukuran tiang di HP
+      db_Tiang_Pemetaan: TIANG_MASTER_HEADER_.db_Tiang_Pemetaan.slice()
     },
+    // 8 Nov 2026: SiSi_Tiang, master tiang + segmen + switching (modul 95_Tiang_Master.js)
+    TIANG_SHEET_ID: tiangSkema_(),
+    // v1.0.56: master Data Aset (modules/67_AsetItb.js), dibuat ADMIN_siapkanSheetAsetItb
+    SISI_ITB_SHEET_ID: { db_Aset_ITB: ASET_HEADER_.slice() },
     AUTH_SHEET_ID: {
       auth_Password: ['user_id', 'password_hash', 'salt', 'hash_versi', 'password_diubah_pada', 'gagal_login', 'terkunci_sampai'],
       auth_Perangkat: ['device_id', 'user_id', 'install_id', 'token_hash', 'platform', 'dibuat_pada', 'terakhir_dipakai', 'kedaluwarsa_pada', 'dicabut_pada'],
@@ -35,6 +49,10 @@ function skemaHeader_() {
       // v0.83.0: token notifikasi FCM per instalasi app (dibuat ADMIN_siapkanNotifikasi)
       auth_Notif: AUTH_NOTIF_HEADER_.slice()
     },
+    // v1.0.57: SiSi_Gudang, buku mutasi + pemeriksaan stok + pemakaian MCB (modul 75_Gudang_Data.js)
+    GUDANG_SHEET_ID: gudangSkema_(),
+    // v1.0.51: SiSi_Absensi, satu baris per tanggal + petugas_id (modul 66_Absensi.js)
+    ABSENSI_SHEET_ID: { abs_Absensi: ABS_HEADER_.slice() },
     // Struktur kolom lama dipertahankan (PRD 4. Fitur > Data ROW). Kolom bernama lama = turunan/input,
     // kolom snake_case = teknis. Kode hanya memakai kolom *_id untuk relasi.
     ROW_SHEET_ID: {
@@ -54,9 +72,9 @@ function skemaHeader_() {
         'diambil_pada', 'lat', 'lng', 'akurasi_m', 'Timestamp', 'Timestamp Update',
         'status', 'revision', 'dibuat_oleh', 'waktu_perangkat', 'diubah_oleh']
     },
-    // v0.51 (keputusan kvlar 4 Okt 2026): spreadsheet terpisah SiSi_Laporan. Kolom baca di depan, teknis snake_case di belakang.
+    // v0.51 (keputusan Master Guswan 4 Okt 2026): spreadsheet terpisah SiSi_Laporan. Kolom baca di depan, teknis snake_case di belakang.
     LAPORAN_SHEET_ID: {
-      // v0.55 (keputusan kvlar 5 Okt 2026): laporan harian dipisah per laporan, masing-masing induk C4A-nya.
+      // v0.55 (keputusan Master Guswan 5 Okt 2026): laporan harian dipisah per laporan, masing-masing induk C4A-nya.
       lap_Harian_UP3: ['No', 'Tanggal', 'Hari', 'ULP', 'Laporan UP3', 'Input Oleh', 'Timestamp', 'Timestamp Update',
         'lap_id', 'status', 'revision', 'dibuat_oleh', 'diubah_oleh'],
       lap_Harian_UIW: ['No', 'Tanggal', 'Hari', 'ULP', 'Cuaca', 'Tim ROW', 'Laporan UIW', 'Input Oleh', 'Timestamp',
@@ -69,10 +87,10 @@ function skemaHeader_() {
         'Eksekusi', 'Keterangan', 'Input Oleh', 'Timestamp', 'Timestamp Update', 'c4a_id', 'lap_id', 'section_id',
         'status', 'revision', 'dibuat_oleh', 'diubah_oleh']
     },
-    // v0.63.0 (keputusan kvlar 7 Okt 2026): spreadsheet terpisah SiSi_Yandal. yan_Shift = 1 baris per tim per shift
+    // v0.63.0 (keputusan Master Guswan 7 Okt 2026): spreadsheet terpisah SiSi_Yandal. yan_Shift = 1 baris per tim per shift
     // (crew 1-2 petugas), yan_Login = SETIAP login akun YANDAL (jam login, HP, logout).
     YANDAL_SHEET_ID: {
-      // v0.63.3 (keputusan kvlar 8 Okt 2026): jam kerja + jadwal, petugas dipisah, check-in & terlambat, jumlah login,
+      // v0.63.3 (keputusan Master Guswan 8 Okt 2026): jam kerja + jadwal, petugas dipisah, check-in & terlambat, jumlah login,
       // rekap P0 (diisi modul P0). Header lama v0.63.0 dipindah ke YAN_SHIFT_HEADER_V630_ (ADMIN_perbaruiYanShift).
       yan_Shift: YAN_SHIFT_HEADER_.slice(),
       // v0.63.4: Penugasan P0 (rekap shift dihitung dari sini lewat shift_id)
@@ -86,7 +104,7 @@ function skemaHeader_() {
       // v0.83.0: riwayat pengingat login (cegah kirim dobel), dibuat ADMIN_siapkanNotifikasi
       yan_Pengingat: YAN_PENGINGAT_HEADER_.slice()
     },
-    // v0.67.0 (keputusan kvlar 9 Okt 2026): tab baru di spreadsheet Pengukuran Gardu Toboali. Struktur dikunci (sama persis).
+    // v0.67.0 (keputusan Master Guswan 9 Okt 2026): tab baru di spreadsheet Pengukuran Gardu Toboali. Struktur dikunci (sama persis).
     GARDU_SHEET_ID: {
       Rekap_BA: REKAP_BA_HEADER_.slice(),
       db_Gardu: DB_GARDU_HEADER_.slice(),
@@ -111,6 +129,40 @@ function cariTimId_(nilai, daftarTim) {
   });
   if (cocok.length === 1) return { id: String(cocok[0].tim_id) };
   return { masalah: cocok.length ? 'AMBIGU' : 'TIDAK_DITEMUKAN' };
+}
+
+/**
+ * v1.0.51: rencana pengisian kolom tim db_Petugas dari nama / kode / UUID tim AKTIF jenis apa pun. Murni.
+ * Hasil per baris: { baris } (sudah benar), { baris, id } (ganti ke UUID), { baris, masalah: 'KOSONG' | 'AMBIGU' | 'TIDAK_DITEMUKAN' }.
+ */
+function rencanaTimPetugas_(petugasRows, timRows) {
+  var aktif = timRows.filter(function (t) { return t.tim_id && isAktif_(t.aktif); });
+  return petugasRows.map(function (r) {
+    var v = r.tim;
+    if (v === '' || v === null || v === undefined) return { baris: r._baris, masalah: 'KOSONG' };
+    var h = cariTimId_(v, aktif);
+    if (h.id && h.id !== String(v)) return { baris: r._baris, id: h.id };
+    if (h.masalah) return { baris: r._baris, masalah: h.masalah };
+    return { baris: r._baris };
+  });
+}
+
+/**
+ * v1.0.51: ganti header kolom db_Petugas `tim_yandal` -> `tim` (kolom sama, isi tidak disentuh). Aman diulang. Jalankan SEGERA
+ * sesudah push backend v1.0.51 (sebelum itu login Yandal menolak header lama dengan CONFIG_TIDAK_VALID).
+ */
+function ADMIN_gantiHeaderPetugasTim() {
+  pastikanPemilik_();
+  denganLock_(function () {
+    var sh = bukaSpreadsheet_(cfg_().MASTER_SHEET_ID).getSheetByName('db_Petugas');
+    if (!sh) throw new SisiError_('SHEET_TIDAK_ADA', 'db_Petugas');
+    var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+    var lama = header.indexOf('tim_yandal'), baru = header.indexOf('tim');
+    if (lama === -1 && baru !== -1) return console.log('db_Petugas: header sudah "tim", tidak ada yang diubah');
+    if (lama === -1 || baru !== -1) throw new SisiError_('CONFIG_TIDAK_VALID', 'db_Petugas header tidak dikenal: ' + header.join(','));
+    sh.getRange(1, lama + 1).setValue('tim');
+    console.log('db_Petugas: header kolom ' + (lama + 1) + ' tim_yandal -> tim');
+  });
 }
 
 /**
@@ -144,6 +196,38 @@ function sectionBersiklus_(daftar) {
   });
 }
 
+/**
+ * v1.0.50 (unit baru, mis. ULP Mentok): buat tab + baris header MASTER_SHEET_ID dan AUTH_SHEET_ID dari skemaHeader_().
+ * Aman diulang: tab yang sudah ada TIDAK diubah (kolom kurang hanya dilaporkan, perbaiki manual / ADMIN_cekKonfigurasi).
+ * Spreadsheet kosong boleh; tab "Sheet1" / "Lembar1" bawaan yang masih kosong dihapus setelah tab baru dibuat.
+ */
+function ADMIN_siapkanSheetDasar() {
+  pastikanPemilik_();
+  var c = cfg_(), skema = skemaHeader_(), dibuat = 0;
+  ['MASTER_SHEET_ID', 'AUTH_SHEET_ID'].forEach(function (idKey) {
+    var ss = bukaSpreadsheet_(c[idKey]);
+    console.log('--- ' + idKey + ' (' + ss.getName() + ') ---');
+    Object.keys(skema[idKey]).forEach(function (nama) {
+      var header = skema[idKey][nama], sh = ss.getSheetByName(nama);
+      if (sh) {
+        var ada = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String) : [];
+        var kurang = header.filter(function (h) { return ada.indexOf(h) === -1; });
+        console.log(nama + ': sudah ada' + (kurang.length ? ' (kolom kurang: ' + kurang.join(', ') + ')' : ''));
+        return;
+      }
+      sh = ss.insertSheet(nama);
+      sh.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold');
+      sh.setFrozenRows(1);
+      dibuat++;
+      console.log(nama + ': dibuat (' + header.length + ' kolom)');
+    });
+    ss.getSheets().forEach(function (sh) {
+      if (/^(Sheet|Lembar)\s?1$/i.test(sh.getName()) && sh.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(sh);
+    });
+  });
+  console.log('Selesai: ' + dibuat + ' tab dibuat. Lanjut: isi db_Tim / db_Users / db_Menu / db_Akses, ADMIN_cekKonfigurasi, lalu atur password admin.');
+}
+
 /** Cek Script Properties + semua header sheet. Lihat hasilnya di Execution log. */
 function ADMIN_cekKonfigurasi() {
   pastikanPemilik_();
@@ -162,7 +246,7 @@ function ADMIN_cekKonfigurasi() {
   if (c.PBKDF2_ITERASI < PBKDF2_MIN_PRODUCTION_) perhatian('PBKDF2_ITERASI di bawah ' + PBKDF2_MIN_PRODUCTION_ + ', hanya boleh di staging (production ditolak)');
 
   var skema = skemaHeader_();
-  var sumberOpsional = { ROW_SHEET_ID: 'cek SiSi_ROW', LAPORAN_SHEET_ID: 'cek SiSi_Laporan', YANDAL_SHEET_ID: 'cek SiSi_Yandal', GARDU_SHEET_ID: 'cek Rekap_BA / db_Gardu' };
+  var sumberOpsional = { ROW_SHEET_ID: 'cek SiSi_ROW', LAPORAN_SHEET_ID: 'cek SiSi_Laporan', YANDAL_SHEET_ID: 'cek SiSi_Yandal', GARDU_SHEET_ID: 'cek Rekap_BA / db_Gardu', SISI_ITB_SHEET_ID: 'cek db_Aset_ITB (Data Aset)', ABSENSI_SHEET_ID: 'cek SiSi_Absensi', GUDANG_SHEET_ID: 'cek SiSi_Gudang', TIANG_SHEET_ID: 'cek SiSi_Tiang' };
   Object.keys(skema).forEach(function (idKey) {
     bagian(idKey);
     if (sumberOpsional[idKey] && !c[idKey]) { lewati(idKey + ' kosong, ' + sumberOpsional[idKey] + ' dilewati'); return; }
@@ -199,6 +283,8 @@ function ADMIN_cekKonfigurasi() {
   masalah += cekKonfigHartek_(c);   // v0.88.2
   masalah += cekKonfigInsJar_(c);   // v1.0.0
   masalah += cekKonfigInsDu_(c);   // v1.0.8
+  masalah += cekKonfigAbsensi_(c);   // v1.0.51
+  masalah += cekKonfigGudang_(c);   // v1.0.57
   masalah += cekKonfigWo_(c);   // v1.0.10
   masalah += cekKonfigV1017_(c);   // v1.0.17: jadwal padam, sinkron atomik, kepemilikan WO, sumber migrasi
   masalah += cekKonfigMigrasiHartek_(c);   // v0.98.8
@@ -223,7 +309,7 @@ function cekFiturGardu_(c, info, ok, perhatian, gagal) {
   if (!urlPdf || !rhsPdf) perhatian('PDF_ENGINE_URL / PDF_ENGINE_SECRET kosong, PDF BA belum bisa dibuat (deploy engines/sisi-pdf-engine, lalu ADMIN_cekPdfEngine)');
   else if (!/^https:\/\//.test(urlPdf) || rhsPdf.length < 32) perhatian('PDF_ENGINE_URL harus https dan PDF_ENGINE_SECRET minimal 32 karakter');
   else ok('PDF engine ' + urlPdf + ' (rahasia ' + rhsPdf.length + ' karakter), uji: ADMIN_cekPdfEngine');
-  if (pp.getProperty('SHEET_GARDU_ULP')) info('sinkron sheet lama aktif (pratinjau ADMIN_cekSinkronGarduLama, pemicu 05:00 ADMIN_pasangPemicuSinkronGardu)');
+  if (propKonfig_('SHEET_GARDU_ULP')) info('sinkron sheet lama aktif (pratinjau ADMIN_cekSinkronGarduLama, pemicu 05:00 ADMIN_pasangPemicuSinkronGardu)');
   else info('SHEET_GARDU_ULP kosong, sinkron harian db_Gardu ke Master_Gardu lama mati');
   if (pp.getProperty('EAM_EMAIL')) info('EAM_EMAIL: ' + emailEam_().length + ' akun EAM (BA TTD dibagikan sebagai Viewer + Link BA di pesan EAM)');
   else info('EAM_EMAIL kosong, Kirim EAM hanya lampiran (belum ada Link BA)');
@@ -293,6 +379,104 @@ function saranPropertiMigrasi_(kunci, ringkas, hariIni) {
 }
 
 /**
+ * v1.0.37: kelompok Script Property (murni, diuji). konfig = nama yang dibaca cfg_() (diambil dari kode cfg_ sendiri,
+ * jadi tidak perlu daftar kedua) + pengaturan opsional; pakai / migrasi / status = ditulis kode saat berjalan; lain = asing.
+ */
+// literal (aturan v2: tanpa kode top-level yang bergantung file lain)
+var PROPERTI_OPSIONAL_ = ['PAKET_GOOGLE', 'TARGET_RABAS_HARIAN', 'TARGET_TEBANG_HARIAN', 'WAJIB_VERSI_APP', 'VERSI_APP_MINIMUM',
+  'ATURAN_GARDU_UKUR_2_HARI', 'APK_FOLDER_ID', 'BA_PDF_FOLDER_ID', 'FCM_SERVICE_ACCOUNT', 'MONITOR_SERVICE_ACCOUNT', 'PDF_ENGINE_SECRET',
+  'PDF_ENGINE_URL', 'SHEET_GARDU_ULP', 'SHEET_GARDU_UP3_GID', 'EAM_EMAIL', 'CATATAN_UPDATE_APP', 'LINK_UPDATE_APP', 'CLOUD_RUN_LAYANAN', 'CLOUD_RUN_PROJECT',
+  'BATAS_CLOUD_RUN_GIB_DETIK_BULAN', 'BATAS_PDF_REQUEST_BULAN', 'BATAS_PDF_VCPU_DETIK_BULAN', 'PENGINGAT_ADMIN_MENIT', 'PENGINGAT_YANDAL_MENIT',
+  'MYSQL_API_URL', 'MYSQL_API_SECRET'];
+var PROPERTI_STATUS_ = [/^CACHE_BACA_REV$/, /^GGN_SINKRON$/, /^LAP_(KOTOR|PEMICU|RINGKAS_AKTIF)$/, /^NOTIF_RINGKAS_/, /^ROW_JENDELA_/,
+  /^SESI_EPOCH$/, /^MASTER_REVISI$/, /^ARSIP_BA_DIPERBARUI$/, /^(BUKA|CABUT)_USERNAME$/,
+  /^MYSQL_TERKIRIM$/, /^NOTIF_ADA_/];
+function kelompokProperti_(kunci, namaKonfig, awalanMigrasi) {
+  var hasil = { konfig: [], pakai: [], migrasi: [], status: [], lain: [] };
+  kunci.slice().sort().forEach(function (k) {
+    if (namaKonfig.indexOf(k) !== -1 || PROPERTI_OPSIONAL_.indexOf(k) !== -1 || KONFIG_JSON_POLA_.test(k)) hasil.konfig.push(k);
+    else if (/^PAKAI(_[HB]:.*)?$/.test(k)) hasil.pakai.push(k);
+    else if (k === 'CFG_JSON') hasil.konfig.push(k);
+    else if (awalanMigrasi.some(function (a) { return k.indexOf(a) === 0; })) hasil.migrasi.push(k);
+    else if (PROPERTI_STATUS_.some(function (r) { return r.test(k); })) hasil.status.push(k);
+    else hasil.lain.push(k);
+  });
+  return hasil;
+}
+
+/** Nama properti yang dibaca cfg_() (p.NAMA di kode cfg_). */
+function namaKonfig_() {
+  var nama = {};
+  (cfg_.toString().match(/\bp\.([A-Z][A-Z0-9_]+)/g) || []).forEach(function (x) { nama[x.slice(2)] = true; });
+  return Object.keys(nama);
+}
+
+/**
+ * v1.0.37 Editor: gabung semua ID spreadsheet / folder (KONFIG_JSON_POLA_) ke CFG_JSON. Properti lama TIDAK dihapus
+ * (cfg_ tetap memakai properti tersendiri lebih dulu). Sesudah dicek (ADMIN_cekKonfigurasi), jalankan
+ * ADMIN_hapusKonfigTergabung untuk menghapus properti yang nilainya sudah sama persis di CFG_JSON.
+ */
+function ADMIN_gabungKonfigurasi() {
+  pastikanPemilik_();
+  var props = PropertiesService.getScriptProperties(), semua = props.getProperties(), j = rencanaGabungKonfig_(semua);
+  props.setProperty('CFG_JSON', JSON.stringify(j));
+  console.log('CFG_JSON berisi ' + Object.keys(j).length + ' ID: ' + Object.keys(j).sort().join(', '));
+  console.log('Cek dengan ADMIN_cekKonfigurasi, lalu jalankan ADMIN_hapusKonfigTergabung.');
+}
+
+/** CFG_JSON lama + properti ID tersendiri (yang tersendiri menang). Murni (diuji). */
+function rencanaGabungKonfig_(semua) {
+  var j = {};
+  try { j = JSON.parse(semua.CFG_JSON || '{}') || {}; } catch (e) { throw new SisiError_('CONFIG_TIDAK_VALID', 'CFG_JSON'); }
+  Object.keys(semua).forEach(function (k) {
+    var v = String(semua[k] || '').trim();
+    if (KONFIG_JSON_POLA_.test(k) && v) j[k] = v;
+  });
+  return j;
+}
+
+/** Editor: hapus properti ID yang nilainya SAMA PERSIS dengan isi CFG_JSON (beda = dibiarkan + dilaporkan). */
+function ADMIN_hapusKonfigTergabung() {
+  pastikanPemilik_();
+  var props = PropertiesService.getScriptProperties(), semua = props.getProperties();
+  var j = JSON.parse(semua.CFG_JSON || '{}'), hapus = [], beda = [];
+  Object.keys(semua).forEach(function (k) {
+    if (!KONFIG_JSON_POLA_.test(k)) return;
+    // kosong = sama dengan tidak diisi (fitur mati), aman dihapus
+    if (j[k] === String(semua[k]).trim() || !String(semua[k]).trim()) hapus.push(k); else beda.push(k);
+  });
+  hapus.forEach(function (k) { props.deleteProperty(k); });
+  cfg_();   // tetap terbaca lengkap
+  console.log('Dihapus ' + hapus.length + ': ' + (hapus.join(', ') || '-'));
+  if (beda.length) console.warn('Dibiarkan (nilai beda / tidak ada di CFG_JSON, jalankan ADMIN_gabungKonfigurasi lagi): ' + beda.join(', '));
+  console.log('Sekarang ' + Object.keys(props.getProperties()).length + ' Script Properties.');
+}
+
+/**
+ * Editor: daftar Script Properties per kelompok (NILAI TIDAK DICETAK, hanya panjangnya), catatan pemakaian usang
+ * langsung dibuang. Kelompok "lain" = tidak dikenal kode: cek lalu hapus manual kalau sisa lama.
+ */
+function ADMIN_auditProperti() {
+  pastikanPemilik_();
+  var props = PropertiesService.getScriptProperties(), awal = Object.keys(props.getProperties()).length;
+  // catatan pemakaian model lama (1 properti / hari) dipindah ke satu properti PAKAI, yang usang dipangkas
+  denganLock_(function () { simpanPakai_(props, bacaPakai_(props)); }, 20000);
+  var semua = props.getProperties(), usang = { length: awal - Object.keys(semua).length };
+  var g = kelompokProperti_(Object.keys(semua), namaKonfig_(), keluargaMigrasi_().map(function (k) { return k.awalan; }));
+  var judul = { konfig: 'Konfigurasi (diisi manual)', pakai: 'Catatan pemakaian (otomatis)', migrasi: 'Migrasi (sementara)',
+    status: 'Status berjalan (ditulis kode)', lain: 'TIDAK DIKENAL kode (cek, hapus kalau sisa lama)' };
+  console.log('[Script Properties] ' + Object.keys(semua).length + ' dari ' + PROPERTI_MAKS_ + ' (batas tampil Project Settings)' +
+    (usang.length > 0 ? '. Catatan pemakaian dirapikan: ' + usang.length + ' properti berkurang.' : ''));
+  Object.keys(judul).forEach(function (k) {
+    if (!g[k].length) return;
+    console.log('');
+    console.log(judul[k] + ': ' + g[k].length);
+    g[k].forEach(function (n) { console.log('  ' + n + '  (' + String(semua[n]).length + ' karakter)'); });
+  });
+  return { jumlah: Object.keys(semua).length, berkurang: usang.length, kelompok: g };
+}
+
+/**
  * Dipanggil ADMIN_cekKonfigurasi: jumlah Script Properties + properti migrasi selesai.
  * v1.0.31: properti migrasi berstatus HAPUS langsung dihapus (kunci foto tetap, hapus manual sesudah migrasi foto selesai).
  * Masih hampir penuh = penanda jendela ROW (ROW_JENDELA_*) ikut dihapus; sinkron berikutnya membaca dari baris 2 lalu
@@ -355,12 +539,18 @@ function ADMIN_lengkapiMaster() {
                  db_Kepemilikan_Material: 'kepemilikan_id',   // v0.96.0: master kepemilikan material Hartek
                  db_jenis_peralatan: 'peralatan_id',          // v0.98.11: master jenis peralatan hasil grounding
                  db_Daerah_Padam: 'daerah_id',                // v1.0.18: sumber dampak Jadwal Padam per penyulang + section
-                 db_Jenis_Temuan: 'jenis_temuan_id' };        // v1.0.34: dulu diisi ADMIN_siapkanSheetInsJar
+                 db_Jenis_Temuan: 'jenis_temuan_id',          // v1.0.34: dulu diisi ADMIN_siapkanSheetInsJar
+                 db_Merk_MCB: 'merk_id',                      // 7 Nov 2026
+                 db_Keperluan_MCB: 'keperluan_id',            // 7 Nov 2026: master keperluan penggunaan MCB, tab dibuat ADMIN_siapkanSheetGudang: master merk MCB (dropdown HP), baris manual dilengkapi id / No / aktif
+                 db_Konstruksi: 'konstruksi_id',              // 8 Nov 2026: kode konstruksi tiang, tab dibuat ADMIN_siapkanSheetTiang
+                 db_Ukuran_Tiang: 'ukuran_id',                // 8 Nov 2026: pilihan ukuran tiang (mis. 11 Meter 350 daN), tab dibuat ADMIN_siapkanSheetTiang
+                 db_Tiang_Pemetaan: 'pemetaan_id' };          // 8 Nov 2026: alias nama kolom sheet db_TiangMaster (ITB), tab dibuat ADMIN_siapkanSheetTiang
   // tab opsional (modul belum dipakai = dilewati) dan tab berkolom `nomor`
-  var opsional = ['db_Petugas', 'db_Pejabat_BA', 'db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Jenis_Temuan'];
+  var opsional = ['db_Petugas', 'db_Pejabat_BA', 'db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Jenis_Temuan', 'db_Merk_MCB', 'db_Keperluan_MCB', 'db_Konstruksi', 'db_Ukuran_Tiang', 'db_Tiang_Pemetaan'];
   var bernomor = ['db_Material', 'db_Kepemilikan_Material', 'db_jenis_peralatan', 'db_Daerah_Padam', 'db_Jenis_Temuan'];
   denganLock_(function () {
     lengkapiDaerahPadam_();   // v1.0.18: tab dibuat + baris penyulang / section db_Jaringan yang belum ada ditambahkan
+    lengkapiMerkMcb_();       // 7 Nov 2026: tab db_Merk_MCB dibuat + diisi sekali dari merk yang sudah dipakai di gudang (modules/75_Gudang_Data.js)
     Object.keys(target).forEach(function (nama) {
       var t, kolomId = target[nama], diisi = 0;
       try { t = tabel_('MASTER_SHEET_ID', nama); } catch (e) {
@@ -389,6 +579,7 @@ function ADMIN_lengkapiMaster() {
         ubah = tulis(r, 'diubah_oleh', 'admin-tools') || ubah;
         ubah = tulis(r, 'timestamp_update', sekarangIso_()) || ubah;   // v0.95.0: db_Material memakai timestamp_update
         if (bernomor.indexOf(nama) !== -1) ubah = tulis(r, 'nomor', r._baris - 1) || ubah;
+        if (['db_Merk_MCB', 'db_Keperluan_MCB', 'db_Konstruksi', 'db_Ukuran_Tiang', 'db_Tiang_Pemetaan'].indexOf(nama) !== -1) ubah = tulis(r, 'No', r._baris - 1) || ubah;   // 8 Nov 2026: tab master berkolom No
         ubah = tulis(r, 'aktif', 'TRUE') || ubah;
         if (ubah) diisi++;
       });
@@ -452,18 +643,18 @@ function ADMIN_lengkapiMaster() {
         }
       }
       if (nama === 'db_Petugas') {
-        // v0.63.0: tim_yandal boleh diketik nama tim ("YANDAL 13") atau kode ("13"); diganti jadi UUID tim YANDAL.
-        var timY = tabel_('MASTER_SHEET_ID', 'db_Tim').rows.filter(function (x) { return String(x.jenis) === 'YANDAL'; });
-        var idxTY = t.header.indexOf('tim_yandal'), namaP = {};
+        // v1.0.51: kolom tim boleh diketik nama tim ("YANDAL 13", "HARTEK 01") atau kode ("13") tim aktif jenis APA PUN; diganti jadi UUID tim.
+        var idxTY = t.header.indexOf('tim'), namaP = {};
+        var rencanaTim = {};
+        rencanaTimPetugas_(t.rows, tabel_('MASTER_SHEET_ID', 'db_Tim').rows).forEach(function (h) { rencanaTim[h.baris] = h; });
         t.rows.forEach(function (r) {
-          var v = r.tim_yandal;
-          if (v === '' || v === null || v === undefined) return console.warn('db_Petugas baris ' + r._baris + ': tim_yandal kosong');
-          var hasil = cariTimId_(v, timY);
-          if (hasil.id && hasil.id !== String(v)) {
-            t.sheet.getRange(r._baris, idxTY + 1).setValue(hasil.id);
-            console.log('db_Petugas baris ' + r._baris + ': tim "' + v + '" -> ' + hasil.id);
-          } else if (hasil.masalah) {
-            console.warn('db_Petugas baris ' + r._baris + ': tim YANDAL "' + v + '" ' + hasil.masalah + ', tidak diubah');
+          var h = rencanaTim[r._baris] || {};
+          if (h.masalah === 'KOSONG') console.warn('db_Petugas baris ' + r._baris + ': tim kosong (tidak ikut absensi)');
+          else if (h.id) {
+            t.sheet.getRange(r._baris, idxTY + 1).setValue(h.id);
+            console.log('db_Petugas baris ' + r._baris + ': tim "' + r.tim + '" -> ' + h.id);
+          } else if (h.masalah) {
+            console.warn('db_Petugas baris ' + r._baris + ': tim "' + r.tim + '" ' + h.masalah + ', tidak diubah (pakai nama tim persis; kode bisa sama antar jenis)');
           }
           var k = String(r.nama || '').trim().toLowerCase();
           if (!k) console.warn('db_Petugas baris ' + r._baris + ': nama kosong');
@@ -527,7 +718,7 @@ function ADMIN_lengkapiMaster() {
     });
   });
   CacheService.getScriptCache().removeAll(['akses:v1', 'master-row:v3']);
-  // v1.0.22 (permintaan kvlar 23 Okt 2026): HP yang login mengunduh ulang Master Data + Master Gardu otomatis
+  // v1.0.22 (permintaan Master Guswan 23 Okt 2026): HP yang login mengunduh ulang Master Data + Master Gardu otomatis
   // (revisi ikut di setiap jawaban server, lihat proses_). Satu Script Property, ditimpa setiap jalan.
   var revisi = sekarangIso_();
   PropertiesService.getScriptProperties().setProperty('MASTER_REVISI', revisi);
@@ -745,6 +936,7 @@ function ADMIN_bersihkanCache() {
   var cache = CacheService.getScriptCache();
   cache.removeAll(['akses:v1', 'master-row:v3', KUNCI_USERNAME_TERDAFTAR_, INDEKS_TOKEN_KUNCI_, INDEKS_KENAL_KUNCI_]);
   PropertiesService.getScriptProperties().setProperty('SESI_EPOCH', String(Date.now()));
+  PropertiesService.getScriptProperties().setProperty('CACHE_BACA_REV', revBaruCacheBaca_());   // v1.0.36 cache baca website
   console.log('Cache akses + master ROW dibersihkan. Semua sesi dicek ulang ke sheet di panggilan berikutnya.');
 }
 

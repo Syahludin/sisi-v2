@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import '../data/local_db.dart';
+import '../features/absensi/absensi_antre.dart';
+import '../features/absensi/absensi_repository.dart';
+import '../features/gudang/gudang_repository.dart';
 import '../features/auth/auth_repository.dart';
 import '../features/gardu/gardu_repository.dart';
 import '../features/hartek/hartek_store.dart';
@@ -53,6 +56,9 @@ class Deps {
     required this.insdu,
     required this.wo,
     required this.temuanAdmin,
+    required this.absensi,
+    required this.absensiRepo,
+    required this.gudangRepo,
     required this.latar,
   });
 
@@ -79,6 +85,9 @@ class Deps {
   final InsDuStore insdu; // v1.0.12: Inspeksi Gardu di HP + antrean kirim otomatis
   final WoStore wo; // v1.0.16: WO tindak lanjut tim di HP (offline) + antrean kirim otomatis
   final AntreanTemuanAdmin temuanAdmin; // v1.0.29: temuan inspeksi admin dikirim di latar
+  final AntreanAbsensi absensi; // v1.0.51: absensi safety briefing, simpan di HP lalu kirim di latar
+  final AbsensiRepository absensiRepo; // v1.0.51: baca absensi hari ini
+  final GudangRepository gudangRepo; // v1.0.57: Gudang Material (Stok Material Yandal + Material Gudang admin)
   final SinkronLatar latar; // v1.0.12: sinkron tetap jalan saat app di latar belakang
 
   static Future<Deps> siapkan() async {
@@ -118,6 +127,8 @@ class Deps {
     // v1.0.29: temuan inspeksi input admin (menu Temuan Inspeksi): simpan di HP, kirim di latar
     final temuanAdmin = AntreanTemuanAdmin(GudangHartekSql(db), (s, aksi, data) => api.call(aksi, token: s.token, data: data,
         timeout: Duration(seconds: aksi == 'uploadFotoTemuanInspeksi' ? 90 : 60)));
+    // v1.0.51: absensi safety briefing (menu OPS_ABSENSI): antrean di HP, dikirim di latar
+    final absensi = AntreanAbsensi(GudangHartekSql(db), (s, aksi, data) => api.call(aksi, token: s.token, data: data, timeout: const Duration(seconds: 60)));
     final syncCtl = SyncController(
       sync,
       outbox,
@@ -130,6 +141,7 @@ class Deps {
       insdu: insdu,
       wo: wo,
       temuanAdmin: temuanAdmin,
+      absensi: absensi,
       probeOnline: () async {
         await api.call('ping', timeout: const Duration(seconds: 12));
       },
@@ -165,6 +177,9 @@ class Deps {
       insdu: insdu,
       wo: wo,
       temuanAdmin: temuanAdmin,
+      absensi: absensi,
+      absensiRepo: AbsensiRepository(api),
+      gudangRepo: GudangRepository(api),
       latar: SinkronLatar(syncCtl),
     );
   }

@@ -1,0 +1,88 @@
+/* Workplan UP3 (v1.0.60; desain ulang review 8 Nov 2026). Semua kelas berawalan .wp (unik). */
+.wp .hlm-header { align-items: flex-end; }
+
+/* --- filter: satu kartu, label dan kontrol sejajar --- */
+.wp-filter {
+  display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(170px, 1.3fr) minmax(140px, .8fr) minmax(140px, .8fr) auto;
+  align-items: end; gap: 10px 12px; margin-bottom: 12px; padding: 14px 16px; border: 1px solid var(--neutral-150); border-radius: 14px; background: var(--putih);
+}
+.wp-isian { display: grid; gap: 5px; min-width: 0; }
+.wp-isian .k-input { width: 100%; height: 42px; }
+.wp-aksi { display: flex; gap: 6px; }
+.wp-aksi .k-tombol { height: 42px; }
+
+/* --- ringkasan --- */
+.wp-ringkas { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.wp-ringkas-angka { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.wp-ringkas-angka li {
+  display: flex; align-items: baseline; gap: 7px; padding: 6px 12px; border-radius: 12px; background: var(--putih); border: 1px solid var(--neutral-150);
+}
+.wp-ringkas-angka b { font-size: 18px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+.wp-ringkas-angka small { font-size: 12px; color: var(--neutral-500); }
+.wp-ringkas-angka .wp-ringkas-info, .wp-ringkas-angka .wp-ringkas-lain { border: 0; background: none; font-size: 12.5px; font-weight: 700; color: var(--neutral-500); }
+
+.wp-jenis {
+  display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--brand-100); color: var(--brand-800);
+  font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.wp-jenis--pangkas { background: var(--success-100); color: var(--success-700); }
+.wp-jenis--tebang { background: #fde8d8; color: #a14a10; }
+
+/* --- tabel: kepala + kolom identitas menempel, akhir pekan diarsir --- */
+.wp-bungkus {
+  background: var(--putih); border: 1px solid var(--neutral-200); border-radius: 14px;
+  overflow: auto; max-height: calc(100vh - 300px); min-height: 220px; transition: opacity .15s;
+}
+.wp-bungkus--muat { opacity: .55; pointer-events: none; }
+.wp-tabel { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 12.5px; color: var(--neutral-900); }
+.wp-tabel th, .wp-tabel td { padding: 7px 9px; border-bottom: 1px solid var(--neutral-150); text-align: center; white-space: nowrap; background: var(--putih); }
+.wp-tabel thead th {
+  position: sticky; top: 0; z-index: 3; background: var(--neutral-50); border-bottom: 1px solid var(--neutral-200);
+  font-size: 11px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; color: var(--neutral-700);
+}
+.wp-tabel thead .wp-tgl { min-width: 46px; padding: 5px 6px; line-height: 1.2; }
+.wp-tabel thead .wp-tgl b { display: block; font-size: 11.5px; color: var(--neutral-900); }
+.wp-tabel thead .wp-tgl small { font-size: 10.5px; font-weight: 700; text-transform: none; color: var(--neutral-500); }
+.wp-tabel thead th.wp-libur { background: var(--accent-100); }
+.wp-tabel td.wp-libur { background: var(--accent-100); }
+
+.wp-tabel tbody tr.wp-belang td, .wp-tabel tbody tr.wp-belang th { background: var(--neutral-50); }
+.wp-tabel tbody tr.wp-belang td.wp-libur { background: var(--accent-100); }
+.wp-tabel tbody tr.wp-awal-grup > * { border-top: 2px solid var(--neutral-200); }
+.wp-tabel tbody tr:hover td { background: var(--brand-50); }
+
+.wp-c-peny, .wp-c-sec, .wp-c-jenis { text-align: left !important; }
+.wp-c-peny { font-weight: 800; color: var(--brand-950); vertical-align: top; }
+.wp-c-sec { white-space: normal !important; min-width: 150px; max-width: 220px; vertical-align: top; color: var(--neutral-700); }
+.wp-c-no { color: var(--neutral-500); font-weight: 700; }
+.wp-satuan { color: var(--neutral-500); }
+.wp-angka { font-variant-numeric: tabular-nums; font-weight: 700; }
+.wp-nol { color: var(--neutral-300); font-weight: 400; }
+.wp-tabel .wp-c-total { font-weight: 900; color: var(--brand-800); background: var(--brand-50); border-left: 1px solid var(--neutral-200); }
+.wp-tabel thead .wp-c-total { background: var(--brand-100); color: var(--brand-800); }
+
+.wp-tabel tfoot td, .wp-tabel tfoot th {
+  position: sticky; bottom: 0; z-index: 2; background: var(--neutral-50); border-top: 2px solid var(--neutral-200); border-bottom: 0;
+  font-weight: 900; color: var(--brand-950);
+}
+.wp-tabel tfoot .wp-c-total { background: var(--brand-100); }
+.wp-kosong { padding: 36px 12px !important; color: var(--neutral-500); text-align: left !important; white-space: normal !important; }
+.wp-kosong p { margin: 8px 0 0; }
+
+/* layar lebar: No + Penyulang + Section menempel di kiri saat tabel digeser */
+@media (min-width: 900px) {
+  .wp-tabel .wp-c-no { position: sticky; left: 0; z-index: 1; width: 40px; min-width: 40px; box-sizing: border-box; }
+  .wp-tabel .wp-c-peny { position: sticky; left: 40px; z-index: 1; width: 120px; min-width: 120px; box-sizing: border-box; }
+  .wp-tabel .wp-c-sec { position: sticky; left: 160px; z-index: 1; box-shadow: 2px 0 0 var(--neutral-200); }
+  .wp-tabel thead .wp-c-no, .wp-tabel thead .wp-c-peny, .wp-tabel thead .wp-c-sec,
+  .wp-tabel tfoot .wp-c-no, .wp-tabel tfoot .wp-c-peny, .wp-tabel tfoot .wp-c-sec { z-index: 4; }
+}
+
+@media (max-width: 900px) {
+  .wp-filter { grid-template-columns: 1fr 1fr; }
+  .wp-aksi { grid-column: 1 / -1; }
+  .wp-aksi .k-tombol--utama { flex: 1; }
+}
+@media (max-width: 520px) {
+  .wp-filter { grid-template-columns: 1fr; }
+}

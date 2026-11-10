@@ -1,4 +1,5 @@
 {
   "staging": "ISI_DEPLOYMENT_ID_STAGING",
-  "production": "ISI_DEPLOYMENT_ID_PRODUCTION"
+  "production": "ISI_DEPLOYMENT_ID_PRODUCTION",
+  "ulpmentok": "ISI_DEPLOYMENT_ID_ULP_MENTOK"
 }

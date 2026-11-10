@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../hartek/hartek_lokal.dart';
 import 'insdu_bantu.dart';
 
-/// v1.0.12 (permintaan kvlar 21 Okt 2026): Inspeksi Gardu offline (pola InsJarLokal / HartekLokal).
+/// v1.0.12 (permintaan Master Guswan 21 Okt 2026): Inspeksi Gardu offline (pola InsJarLokal / HartekLokal).
 ///
 /// Logika murni dokumen laporan harian di HP (tanpa sqflite / jaringan, diuji di insdu_lokal_test.dart).
 /// Bentuk dokumen = jawaban getInsDuHarian + penanda `jenis: INSDU`:

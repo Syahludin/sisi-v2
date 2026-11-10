@@ -1,6 +1,8 @@
 import 'dart:convert';
 
-/// v0.95.0 (permintaan kvlar 14 Okt 2026): input Hartek lokal + kirim otomatis.
+import 'hartek_repository.dart';
+
+/// v0.95.0 (permintaan Master Guswan 14 Okt 2026): input Hartek lokal + kirim otomatis.
 ///
 /// Logika murni dokumen laporan harian di HP (tanpa sqflite / jaringan, diuji di hartek_lokal_test.dart).
 /// Bentuk dokumen sama dengan jawaban getHartekHarian: `{tanggal, header, objek: [pg {pekerjaan: [pk {material,
@@ -25,15 +27,18 @@ class HartekLokal {
   /// Slot foto per jenis rincian (sama dengan HARTEK_FOTO_ server), urut tampil.
   static const slotFoto = {
     'grounding': ['SEBELUM', 'SESUDAH'],
-    'pemerataan': ['ARUS_SEBELUM', 'TEGANGAN_SEBELUM', 'ARUS_SESUDAH', 'TEGANGAN_SESUDAH'],
+    // v1.0.41: arus per fasa, tanpa tegangan
+    'pemerataan': ['ARUS_R_SEBELUM', 'ARUS_S_SEBELUM', 'ARUS_T_SEBELUM', 'ARUS_R_SESUDAH', 'ARUS_S_SESUDAH', 'ARUS_T_SESUDAH'],
   };
   static const labelFoto = {
     'SEBELUM': 'Foto sebelum',
     'SESUDAH': 'Foto sesudah',
-    'ARUS_SEBELUM': 'Foto arus sebelum',
-    'TEGANGAN_SEBELUM': 'Foto tegangan sebelum',
-    'ARUS_SESUDAH': 'Foto arus sesudah',
-    'TEGANGAN_SESUDAH': 'Foto tegangan sesudah',
+    'ARUS_R_SEBELUM': 'Foto arus R sebelum',
+    'ARUS_S_SEBELUM': 'Foto arus S sebelum',
+    'ARUS_T_SEBELUM': 'Foto arus T sebelum',
+    'ARUS_R_SESUDAH': 'Foto arus R sesudah',
+    'ARUS_S_SESUDAH': 'Foto arus S sesudah',
+    'ARUS_T_SESUDAH': 'Foto arus T sesudah',
   };
 
   /// Anak tiap pekerjaan beserta aksi server-nya.
@@ -223,6 +228,29 @@ class HartekLokal {
   }
 
   /// v1.0.2: jumlah rincian grounding / pemerataan di dokumen yang fotonya belum lengkap.
+  /// v1.0.38: pekerjaan di daftar wajib grounding (HartekRepository.groundingWajib) harus punya minimal satu hasil grounding.
+  static bool groundingKurang(Map<String, dynamic> pk) =>
+      HartekRepository.groundingWajib('${pk['pekerjaan'] ?? ''}') && daftar(pk['grounding']).isEmpty;
+
+  /// v1.0.40: Pemerataan / Pembagian Beban Gardu wajib punya minimal satu hasil pemerataan beban.
+  static bool pemerataanKurang(Map<String, dynamic> pk) =>
+      HartekRepository.pemerataanBoleh('${pk['pekerjaan'] ?? ''}') && daftar(pk['pemerataan']).isEmpty;
+
+  /// v1.0.40: pekerjaan yang hasil ukur wajibnya (grounding / pemerataan) belum diisi.
+  static bool hasilKurang(Map<String, dynamic> pk) => groundingKurang(pk) || pemerataanKurang(pk);
+
+  /// v1.0.38: jumlah pekerjaan di dokumen yang hasil ukur wajibnya belum diisi (v1.0.40: + pemerataan).
+  static int pekerjaanHasilKurang(Map<String, dynamic>? doc) {
+    if (doc == null) return 0;
+    var n = 0;
+    for (final p in daftar(doc['objek'])) {
+      for (final k in daftar(p['pekerjaan'])) {
+        if (hasilKurang(k)) n++;
+      }
+    }
+    return n;
+  }
+
   static int rincianFotoKurang(Map<String, dynamic>? doc) {
     if (doc == null) return 0;
     var n = 0;

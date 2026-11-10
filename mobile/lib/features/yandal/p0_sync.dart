@@ -10,7 +10,7 @@ import '../../core/sesi.dart';
 import 'p0_model.dart';
 import 'p0_repository.dart';
 
-/// v0.65.0 (keputusan kvlar 8 Okt 2026): kirim P0 shift berjalan ke server (yan_P0) berkala selama ada sinyal,
+/// v0.65.0 (keputusan Master Guswan 8 Okt 2026): kirim P0 shift berjalan ke server (yan_P0) berkala selama ada sinyal,
 /// dan setiap kali P0 dibuat / foto disimpan. Urutan per P0: data P0 (kode resmi dari server) > foto yang sudah
 /// DISIMPAN (Sebelum > Pekerjaan > Sesudah) > di akhir shift tanda final (foto belum disimpan dikunci otomatis dulu).
 /// Server: P0 final tanpa foto Sesudah = Rejected SISTEM "P0 Tidak Selesai", nilai 0.

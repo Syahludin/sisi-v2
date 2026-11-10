@@ -23,7 +23,7 @@ function namaEndpoint_(sesi, data, platform) {
 
 ---
 
-## File: `backend/src/modules/78_JadwalPadam.js`
+## File: `backend/src/modules/70_JadwalPadam.js`
 
 ### ✅ Function 1: `simpanJadwalPadam_`
 **Line:** 280-300 (approx line 297)
@@ -95,7 +95,7 @@ function hapusJadwalPadam_(sesi, data, platform) {
 
 ---
 
-## File: `backend/src/modules/63_BA_Gardu.js`
+## File: `backend/src/modules/40_BA_Gardu.js`
 
 ### ✅ Function 5: `simpanBaGardu_` (first occurrence)
 **Line:** ~435
@@ -125,7 +125,7 @@ auditLog_(sesi, 'BA_GARDU_SIMPAN', nomor.idBa, d.jenis + ' ' + noGardu + ' (' + 
 
 ---
 
-## File: `backend/src/modules/64_BA_Pdf.js`
+## File: `backend/src/modules/41_BA_Pdf.js`
 
 ### ✅ Function 7: `buatPdfBaGardu_` (error handler)
 **Line:** ~225
@@ -157,7 +157,7 @@ auditLog_(sesi, 'BA_GARDU_PDF', teksBa_(r['ID BA']), pdfId + ' (' + byte.length 
 
 ---
 
-## File: `backend/src/modules/66_BA_Ubah.js`
+## File: `backend/src/modules/43_BA_Ubah.js`
 
 ### ✅ Function 9: `ubahBaGardu_`
 **Line:** ~237
@@ -190,7 +190,7 @@ auditLog_(sesi, 'BA_GARDU_UBAH', teksBa_(r['ID BA']), beda.join(', ') + (d.alasa
 
 ---
 
-## File: `backend/src/modules/68_BA_Ttd.js`
+## File: `backend/src/modules/45_BA_Ttd.js`
 
 ### ✅ Function 11: `uploadTtdBaGardu_`
 **Line:** ~166
@@ -247,7 +247,7 @@ function updateMasterGarduBa_(sesi, data, platform) {
 
 ---
 
-## File: `backend/src/modules/80_Riwayat_Gardu.js`
+## File: `backend/src/modules/34_Gardu_Riwayat.js`
 
 ### ✅ Function 14: `updateUkurMasterGardu_`
 **Line:** ~240
@@ -308,12 +308,12 @@ function updateUkurMasterGardu_(sesi, data, platform) {
    - Enables proper WEB vs MOBILE tracking
 
    Files changed:
-   - 78_JadwalPadam.js (4 functions)
-   - 63_BA_Gardu.js (2 functions)
-   - 64_BA_Pdf.js (2 functions)
-   - 66_BA_Ubah.js (2 functions)
-   - 68_BA_Ttd.js (3 functions)
-   - 80_Riwayat_Gardu.js (1 function)
+   - 70_JadwalPadam.js (4 functions)
+   - 40_BA_Gardu.js (2 functions)
+   - 41_BA_Pdf.js (2 functions)
+   - 43_BA_Ubah.js (2 functions)
+   - 45_BA_Ttd.js (3 functions)
+   - 34_Gardu_Riwayat.js (1 function)
 
    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    ```

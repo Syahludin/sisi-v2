@@ -1,4 +1,4 @@
-/// v0.64.0 (keputusan kvlar 8 Okt 2026): Penugasan P0 shift berjalan di HP (pure Dart, bisa dites tanpa Flutter).
+/// v0.64.0 (keputusan Master Guswan 8 Okt 2026): Penugasan P0 shift berjalan di HP (pure Dart, bisa dites tanpa Flutter).
 /// Tahap mengikuti v1: foto Sebelum = memulai pekerjaan, foto Pekerjaan = proses, foto Sesudah = P0 selesai.
 /// "Sedang dikerjakan" = belum ada foto Sesudah (status PROSES), "Sudah dikerjakan" = ada (status SELESAI).
 library;
@@ -35,7 +35,7 @@ String namaSwitching(String section) {
   return (i == -1 ? s : s.substring(0, i)).trim();
 }
 
-/// Hanya LBS / ACR (keputusan kvlar 9 Okt 2026), sama dengan switchingSah_ server.
+/// Hanya LBS / ACR (keputusan Master Guswan 9 Okt 2026), sama dengan switchingSah_ server.
 bool switchingSah(String nama) => RegExp(r'^(LBS|ACR)(\b|[^A-Za-z])', caseSensitive: false).hasMatch(nama.trim());
 
 /// v0.66.4: section yang boleh dipilih untuk pekerjaan ini. Pengecekan Switching = hanya section berawalan LBS / ACR
@@ -80,7 +80,7 @@ class SwitchingLokal {
   /// Arus R/S/T yang terakhir diterima server. null = data belum terkirim.
   final List<double>? arusTerkirim;
 
-  /// v0.75.0 (permintaan kvlar 10 Okt 2026): foto boleh diambil SEBELUM data disimpan. false = draf (foto sudah ada,
+  /// v0.75.0 (permintaan Master Guswan 10 Okt 2026): foto boleh diambil SEBELUM data disimpan. false = draf (foto sudah ada,
   /// indikator / arus belum disimpan, belum dikirim). Tombol Simpan menyimpan data + foto bersamaan.
   final bool disimpan;
 
@@ -676,7 +676,7 @@ class P0Lokal {
   bool get adaSwitchingArus => switching.any((w) => w.disimpan && w.adaFotoArus);
 
   /// Switching boleh ditambah: Pengecekan Switching, foto Sebelum sudah disimpan, P0 belum selesai,
-  /// v0.66.3: belum ada switching (SATU switching per P0, keputusan kvlar 9 Okt 2026).
+  /// v0.66.3: belum ada switching (SATU switching per P0, keputusan Master Guswan 9 Okt 2026).
   bool get bolehTambahSwitching =>
       butuhSwitching && (foto['SEBELUM']?.terkunci ?? false) && !selesai && switching.every((w) => !w.disimpan);
 
@@ -1018,7 +1018,7 @@ double jarakKmP0(double lat1, double lon1, double lat2, double lon2) {
 /// "0,25 km" / "850 m".
 String teksJarak(double km) => km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(2).replaceAll('.', ',')} km';
 
-/// v0.64.8 (format kvlar 8 Okt 2026): teks WhatsApp satu P0 = FORMAT PENUGASAN KHUSUS. Kosong = "-".
+/// v0.64.8 (format Master Guswan 8 Okt 2026): teks WhatsApp satu P0 = FORMAT PENUGASAN KHUSUS. Kosong = "-".
 /// Petugas: "A dan B", tiga orang atau lebih "A, B dan C".
 String teksWaP0(P0Lokal x, {required List<String> petugas}) =>
     teksWaPenugasanP0(pekerjaan: x.namaTampil, penyulang: x.penyulang, section: x.section, daerah: x.daerah, petugas: petugas);

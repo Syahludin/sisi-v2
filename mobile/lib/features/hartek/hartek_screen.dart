@@ -28,7 +28,7 @@ import '../insjar/insjar_header.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.89.0 (permintaan kvlar 14 Okt 2026): desain ulang seluruh Hartek, lebih menarik tanpa chip.
+/// v0.89.0 (permintaan Master Guswan 14 Okt 2026): desain ulang seluruh Hartek, lebih menarik tanpa chip.
 /// Laporan Utama = kartu odometer (KM awal, KM akhir, jarak tempuh) + ringkasan lokasi / pekerjaan / material.
 /// Lokasi PG = daftar berikon per jenis. Pekerjaan = garis waktu. Material = daftar bergaya manifest.
 /// Grounding = sebelum vs sesudah. Pemerataan = batang beban R / S / T + selisih beban.
@@ -40,14 +40,7 @@ import '../../widgets/refresh_sisi.dart';
 /// v0.95.0: semua tingkat membaca laporan dari HP (HartekStore), tanpa loading saat pindah menu. Simpan = tulis lokal,
 /// dikirim otomatis di latar. Data yang ditolak server tampil dengan alasannya (Coba lagi / Buang).
 class HartekScreen extends StatefulWidget {
-  const HartekScreen(
-      {super.key,
-      required this.deps,
-      required this.sesi,
-      this.pgId,
-      this.pekerjaanId,
-      this.rincian = false,
-      this.jenis});
+  const HartekScreen({super.key, required this.deps, required this.sesi, this.pgId, this.pekerjaanId, this.rincian = false, this.jenis});
   final Deps deps;
   final Sesi sesi;
   final String? pgId, pekerjaanId;
@@ -72,8 +65,7 @@ class _HartekScreenState extends State<HartekScreen> {
   bool _segar = false;
   int _tanggalLain = 0;
   bool get _akses => widget.sesi.aksiMenu(HartekRepository.menu) != null && widget.sesi.petugasHartek;
-  bool get _boleh =>
-      widget.sesi.petugasHartek && widget.sesi.bisaUbah(HartekRepository.menu) && widget.sesi.bolehInput(DateTime.now());
+  bool get _boleh => widget.sesi.petugasHartek && widget.sesi.bisaUbah(HartekRepository.menu) && widget.sesi.bolehInput(DateTime.now());
 
   Map<String, dynamic>? get _header => _doc?['header'] is Map ? (_doc!['header'] as Map).cast<String, dynamic>() : null;
   List<Map<String, dynamic>> get _objek => _maps(_doc?['objek']);
@@ -146,8 +138,8 @@ class _HartekScreenState extends State<HartekScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pesanHartek(e.kode))));
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Daftar pilihan belum ada di HP. Sambungkan internet sekali untuk mengunduhnya.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Daftar pilihan belum ada di HP. Sambungkan internet sekali untuk mengunduhnya.')));
       }
     } finally {
       if (mounted) setState(() => _sibuk = false);
@@ -323,7 +315,7 @@ class _HartekScreenState extends State<HartekScreen> {
             _teks(p['nama']): [for (final s in p['section'] as List<dynamic>? ?? <dynamic>[]) '$s'],
         };
         final nomorGardu = gardu.keys.toList()..sort();
-        // v0.97.0 (kvlar 15 Okt 2026): pemilihan gardu BERJENJANG dari Master Gardu: penyulang > section > gardu.
+        // v0.97.0 (Master Guswan 15 Okt 2026): pemilihan gardu BERJENJANG dari Master Gardu: penyulang > section > gardu.
         final pohon = <String, Map<String, List<String>>>{};
         for (final no in nomorGardu) {
           final g = gardu[no]!;
@@ -362,26 +354,18 @@ class _HartekScreenState extends State<HartekScreen> {
                     wajib: true, segmen: true, pilihan: ['Jaringan', 'Gardu', 'Non - Teknik']),
               if (jenis == 'Jaringan') ...[
                 IsianHartek('penyulang', 'Penyulang',
-                    wajib: true,
-                    grup: 'Lokasi jaringan',
-                    pilihan: penyulang.keys.toList()..sort(),
-                    turunan: const ['section']),
+                    wajib: true, grup: 'Lokasi jaringan', pilihan: penyulang.keys.toList()..sort(), turunan: const ['section']),
                 IsianHartek('section', 'Section', wajib: true, pilihanDari: (v) => penyulang[v['penyulang']] ?? const []),
                 // v0.97.0: daerah + jumlah gawang WAJIB untuk lokasi jaringan
                 const IsianHartek('daerah', 'Daerah', wajib: true, maks: 200, contoh: 'Nama jalan atau desa'),
-                const IsianHartek('jumlahGawang', 'Jumlah gawang',
-                    wajib: true, angka: true, bulat: true, max: 9999, akhiran: 'gawang'),
+                const IsianHartek('jumlahGawang', 'Jumlah gawang', wajib: true, angka: true, bulat: true, max: 9999, akhiran: 'gawang'),
               ] else if (jenis.isNotEmpty && penyulangGardu.isNotEmpty) ...[
                 // v0.97.0: berjenjang penyulang > section > gardu, semuanya dari Master Gardu
                 IsianHartek('penyulangGardu', 'Penyulang',
-                    wajib: true,
-                    grup: 'Gardu',
-                    pilihan: penyulangGardu,
-                    turunan: const ['sectionGardu', 'noGardu', 'koordinat']),
+                    wajib: true, grup: 'Gardu', pilihan: penyulangGardu, turunan: const ['sectionGardu', 'noGardu', 'koordinat']),
                 IsianHartek('sectionGardu', 'Section',
                     wajib: true,
-                    pilihanDari: (v) =>
-                        (pohon[v['penyulangGardu']] ?? const <String, List<String>>{}).keys.toList()..sort(),
+                    pilihanDari: (v) => (pohon[v['penyulangGardu']] ?? const <String, List<String>>{}).keys.toList()..sort(),
                     turunan: const ['noGardu', 'koordinat']),
                 IsianHartek('noGardu', 'Nomor gardu',
                     wajib: true,
@@ -392,8 +376,7 @@ class _HartekScreenState extends State<HartekScreen> {
                 const IsianHartek('noGardu', 'Nomor gardu', wajib: true, maks: 20, grup: 'Gardu', contoh: 'TB0001'),
               // v0.91.0: titik lokasi PG. v0.97.0: untuk gardu TIDAK bisa diubah (selalu titik Master Gardu).
               if (jenis == 'Jaringan')
-                const IsianHartek('koordinat', 'Titik lokasi',
-                    koordinat: true, grup: 'Titik', contoh: '-3.012345, 106.512345')
+                const IsianHartek('koordinat', 'Titik lokasi', koordinat: true, grup: 'Titik', contoh: '-3.012345, 106.512345')
               else if (jenis.isNotEmpty)
                 const IsianHartek('koordinat', 'Titik lokasi dari Master Gardu',
                     bacaSaja: true, grup: 'Titik', contoh: 'Terisi setelah gardu dipilih'),
@@ -460,10 +443,7 @@ class _HartekScreenState extends State<HartekScreen> {
                 bantuan: 'Daftar pekerjaan $jenisPg. Pemerataan / Pembagian Beban Gardu membuka isian beban R / S / T.'),
             // v0.97.0: jumlah WAJIB untuk semua pekerjaan (dulu hanya yang masuk GASPOL)
             const IsianHartek('jumlahPekerjaan', 'Jumlah', angka: true, wajib: true, grup: 'Hasil', baris: 'hasil'),
-            const IsianHartek('satuanPekerjaan', 'Satuan',
-                bacaSaja: true,
-                baris: 'hasil',
-                contoh: 'Otomatis'),
+            const IsianHartek('satuanPekerjaan', 'Satuan', bacaSaja: true, baris: 'hasil', contoh: 'Otomatis'),
           ],
           simpan: (n) async {
             final d = _payload(n, angka: {'jumlahPekerjaan'})
@@ -472,7 +452,10 @@ class _HartekScreenState extends State<HartekScreen> {
             final j = jenis[n['pekerjaan']];
             final sat = satuan(n);
             if (sat.isNotEmpty) d['satuanPekerjaan'] = sat;
-            await _store.tambahPekerjaan(_sesi, _teks(pg['pgId']), {'jenisId': _teks(j?['jenisId']), ...d}, {
+            await _store.tambahPekerjaan(_sesi, _teks(pg['pgId']), {
+              'jenisId': _teks(j?['jenisId']),
+              ...d
+            }, {
               'pekerjaan': n['pekerjaan'],
               'jenisId': _teks(j?['jenisId']),
               'jumlahPekerjaan': d['jumlahPekerjaan'] ?? '',
@@ -533,7 +516,10 @@ class _HartekScreenState extends State<HartekScreen> {
               ..remove('satuan');
             if (sat.isNotEmpty) d['satuan'] = sat;
             final id = _teks(master[n['material']]?['materialId']);
-            await _store.tambahAnak(_sesi, 'material', _teks(pk['pekerjaanId']), {'materialId': id, ...d}, {
+            await _store.tambahAnak(_sesi, 'material', _teks(pk['pekerjaanId']), {
+              'materialId': id,
+              ...d
+            }, {
               'material': n['material'],
               'masterMaterialId': id,
               'jumlah': d['jumlah'],
@@ -545,7 +531,7 @@ class _HartekScreenState extends State<HartekScreen> {
         );
       });
 
-  /// v0.97.0 (kvlar 15 Okt 2026): rincian grounding hanya untuk pekerjaan grounding. "Pasang Grounding" =
+  /// v0.97.0 (Master Guswan 15 Okt 2026): rincian grounding hanya untuk pekerjaan grounding. "Pasang Grounding" =
   /// grounding baru, jadi hanya nilai SESUDAH; perbaikan = sebelum + sesudah, keduanya wajib.
   /// v0.98.11: jenis peralatan dari db_jenis_peralatan (SiSi_Master); nama peralatan otomatis dari lokasi PG
   /// (Jaringan = nama switching sesuai section penyulang, Gardu = nomor gardu).
@@ -576,23 +562,14 @@ class _HartekScreenState extends State<HartekScreen> {
                 grup: 'Peralatan',
                 pilihan: jenisPeralatan.isEmpty ? null : jenisPeralatan,
                 contoh: 'Trafo, LA, arrester'),
-            IsianHartek('namaPeralatan', 'Nama peralatan',
-                bacaSaja: namaAlat.isNotEmpty,
-                maks: 120,
-                contoh: 'Otomatis'),
+            IsianHartek('namaPeralatan', 'Nama peralatan', bacaSaja: namaAlat.isNotEmpty, maks: 120, contoh: 'Otomatis'),
             const IsianHartek('kondisiTanah', 'Kondisi tanah', maks: 120, contoh: 'Kering, lembab, berbatu'),
             // v0.91.0: hasil ukur tahanan = angka ohm
             if (!hanyaSesudah)
               const IsianHartek('hasilSebelum', 'Sebelum',
                   wajib: true, angka: true, max: 99999, akhiran: 'Ω', grup: 'Hasil ukur', baris: 'hasil', contoh: '12'),
             IsianHartek('hasilSesudah', 'Sesudah',
-                wajib: true,
-                angka: true,
-                max: 99999,
-                akhiran: 'Ω',
-                grup: hanyaSesudah ? 'Hasil ukur' : null,
-                baris: 'hasil',
-                contoh: '4'),
+                wajib: true, angka: true, max: 99999, akhiran: 'Ω', grup: hanyaSesudah ? 'Hasil ukur' : null, baris: 'hasil', contoh: '4'),
             // v1.0.0: foto alat ukur grounding (pasang grounding = hanya sesudah)
             for (final slot in HartekLokal.slotFoto['grounding']!)
               if (!(hanyaSesudah && slot == 'SEBELUM')) _isianFoto(pg, pk, slot, grup: 'Foto hasil ukur', baris: 'foto'),
@@ -601,9 +578,20 @@ class _HartekScreenState extends State<HartekScreen> {
             final foto = _fotoDari(n);
             final d = _payload(_tanpaFoto(n), angka: {'hasilSebelum', 'hasilSesudah'});
             if (namaAlat.isNotEmpty) d['namaPeralatan'] = namaAlat;
-            await _store.tambahAnak(_sesi, 'grounding', _teks(pk['pekerjaanId']), d, {
-              'jenisPeralatan': '', 'namaPeralatan': '', 'kondisiTanah': '', 'hasilSebelum': '', 'hasilSesudah': '', ...d,
-            }, foto: foto);
+            await _store.tambahAnak(
+                _sesi,
+                'grounding',
+                _teks(pk['pekerjaanId']),
+                d,
+                {
+                  'jenisPeralatan': '',
+                  'namaPeralatan': '',
+                  'kondisiTanah': '',
+                  'hasilSebelum': '',
+                  'hasilSesudah': '',
+                  ...d,
+                },
+                foto: foto);
             return const {'lokal': true};
           },
         );
@@ -611,7 +599,7 @@ class _HartekScreenState extends State<HartekScreen> {
 
   // ---------- ubah pekerjaan (v0.97.0) ----------
 
-  /// v0.97.4 (kvlar 15 Okt 2026): ubah pekerjaan & jumlah pekerjaan yang sudah diisi. Pilihan pekerjaan disaring
+  /// v0.97.4 (Master Guswan 15 Okt 2026): ubah pekerjaan & jumlah pekerjaan yang sudah diisi. Pilihan pekerjaan disaring
   /// sesuai jenis lokasi PG, satuan otomatis mengikuti master pekerjaan yang dipilih.
   Future<void> _ubahPekerjaan(Map<String, dynamic> pg, Map<String, dynamic> pk) => _form(() async {
         final sumber = await _store.master(_sesi, 'jenis');
@@ -687,14 +675,15 @@ class _HartekScreenState extends State<HartekScreen> {
         ringkasan: _ringkasPemerataan,
         daftar: (_) => [
           const IsianHartek('alamat', 'Alamat', grup: 'Lokasi gardu', contoh: 'Nama jalan atau patokan'),
-          for (final e in _fasaSebelum.entries)
-            IsianHartek(e.key, e.value, angka: true, max: 99999, akhiran: 'A', baris: 'seb', grup: 'Beban sebelum'),
-          _isianFoto(pg, pk, 'ARUS_SEBELUM', grup: 'Beban sebelum', baris: 'fotoSeb'),
-          _isianFoto(pg, pk, 'TEGANGAN_SEBELUM', grup: 'Beban sebelum', baris: 'fotoSeb'),
-          for (final e in _fasaSesudah.entries)
-            IsianHartek(e.key, e.value, angka: true, max: 99999, akhiran: 'A', baris: 'ses', grup: 'Beban sesudah'),
-          _isianFoto(pg, pk, 'ARUS_SESUDAH', grup: 'Beban sesudah', baris: 'fotoSes'),
-          _isianFoto(pg, pk, 'TEGANGAN_SESUDAH', grup: 'Beban sesudah', baris: 'fotoSes'),
+          // v1.0.42: satu baris per fasa = nilai arus + fotonya berdampingan
+          for (final e in _fasaSebelum.entries) ...[
+            IsianHartek(e.key, 'Arus ${e.value}', angka: true, max: 99999, akhiran: 'A', baris: e.key, grup: 'Beban sebelum'),
+            _isianFoto(pg, pk, 'ARUS_${e.value}_SEBELUM', grup: 'Beban sebelum', baris: e.key),
+          ],
+          for (final e in _fasaSesudah.entries) ...[
+            IsianHartek(e.key, 'Arus ${e.value}', angka: true, max: 99999, akhiran: 'A', baris: e.key, grup: 'Beban sesudah'),
+            _isianFoto(pg, pk, 'ARUS_${e.value}_SESUDAH', grup: 'Beban sesudah', baris: e.key),
+          ],
         ],
         simpan: (n) async {
           final foto = _fotoDari(n);
@@ -706,7 +695,7 @@ class _HartekScreenState extends State<HartekScreen> {
 
   // ---------- foto lapangan (v1.0.0) ----------
 
-  /// v1.0.1 (keputusan kvlar 19 Okt 2026): foto grounding / pemerataan WAJIB diambil sebelum rincian disimpan.
+  /// v1.0.1 (keputusan Master Guswan 19 Okt 2026): foto grounding / pemerataan WAJIB diambil sebelum rincian disimpan.
   static const _fotoWajib = true;
   static const _awalanFoto = 'foto_';
 
@@ -714,10 +703,12 @@ class _HartekScreenState extends State<HartekScreen> {
   static const _slotWatermark = {
     'SEBELUM': 'Grounding Sebelum',
     'SESUDAH': 'Grounding Sesudah',
-    'ARUS_SEBELUM': 'Arus Sebelum',
-    'TEGANGAN_SEBELUM': 'Tegangan Sebelum',
-    'ARUS_SESUDAH': 'Arus Sesudah',
-    'TEGANGAN_SESUDAH': 'Tegangan Sesudah',
+    'ARUS_R_SEBELUM': 'Arus R Sebelum',
+    'ARUS_S_SEBELUM': 'Arus S Sebelum',
+    'ARUS_T_SEBELUM': 'Arus T Sebelum',
+    'ARUS_R_SESUDAH': 'Arus R Sesudah',
+    'ARUS_S_SESUDAH': 'Arus S Sesudah',
+    'ARUS_T_SESUDAH': 'Arus T Sesudah',
   };
 
   static Map<String, String> _fotoDari(Map<String, String> n) => {
@@ -725,14 +716,22 @@ class _HartekScreenState extends State<HartekScreen> {
           if (e.key.startsWith(_awalanFoto) && e.value.trim().isNotEmpty) e.key.substring(_awalanFoto.length): e.value.trim(),
       };
 
-  static Map<String, String> _tanpaFoto(Map<String, String> n) =>
-      {for (final e in n.entries) if (!e.key.startsWith(_awalanFoto)) e.key: e.value};
+  static Map<String, String> _tanpaFoto(Map<String, String> n) => {
+        for (final e in n.entries)
+          if (!e.key.startsWith(_awalanFoto)) e.key: e.value
+      };
 
   DataWatermark _watermark(Map<String, dynamic> pg, Map<String, dynamic> pk, String slot, {String kode = ''}) {
     final kodePk = _teks(pk['kodePekerjaan']), kodeH = _teks(_header?['kodeHeader']);
     final koor = _teks(pg['koordinat']);
     return DataWatermark(
-      kodeEksekusi: kode.isNotEmpty ? kode : kodePk.isNotEmpty ? kodePk : kodeH.isNotEmpty ? kodeH : 'Hartek ${tanggalHartek(_tanggal)}',
+      kodeEksekusi: kode.isNotEmpty
+          ? kode
+          : kodePk.isNotEmpty
+              ? kodePk
+              : kodeH.isNotEmpty
+                  ? kodeH
+                  : 'Hartek ${tanggalHartek(_tanggal)}',
       ulp: _sesi.ulp,
       tim: _sesi.timNama,
       subTim: _sesi.nama,
@@ -755,7 +754,11 @@ class _HartekScreenState extends State<HartekScreen> {
           grup: grup,
           baris: baris,
           ambilFoto: (ctx, _, ada) => FotoLapangan.ambil(ctx,
-              label: HartekLokal.labelFoto[slot] ?? slot, pratinjau: _watermark(pg, pk, slot), folder: 'hartek', pathAda: ada));
+              label: HartekLokal.labelFoto[slot] ?? slot,
+              pratinjau: _watermark(pg, pk, slot),
+              folder: 'hartek',
+              pathAda: ada,
+              bolehGaleri: true)); // v1.0.43: + galeri
 
   /// Ketuk kotak foto di kartu: lihat / coba lagi / buang (ditolak) / ambil foto susulan (slot kosong).
   Future<void> _ketukFoto(String jenis, Map<String, dynamic> pg, Map<String, dynamic> pk, Map<String, dynamic> n, String slot) async {
@@ -792,14 +795,15 @@ class _HartekScreenState extends State<HartekScreen> {
       return;
     }
     if (HartekLokal.fotoDiServer(n)[slot] != null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto sudah tersimpan di Drive (diambil dari perangkat lain).')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Foto sudah tersimpan di Drive (diambil dari perangkat lain).')));
       return;
     }
     if (!_boleh || _sibuk) return;
     try {
       final kodeRincian = _teks(n[jenis == 'grounding' ? 'kodeGrounding' : 'kodePemerataan']);
-      final baru = await FotoLapangan.ambil(context,
-          label: label, pratinjau: _watermark(pg, pk, slot, kode: kodeRincian), folder: 'hartek');
+      final baru =
+          await FotoLapangan.ambil(context, label: label, pratinjau: _watermark(pg, pk, slot, kode: kodeRincian), folder: 'hartek', bolehGaleri: true);
       if (baru == null || !mounted) return;
       await _store.tambahFoto(_sesi, jenis, id, slot, baru);
       _kirimLatar();
@@ -818,6 +822,31 @@ class _HartekScreenState extends State<HartekScreen> {
 
   Widget _fotoKartu(String jenis, Map<String, dynamic> pg, Map<String, dynamic> pk, Map<String, dynamic> n) {
     final slot = HartekLokal.slotWajib(jenis, n);
+    // v1.0.42: pemerataan = dua deret foto arus (sebelum / sesudah), kotak berlabel fasa R / S / T
+    if (jenis == 'pemerataan') {
+      Widget deret(String judul, String akhir) {
+        final s = slot.where((x) => x.endsWith(akhir)).toList();
+        final boleh = _boleh && _teks(n['idBaris']).isNotEmpty;
+        final hp = HartekLokal.fotoDiHp(n), srv = HartekLokal.fotoDiServer(n);
+        if (!boleh && !s.any((x) => hp[x] != null || srv[x] != null)) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 12),
+          Text(judul, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: HartekGaya.redup)),
+          FotoRincian(
+            node: n,
+            slot: s,
+            label: {for (final x in s) x: 'Arus ${x.split('_')[1]}'},
+            bolehTambah: boleh,
+            onTap: (x) => unawaited(_ketukFoto(jenis, pg, pk, n, x)),
+          ),
+        ]);
+      }
+
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        deret('Foto arus sebelum', '_SEBELUM'),
+        deret('Foto arus sesudah', '_SESUDAH'),
+      ]);
+    }
     return FotoRincian(
       node: n,
       slot: slot,
@@ -844,8 +873,8 @@ class _HartekScreenState extends State<HartekScreen> {
       };
 
   int get _jumlahPekerjaan => _objek.fold<int>(0, (a, pg) => a + _maps(pg['pekerjaan']).length);
-  int get _jumlahMaterial => _objek.fold<int>(
-      0, (a, pg) => a + _maps(pg['pekerjaan']).fold<int>(0, (b, pk) => b + _maps(pk['material']).length));
+  int get _jumlahMaterial =>
+      _objek.fold<int>(0, (a, pg) => a + _maps(pg['pekerjaan']).fold<int>(0, (b, pk) => b + _maps(pk['material']).length));
 
   Future<void> _bukaDetail(String pgId, [String? pekerjaanId]) async {
     await Navigator.push<void>(
@@ -904,14 +933,18 @@ class _HartekScreenState extends State<HartekScreen> {
 
   // ---------- halaman: belum ada laporan ----------
 
-  /// v1.0.20 (permintaan kvlar 23 Okt 2026): belum ada laporan = kartu Mulai pekerjaan (pola Laporan ROW).
+  /// v1.0.20 (permintaan Master Guswan 23 Okt 2026): belum ada laporan = kartu Mulai pekerjaan (pola Laporan ROW).
   List<Widget> _halamanAwal() => [
         const SizedBox(height: 4),
         JudulSeksiSisi('Laporan hari ini', keterangan: tanggalHartek(_tanggal)),
         KartuMulaiLaporan(
           judul: 'Belum ada laporan Hartek hari ini',
           ikon: Icons.engineering_rounded,
-          langkah: const ['Laporan Utama: KM + koordinat berangkat', 'Lokasi: penyulang, gardu, atau non-teknik', 'Pekerjaan + material yang dipakai'],
+          langkah: const [
+            'Laporan Utama: KM + koordinat berangkat',
+            'Lokasi: penyulang, gardu, atau non-teknik',
+            'Pekerjaan + material yang dipakai'
+          ],
           onMulai: _boleh && !_sibuk ? _buatHeader : null,
         ),
       ];
@@ -920,8 +953,7 @@ class _HartekScreenState extends State<HartekScreen> {
 
   static const _urutJenis = ['Jaringan', 'Gardu', 'Non - Teknik'];
 
-  List<Map<String, dynamic>> _lokasiJenis(String jenis) =>
-      _objek.where((pg) => _teks(pg['jenisPekerjaan']) == jenis).toList();
+  List<Map<String, dynamic>> _lokasiJenis(String jenis) => _objek.where((pg) => _teks(pg['jenisPekerjaan']) == jenis).toList();
 
   int _pekerjaanJenis(String jenis) => _lokasiJenis(jenis).fold<int>(0, (a, pg) => a + _maps(pg['pekerjaan']).length);
 
@@ -955,7 +987,11 @@ class _HartekScreenState extends State<HartekScreen> {
       if (angkaDari(_teks(h['kmAkhir'])) == null) 'KM akhir',
       if (_jumlahPekerjaan == 0) 'Rincian pekerjaan (minimal 1 pekerjaan)',
       // v1.0.2: foto grounding / pemerataan wajib (rincian lama tanpa foto dilengkapi lewat kotak foto di kartunya)
-      if (HartekLokal.rincianFotoKurang(_doc) > 0) 'Foto grounding / pemerataan (${HartekLokal.rincianFotoKurang(_doc)} rincian belum lengkap)',
+      // v1.0.38: pekerjaan grounding wajib punya hasil grounding
+      if (HartekLokal.pekerjaanHasilKurang(_doc) > 0)
+        'Hasil grounding / pemerataan beban (${HartekLokal.pekerjaanHasilKurang(_doc)} pekerjaan belum diisi)',
+      if (HartekLokal.rincianFotoKurang(_doc) > 0)
+        'Foto grounding / pemerataan (${HartekLokal.rincianFotoKurang(_doc)} rincian belum lengkap)',
     ];
     if (kurang.isNotEmpty) {
       final fokus = _kunciKurangHeader(h);
@@ -1029,8 +1065,7 @@ class _HartekScreenState extends State<HartekScreen> {
         angka: [
           // v0.97.0: ketuk satu jenis = rincian jenis itu saja; Total Pekerjaan = seluruh pekerjaan
           for (final j in _urutJenis)
-            AngkaRingkas(j == 'Non - Teknik' ? 'Non-Teknik' : j, _pekerjaanJenis(j),
-                onTap: _sibuk ? null : () => _bukaRincian(jenis: j)),
+            AngkaRingkas(j == 'Non - Teknik' ? 'Non-Teknik' : j, _pekerjaanJenis(j), onTap: _sibuk ? null : () => _bukaRincian(jenis: j)),
           AngkaRingkas('Total Pekerjaan', _jumlahPekerjaan, onTap: _sibuk ? null : () => _bukaRincian()),
         ],
         onTapNilai: _boleh && !_sibuk ? (k) => _ubahHeader(fokus: k) : null,
@@ -1052,16 +1087,15 @@ class _HartekScreenState extends State<HartekScreen> {
           const SizedBox(width: 6),
           Expanded(
             child: Text('${_objek.length} lokasi · $_jumlahPekerjaan pekerjaan · $_jumlahMaterial material',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
           ),
         ]),
         // v0.97.5: ketuk sembarang di dalam kartu TIDAK membuka rincian; rincian hanya dibuka dari summary jenis pekerjaan
         onUbah: _boleh && !_sibuk ? _ubahHeader : null,
         tampilWa: true,
-        waSiap: kurang.isEmpty && _jumlahPekerjaan > 0,
-        onKirimWa: _sibuk ? null : _kirimWa,
+        waSiap: kurang.isEmpty && _jumlahPekerjaan > 0 && HartekLokal.pekerjaanHasilKurang(_doc) == 0,
+        // v1.0.38: hasil grounding belum diisi = tombol WA mati (kartu pekerjaannya merah)
+        onKirimWa: _sibuk || HartekLokal.pekerjaanHasilKurang(_doc) > 0 ? null : _kirimWa,
         onTambah: _boleh && !_sibuk ? () => _tambahPg() : null,
         labelTambah: 'Tambah Pekerjaan',
       ),
@@ -1083,7 +1117,7 @@ class _HartekScreenState extends State<HartekScreen> {
           icon: const Icon(Icons.history_rounded, size: 18),
           label: Text('$_tanggalLain data hari sebelumnya tidak terkirim · Buang'),
         ),
-      // v1.0.23 (permintaan kvlar 23 Okt 2026): rincian lokasi / pekerjaan tidak lagi di halaman utama, cukup di dalam
+      // v1.0.23 (permintaan Master Guswan 23 Okt 2026): rincian lokasi / pekerjaan tidak lagi di halaman utama, cukup di dalam
       // kartu laporan (ringkasan jenis pekerjaan membuka rincian), sama dengan Inspeksi Jaringan / Gardu v1.0.21.
     ];
   }
@@ -1100,7 +1134,7 @@ class _HartekScreenState extends State<HartekScreen> {
     final saring = widget.jenis;
     final data = saring == null ? _objek : _objek.where((pg) => _teks(pg['jenisPekerjaan']) == saring).toList();
     if (!_jenisAwal && data.isNotEmpty) {
-      _jenisAwal = true;   // cukup sekali, supaya ketukan tutup petugas tidak dibatalkan saat muat ulang
+      _jenisAwal = true; // cukup sekali, supaya ketukan tutup petugas tidak dibatalkan saat muat ulang
       _jenisTerbuka.addAll(saring != null ? <String>{saring} : jenisAwalTerbukaHartek(data));
     }
     return [
@@ -1123,6 +1157,8 @@ class _HartekScreenState extends State<HartekScreen> {
         onTambahLokasi: () => _tambahPg(jenisTetap: saring),
         onTambahPekerjaan: _tambahPekerjaan,
         onTambahMaterial: _tambahMaterial,
+        onTambahGrounding: _boleh ? (pg, pk) => unawaited(_tambahGrounding(pg, pk)) : null,
+        onTambahPemerataan: _boleh ? (pg, pk) => unawaited(_tambahPemerataan(pg, pk)) : null,
         onCobaUlang: (id) => _cobaUlang(id),
         onBuang: (id) => _buang(id),
         onUbahPekerjaan: _boleh ? _ubahPekerjaan : null,
@@ -1140,8 +1176,7 @@ class _HartekScreenState extends State<HartekScreen> {
           SizedBox(width: 116, child: Text(label, style: HartekGaya.sekunder)),
           Expanded(
             child: Text(nilai,
-                textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
+                textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
           ),
         ]),
       );
@@ -1171,9 +1206,8 @@ class _HartekScreenState extends State<HartekScreen> {
               ),
             ),
             Expanded(
-              child: akhir
-                  ? const SizedBox.shrink()
-                  : Container(width: 2, margin: const EdgeInsets.only(top: 4), color: AppColors.brand100),
+              child:
+                  akhir ? const SizedBox.shrink() : Container(width: 2, margin: const EdgeInsets.only(top: 4), color: AppColors.brand100),
             ),
           ]),
         ),
@@ -1186,8 +1220,7 @@ class _HartekScreenState extends State<HartekScreen> {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_teks(pk['pekerjaan']),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
+                  Text(_teks(pk['pekerjaan']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: HartekGaya.tinta)),
                   const SizedBox(height: 4),
                   Text(ringkas, style: HartekGaya.sekunder),
                 ]),
@@ -1212,7 +1245,7 @@ class _HartekScreenState extends State<HartekScreen> {
       ('Section', _teks(pg['section'])),
       ('Daerah', _teks(pg['daerah'])),
       ('Jumlah gawang', _teks(pg['jumlahGawang'])),
-      ('Titik', _teks(pg['koordinat']).isEmpty ? '' : koordinatSingkat(_teks(pg['koordinat']))),   // v0.91.0
+      ('Titik', _teks(pg['koordinat']).isEmpty ? '' : koordinatSingkat(_teks(pg['koordinat']))), // v0.91.0
     ].where((e) => e.$2.isNotEmpty).toList();
     return [
       const SizedBox(height: 4),
@@ -1241,9 +1274,7 @@ class _HartekScreenState extends State<HartekScreen> {
       _judulSeksi('Pekerjaan', info: jobs.isEmpty ? null : '${jobs.length} pekerjaan'),
       if (jobs.isEmpty) ...[
         const KosongHartek(
-            ikon: Icons.construction,
-            judul: 'Belum ada pekerjaan',
-            petunjuk: 'Catat pekerjaan di lokasi ini, lalu material yang dipakai.'),
+            ikon: Icons.construction, judul: 'Belum ada pekerjaan', petunjuk: 'Catat pekerjaan di lokasi ini, lalu material yang dipakai.'),
         const SizedBox(height: 12),
       ],
       for (var n = 0; n < jobs.length; n++) _nodePekerjaan(jobs[n], n == jobs.length - 1),
@@ -1258,13 +1289,11 @@ class _HartekScreenState extends State<HartekScreen> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(children: [
           Expanded(
-            child: Text(_teks(m['material']),
-                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
+            child: Text(_teks(m['material']), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: HartekGaya.tinta)),
           ),
           const SizedBox(width: 12),
           Text(_teks(m['jumlah']),
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800, color: HartekGaya.merek, fontFeatures: HartekGaya.tabular)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: HartekGaya.merek, fontFeatures: HartekGaya.tabular)),
           if (_teks(m['satuan']).isNotEmpty) ...[
             const SizedBox(width: 5),
             Text(_teks(m['satuan']), style: HartekGaya.sekunder),
@@ -1349,8 +1378,7 @@ class _HartekScreenState extends State<HartekScreen> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,
             child: Text('${a(seb)} → ${a(ses)} A',
-                maxLines: 1,
-                style: const TextStyle(fontSize: 13.5, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
+                maxLines: 1, style: const TextStyle(fontSize: 13.5, color: HartekGaya.tinta, fontFeatures: HartekGaya.tabular)),
           ),
         ),
       ]),
@@ -1424,9 +1452,7 @@ class _HartekScreenState extends State<HartekScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(_lokasi(pg),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: j.warna)),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: j.warna)),
         ),
         IkonCloudHartek(node: pk, ukuran: 18),
       ]),
@@ -1449,8 +1475,7 @@ class _HartekScreenState extends State<HartekScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(color: j.latar, borderRadius: BorderRadius.circular(999)),
               child: Text(hasil,
-                  style: TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w800, color: j.warna, fontFeatures: HartekGaya.tabular)),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: j.warna, fontFeatures: HartekGaya.tabular)),
             ),
             if (_boleh)
               IconButton(
@@ -1486,9 +1511,7 @@ class _HartekScreenState extends State<HartekScreen> {
       // v0.97.0: rincian hasil grounding hanya muncul kalau pekerjaannya mengandung kata "grounding"
       if (HartekRepository.groundingBoleh(_teks(pk['pekerjaan'])) || gr.isNotEmpty) ...[
         _judulSeksi('Hasil grounding',
-            aksi: _boleh && HartekRepository.groundingBoleh(_teks(pk['pekerjaan']))
-                ? _tombolCatat(() => _tambahGrounding(pg, pk))
-                : null),
+            aksi: _boleh && HartekRepository.groundingBoleh(_teks(pk['pekerjaan'])) ? _tombolCatat(() => _tambahGrounding(pg, pk)) : null),
         if (gr.isEmpty)
           _kosongKecil(HartekRepository.groundingHanyaSesudah(_teks(pk['pekerjaan']))
               ? 'Belum ada hasil ukur. Pasang grounding hanya butuh nilai sesudah.'
@@ -1510,7 +1533,10 @@ class _HartekScreenState extends State<HartekScreen> {
     if (!_akses) {
       return [
         const SizedBox(height: 12),
-        KosongHartek(ikon: Icons.cloud_off_outlined, judul: 'Laporan belum bisa dimuat', petunjuk: 'Akses Input Hartek belum tersedia untuk akun ini.'),
+        KosongHartek(
+            ikon: Icons.cloud_off_outlined,
+            judul: 'Laporan belum bisa dimuat',
+            petunjuk: 'Akses Input Hartek belum tersedia untuk akun ini.'),
         const SizedBox(height: 14),
         OutlinedButton(
           onPressed: _segarkan,
@@ -1536,8 +1562,7 @@ class _HartekScreenState extends State<HartekScreen> {
     final pk = _maps(pg['pekerjaan']).where((p) => p['pekerjaanId'] == widget.pekerjaanId).toList();
     if (pk.isEmpty) {
       return const [
-        KosongHartek(
-            ikon: Icons.construction, judul: 'Pekerjaan tidak ditemukan', petunjuk: 'Kembali dan segarkan lokasi pekerjaan.'),
+        KosongHartek(ikon: Icons.construction, judul: 'Pekerjaan tidak ditemukan', petunjuk: 'Kembali dan segarkan lokasi pekerjaan.'),
       ];
     }
     return _halamanPekerjaan(pg, pk.first);
@@ -1554,7 +1579,7 @@ class _HartekScreenState extends State<HartekScreen> {
                 ? 'Rincian pekerjaan'
                 : 'Hartek';
     final sub = [widget.sesi.timNama, if (_tanggal.isNotEmpty) tanggalHartek(_tanggal)].where((s) => s.isNotEmpty).join(' · ');
-    // v1.0.28 (permintaan kvlar 23 Okt 2026): header kartu Jaringan SiSi (siluet jaringan) seperti modul lain, tetap di
+    // v1.0.28 (permintaan Master Guswan 23 Okt 2026): header kartu Jaringan SiSi (siluet jaringan) seperti modul lain, tetap di
     // atas layar; halaman utama = menu Laporan Hartek.
     final header = HeaderInsJar(
       kicker: 'Laporan Hartek',
@@ -1585,24 +1610,24 @@ class _HartekScreenState extends State<HartekScreen> {
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
           lebarMaks: 680,
           isi: _doc == null && _akses
-          ? const Center(child: SisiLoader())
-          : RefreshSisi(
-              onRefresh: () async {
-                if (!_sibuk) await _segarkan();
-              },
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(20, 0, 20, bertingkat ? 32 : 120),
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _konten()),
-                    ),
+              ? const Center(child: SisiLoader())
+              : RefreshSisi(
+                  onRefresh: () async {
+                    if (!_sibuk) await _segarkan();
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, bertingkat ? 32 : 120),
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 680),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _konten()),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
         ),
       ),
     );

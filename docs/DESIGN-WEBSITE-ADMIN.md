@@ -71,11 +71,11 @@ Website admin SiSi adalah aplikasi web berbasis React yang memungkinkan Admin da
 │  ┌───────────────────────────────────────────────┐ │
 │  │  02_Router.js                                  │ │
 │  │  03_Guard.js (platform check)                 │ │
-│  │  40_Laporan_UP3.js                            │ │
-│  │  55_Yandal_Approval.js                        │ │
+│  │  60_Laporan_UP3.js                            │ │
+│  │  25_Yandal_Approval.js                        │ │
 │  │  63-68_BA_*.js                                │ │
-│  │  78_JadwalPadam.js                            │ │
-│  │  80_Riwayat_Gardu.js                          │ │
+│  │  70_JadwalPadam.js                            │ │
+│  │  34_Gardu_Riwayat.js                          │ │
 │  └───────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────┘
                         │
@@ -103,7 +103,7 @@ Website admin SiSi adalah aplikasi web berbasis React yang memungkinkan Admin da
 
 **Daftar Fungsi yang Perlu Diubah:**
 
-#### File: `backend/src/modules/78_JadwalPadam.js`
+#### File: `backend/src/modules/70_JadwalPadam.js`
 ```javascript
 // SEBELUM (line 280-300)
 function simpanJadwalPadam_(sesi, data) {
@@ -120,34 +120,34 @@ function simpanJadwalPadam_(sesi, data, platform) {
 }
 ```
 
-**4 fungsi di `78_JadwalPadam.js`:**
+**4 fungsi di `70_JadwalPadam.js`:**
 1. `simpanJadwalPadam_` (line 280-300)
 2. `ubahJadwalPadam_` (line 310-327)
 3. `ubahStatusJadwalPadam_` (line 329-350)
 4. `hapusJadwalPadam_` (line 350-365)
 
-#### File: `backend/src/modules/63_BA_Gardu.js`
+#### File: `backend/src/modules/40_BA_Gardu.js`
 **2 fungsi:**
 1. `simpanBaGardu_` (line 435)
 2. Function dengan nomor BA duplikat (line 568)
 
-#### File: `backend/src/modules/64_BA_Pdf.js`
+#### File: `backend/src/modules/41_BA_Pdf.js`
 **2 fungsi:**
 1. `buatPdfBaGardu_` error handler (line 225)
 2. `buatPdfBaGardu_` success (line 251)
 
-#### File: `backend/src/modules/66_BA_Ubah.js`
+#### File: `backend/src/modules/43_BA_Ubah.js`
 **2 fungsi:**
 1. `ubahBaGardu_` (line 237)
 2. Function update lainnya (line 354)
 
-#### File: `backend/src/modules/68_BA_Ttd.js`
+#### File: `backend/src/modules/45_BA_Ttd.js`
 **3 fungsi:**
 1. `uploadTtdBaGardu_` (line 166)
 2. `kirimEamBaGardu_` (line 291)
 3. `updateMasterGarduBa_` (line 359)
 
-#### File: `backend/src/modules/80_Riwayat_Gardu.js`
+#### File: `backend/src/modules/34_Gardu_Riwayat.js`
 **1 fungsi:**
 1. `updateUkurMasterGardu_` (line 240)
 
@@ -1359,6 +1359,7 @@ Detail Gardu G-001:
 
 **Staging:**
 - URL: `https://yourdomain.com/sisi-web-staging/`
+- Zip staging WAJIB dibuat dengan `npm run zip:staging` (base `/sisi-web-staging/`); lihat web/README.md
 - Auto-deploy on git push to `staging` branch
 - Test with staging backend
 

@@ -27,7 +27,7 @@ import '../yandal/shift_yandal_screen.dart';
 /// Kerangka dashboard (desain lama): latar bg-sisi.png 50%, bottom bar putih dengan gelembung navy.
 /// PETUGAS: Laporan · Beranda · Pengaturan. ADMIN / SUPER / ADMIN_ES (v0.50): Operasi · Beranda · Pengaturan.
 /// v1.0.11: tim ROW / HARTEK / YANDAL ber-menu OPS_WO_TIM: Laporan · Beranda · WO · Pengaturan; tim Inspeksi Gardu = tab Inspeksi Gardu.
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): Beranda selalu di tengah. Tim ber-WO: Laporan · WO · Beranda · Arsip · Pengaturan
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): Beranda selalu di tengah. Tim ber-WO: Laporan · WO · Beranda · Arsip · Pengaturan
 /// (arsip keluar dari menu Laporan); lainnya tetap 3 menu. Kalender hanya di Beranda.
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key, required this.deps, required this.sesi, required this.onSesiBerubah});
@@ -40,7 +40,7 @@ class DashboardShell extends StatefulWidget {
 }
 
 class _DashboardShellState extends State<DashboardShell> with SingleTickerProviderStateMixin {
-  /// v1.0.27 (permintaan kvlar 23 Okt 2026): bar bawah muncul (naik + pudar) SEKALI saat dashboard pertama dibuka;
+  /// v1.0.27 (permintaan Master Guswan 23 Okt 2026): bar bawah muncul (naik + pudar) SEKALI saat dashboard pertama dibuka;
   /// [_masukBeranda] naik setiap tab Beranda dibuka lagi (Beranda mengulang animasi pop up kartunya).
   late final AnimationController _barMasuk = AnimationController(vsync: this, duration: const Duration(milliseconds: 650))..forward();
   final _masukBeranda = ValueNotifier<int>(0);
@@ -49,7 +49,7 @@ class _DashboardShellState extends State<DashboardShell> with SingleTickerProvid
   late final int _beranda = _arsip ? 2 : 1; // indeks Beranda = tengah bottom bar
   late int _tab = _beranda;
 
-  /// v1.0.20 (permintaan kvlar 23 Okt 2026): navigator per tab, bottom bar tetap tampil di halaman rincian. Form dibuka
+  /// v1.0.20 (permintaan Master Guswan 23 Okt 2026): navigator per tab, bottom bar tetap tampil di halaman rincian. Form dibuka
   /// di navigator akar (bukaForm) sehingga menutupi bar. [_dalam] = jumlah halaman di tiap tab (1 = halaman utama tab).
   final Map<int, GlobalKey<NavigatorState>> _nav = {};
   final Map<int, _PengamatTab> _pengamat = {};

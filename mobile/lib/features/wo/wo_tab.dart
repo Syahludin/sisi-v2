@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../hartek/hartek_gaya.dart';
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): tab Aktif / Selesai WO Tim (ROW, Hartek, Yandal) yang tidak polos.
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): tab Aktif / Selesai WO Tim (ROW, Hartek, Yandal) yang tidak polos.
 /// Dua kartu pilihan berdampingan: ikon dalam lingkaran, label, jumlah besar, keterangan kecil. Tab terpilih = latar
 /// gradasi (Aktif biru SiSi, Selesai hijau) dengan teks putih; tab lain putih berbingkai dengan lencana jumlah berwarna.
 /// Perpindahan tab beranimasi singkat (dimatikan kalau HP memakai "kurangi animasi").

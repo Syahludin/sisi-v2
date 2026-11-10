@@ -11,7 +11,7 @@ import '../hartek/hartek_lokal.dart';
 import '../hartek/hartek_store.dart' show GudangHartek, OpHartek, PanggilHartek, HasilKirimHartek, HartekStore;
 import 'wo_bantu.dart';
 
-/// v1.0.16 (permintaan kvlar 22 Okt 2026): WO tindak lanjut tim bisa dikerjakan OFFLINE (pola HartekStore).
+/// v1.0.16 (permintaan Master Guswan 22 Okt 2026): WO tindak lanjut tim bisa dikerjakan OFFLINE (pola HartekStore).
 ///
 /// Dokumen lokal (wo_lokal, kunci tanggal 'WO'):
 ///   server : jawaban getWoTim terakhir (daftar WO tim + master isian), dibaca layar walau tanpa sinyal
@@ -127,7 +127,7 @@ class WoStore extends ChangeNotifier {
         });
       });
 
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): ubah pekerjaan (foto Sebelum sudah ada, Sesudah belum). Belum terkirim =
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): ubah pekerjaan (foto Sebelum sudah ada, Sesudah belum). Belum terkirim =
   /// isian antrean diganti di tempat (urutan antrean tetap, foto tetap sesudahnya). Sudah di server = antre
   /// ubahPekerjaanWo (revision diambil saat dikirim). Foto tidak berubah.
   Future<void> ubahPekerjaan(Sesi s, Map<String, dynamic> t, Map<String, dynamic> p, Map<String, dynamic> data, Map<String, dynamic> tampil,
@@ -792,7 +792,7 @@ class WoLokal {
     return hasil;
   }
 
-  /// v1.0.29 (permintaan kvlar 24 Okt 2026): P0 dari WO Tindak Lanjut Yandal di shift [kodeShift], untuk ringkasan shift
+  /// v1.0.29 (permintaan Master Guswan 24 Okt 2026): P0 dari WO Tindak Lanjut Yandal di shift [kodeShift], untuk ringkasan shift
   /// di HP (P0 WO dicatat server, tidak ada di P0 HP). Pekerjaan yang sudah tercatat (kode `<kodeShift>-P0.`) + pekerjaan
   /// WO yang Selesai-nya masih menunggu kirim (dicatat server ke shift aktif). Tiap hasil = pekerjaan + 'temuan' (kartu WO).
   static List<Map<String, dynamic>> p0Shift(Map<String, dynamic> d, String kodeShift) {

@@ -24,17 +24,18 @@ import '../row/row_repository.dart' show RowError;
 import '../row/watermark.dart';
 import 'wo_bantu.dart';
 import 'wo_foto_server.dart';
+import 'wo_peta.dart';
 import 'wo_store.dart';
 import 'wo_tab.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.11 (permintaan kvlar 21 Okt 2026): WO tindak lanjut temuan untuk tim ROW / HARTEK / YANDAL (menu OPS_WO_TIM).
+/// v1.0.11 (permintaan Master Guswan 21 Okt 2026): WO tindak lanjut temuan untuk tim ROW / HARTEK / YANDAL (menu OPS_WO_TIM).
 /// Tab "WO" di bottom bar (Yandal: "TO P0"). Alur: WO Terkirim dari admin > Mulai kerjakan > catat pekerjaan + foto
 /// Sebelum / Pekerjaan / Sesudah > Selesai. Pekerjaan baru masuk realisasi tim (ROW eksekusi, PG Hartek, P0 Yandal) saat
 /// Selesai.
 ///
-/// v1.0.16 (permintaan kvlar 22 Okt 2026):
+/// v1.0.16 (permintaan Master Guswan 22 Okt 2026):
 ///  - offline: semua isian tersimpan di HP dulu (WoStore), dikirim di latar tanpa popup; cukup pemberitahuan singkat.
 ///  - simpan bertahap: pekerjaan boleh disimpan dengan foto Sebelum saja, foto Pekerjaan / Sesudah menyusul dari kartu.
 ///  - kartu ringkas + aksi cepat (navigasi Google Maps ke lokasi temuan, mulai, tambah pekerjaan, selesai); ketuk kartu
@@ -343,13 +344,13 @@ class _WoTimScreenState extends State<WoTimScreen> {
   static const _maksPekerjaan = 15, _maksMaterial = 10, _maksMaterialIsian = 30;
 
   /// v1.0.16: Hartek banyak pekerjaan + material dalam satu isian. Baris berikutnya muncul sesudah baris sebelumnya diisi.
-  /// v1.0.17 (permintaan kvlar 22 Okt 2026): material tidak lagi di kolom terpisah. Tiap pekerjaan punya kartu sendiri
+  /// v1.0.17 (permintaan Master Guswan 22 Okt 2026): material tidak lagi di kolom terpisah. Tiap pekerjaan punya kartu sendiri
   /// berisi pekerjaan + jumlah, lalu material yang dipakai PEKERJAAN ITU (jumlah, satuan, kepemilikan dari
   /// db_Kepemilikan_Material). Pembaca laporan tahu pasti material dipakai untuk pekerjaan apa.
-  /// v1.0.23 (permintaan kvlar 23 Okt 2026): pekerjaan + materialnya dalam SATU kartu. Kolom material (jumlah, satuan,
+  /// v1.0.23 (permintaan Master Guswan 23 Okt 2026): pekerjaan + materialnya dalam SATU kartu. Kolom material (jumlah, satuan,
   /// kepemilikan) baru muncul sesudah tombol + Tambah material diketuk; pekerjaan berikutnya sesudah + Tambah pekerjaan
   /// (pekerjaan pertama langsung tampil).
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): tiap pekerjaan kartu sendiri (aksen merek, bisa dibuka / ditutup), tiap
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): tiap pekerjaan kartu sendiri (aksen merek, bisa dibuka / ditutup), tiap
   /// material kartu kecil di dalamnya (aksen kuning, bisa dibuka / ditutup).
   List<IsianHartek> _isianHartek(Map<String, dynamic> t, Map<String, String> n) {
     final jh = _jenisHartek(t), mt = _materialHartek, milik = _kepemilikan;
@@ -516,7 +517,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
           if (!e.key.startsWith('foto_')) e.key: e.value,
       };
 
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): pekerjaan boleh diubah selama DRAFT, foto Sebelum sudah ada, foto Sesudah
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): pekerjaan boleh diubah selama DRAFT, foto Sebelum sudah ada, foto Sesudah
   /// belum (server juga mengecek: FOTO_SEBELUM_BELUM_ADA / FOTO_SESUDAH_SUDAH_ADA).
   bool _bisaUbah(Map<String, dynamic> t, Map<String, dynamic> p) {
     if (!_bisaKerja(t) || teksWo(p['status']) != 'DRAFT') return false;
@@ -604,7 +605,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     _kirimLatar();
   }
 
-  /// v1.0.28 (permintaan kvlar 23 Okt 2026): foto / kamera sedang dibuka; ketukan berulang selama jeda diabaikan
+  /// v1.0.28 (permintaan Master Guswan 23 Okt 2026): foto / kamera sedang dibuka; ketukan berulang selama jeda diabaikan
   /// (dulu foto bisa terbuka berkali-kali).
   bool _fotoDibuka = false;
 
@@ -844,7 +845,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
       return _kotak(AppColors.red700, AppColors.red100, Icons.error_outline_rounded, 'Selesai belum diterima server', teksWo(sel['galat']),
           aksi: [FilledButton(onPressed: () => unawaited(_cobaUlang(t)), child: const Text('Kirim ulang'))]);
     }
-    // v1.0.27 (permintaan kvlar 23 Okt 2026): kartu "Sedang Proses Sinkron" dihapus (sinkron otomatis di latar). Hanya
+    // v1.0.27 (permintaan Master Guswan 23 Okt 2026): kartu "Sedang Proses Sinkron" dihapus (sinkron otomatis di latar). Hanya
     // tampil bila Selesai tertahan karena ada data WO ini yang ditolak server (petugas perlu bertindak).
     if (teksWo(sel['status']) == HartekLokal.lokal && teksWo(sel['galat']).isNotEmpty) {
       return _kotak(AppColors.red700, AppColors.red100, Icons.error_outline_rounded, 'Selesai tertahan', teksWo(sel['galat']),
@@ -951,7 +952,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     );
   }
 
-  /// v1.0.17 (permintaan kvlar 22 Okt 2026): foto temuan di kartu utama WO (ketuk = foto penuh), supaya petugas melihat
+  /// v1.0.17 (permintaan Master Guswan 22 Okt 2026): foto temuan di kartu utama WO (ketuk = foto penuh), supaya petugas melihat
   /// kondisi temuan sebelum mulai. Tanpa foto = ikon status seperti sebelumnya. Lencana status kecil di pojok foto.
   Widget _fotoKartu(Map<String, dynamic> t, Color warna, Color latar, IconData ikon) {
     final id = teksWo(t['temuanId']);
@@ -1189,7 +1190,7 @@ class _WoTimScreenState extends State<WoTimScreen> {
     ]);
   }
 
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu rincian pekerjaan baru. Kepala bertint merek (judul, kode, status,
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): kartu rincian pekerjaan baru. Kepala bertint merek (judul, kode, status,
   /// Ubah / Hapus), tiap pekerjaan Hartek blok beraksen merek dengan material beraksen kuning di dalamnya, info lokasi /
   /// catatan, lalu foto.
   Widget _blokPekerjaan(Map<String, dynamic> t, Map<String, dynamic> p) {
@@ -1420,6 +1421,15 @@ class _WoTimScreenState extends State<WoTimScreen> {
                 jumlahSelesai: n.selesai,
                 keteranganAktif: '${n.baru} baru · ${n.dikerjakan} dikerjakan',
               ),
+              if (!_selesai && woBelumSelesaiBerpeta(semua).isNotEmpty) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => unawaited(Navigator.of(context).push<void>(MaterialPageRoute(
+                      builder: (_) => PetaWoScreen(wo: semua, onBuka: (t) => unawaited(_bukaDetail(teksWo(t['temuanId']))), judul: 'Peta ${_yandal ? 'TO P0' : 'WO'}')))),
+                  icon: const Icon(Icons.map_outlined),
+                  label: Text('Lihat Peta (${woBelumSelesaiBerpeta(semua).length} WO)'),
+                ),
+              ],
               const SizedBox(height: 14),
               if (_doc == null || (_server.isEmpty && _muat))
                 const Padding(padding: EdgeInsets.only(top: 40), child: Center(child: SisiLoader()))

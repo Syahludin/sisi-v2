@@ -134,7 +134,7 @@ class _FormEksekusiScreenState extends State<FormEksekusiScreen> {
       }
       return;
     }
-    // v0.62.8 (keputusan kvlar 7 Okt 2026): simpan SEMUA-ATAU-TIDAK. Foto dirender dulu ke file (watermark dari isi
+    // v0.62.8 (keputusan Master Guswan 7 Okt 2026): simpan SEMUA-ATAU-TIDAK. Foto dirender dulu ke file (watermark dari isi
     // form + kode rencana), lalu eksekusi + outbox + semua foto masuk dalam SATU transaksi. App mati / foto gagal
     // sebelum itu = tidak ada yang tersimpan (belum disimpan = belum fix); file sisa dibersihkan bersihkanYatim.
     // Dulu eksekusi tersimpan & terkirim duluan, foto menyusul satu per satu: app mati di tengah = eksekusi tanpa foto.

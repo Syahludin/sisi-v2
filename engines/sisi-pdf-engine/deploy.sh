@@ -5,7 +5,9 @@
 #   ROTASI=1 bash deploy.sh <service>   -> buat rahasia baru (Script Property PDF_ENGINE_SECRET wajib ikut diganti)
 set -euo pipefail
 LAYANAN="${1:-sisi2-pdf-staging}"
-REGION="${REGION:-asia-southeast2}"
+# v1.0.38: asia-southeast1 (Singapura). asia-southeast2 (Jakarta) menolak semua request ("Rate exceeded") sesudah billing
+# project sempat mati 27 Okt 2026, walau kuota normal.
+REGION="${REGION:-asia-southeast1}"
 PROJECT="$(gcloud config get-value project 2>/dev/null)"
 [ -n "$PROJECT" ] || { echo "Project belum dipilih: gcloud config set project <id>"; exit 1; }
 echo "Project $PROJECT, region $REGION, service $LAYANAN"

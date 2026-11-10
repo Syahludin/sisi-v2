@@ -23,7 +23,7 @@ function endpoints_() {
     logout:    { fn: logout_, syncShift: true, batasMenit: 10 },
     // v0.67.0: Ganti Password pemilik akun (Pengaturan). Tanpa menu: semua akun bersesi kecuali tim YANDAL (dicek di fungsi).
     gantiPassword: { fn: gantiPassword_, batasMenit: 5 },
-    getMaster: { fn: getMaster_, batasMenit: 30 },
+    getMaster: { fn: getMaster_, cache: true, batasMenit: 30 },
     // v0.83.0: daftar token notifikasi FCM (akun YANDAL + ADMIN / SUPER dari HP, dicek di fungsi). syncShift: HP Yandal
     // tetap bisa mendaftar di mode sync akhir shift (pengingat shift berikutnya dikirim ke HP terakhir yang login).
     daftarNotif: { fn: daftarNotif_, syncShift: true, batasMenit: 10 },
@@ -43,10 +43,40 @@ function endpoints_() {
     getLaporanUiw: { fn: getLaporanUiw_, menu: 'OPS_LAP_UIW', batasMenit: 20 },
     // v1.0.36: Laporan UP3 + UIW 7 hari untuk dibaca offline di HP admin (hanya tanggal yang berubah)
     getRingkasanLaporan: { fn: getRingkasanLaporan_, menu: 'OPS_LAP_UP3', batasMenit: 20 },
+    // v1.0.44: Laporan GASPOL UP3 (rekap 38 kolom per penyulang + tanggal, kirim ke tab Input TBL)
+    getGaspolUp3: { fn: getGaspolUp3_, menu: 'OPS_GASPOL_UP3', batasMenit: 20 },
+    kirimGaspolUp3: { fn: kirimGaspolUp3_, menu: 'OPS_GASPOL_UP3', tulis: true, batasMenit: 10 },
+    // v1.0.60: Workplan UP3 (kerangka dari sheet WORKPLAN PRIORITAS PENYULANG + realisasi ROW / Hartek), khusus web admin
+    getWorkplanUp3: { fn: getWorkplanUp3_, menu: 'OPS_WORKPLAN_UP3', batasMenit: 20 },
+    // v1.0.59: Laporan Gangguan Penyulang H-1 (teks WhatsApp + rekap bulan), khusus web admin
+    getLaporanGangguan: { fn: getLaporanGangguan_, menu: 'OPS_LAP_GANGGUAN', batasMenit: 20 },
     simpanLaporanUiw: { fn: simpanLaporanUiw_, menu: 'OPS_LAP_UIW', tulis: true, batasMenit: 10 },
     // v0.63.0: Pindah Tim Petugas Yandal (ADMIN / SUPER)
-    getPetugasYandal: { fn: getPetugasYandal_, menu: 'OPS_PETUGAS_YANDAL', batasMenit: 20 },
-    simpanPetugasYandal: { fn: simpanPetugasYandal_, menu: 'OPS_PETUGAS_YANDAL', tulis: true, batasMenit: 10 },
+    getPetugasYandal: { fn: getPetugasYandal_, menu: 'OPS_PETUGAS_YANDAL', batasMenit: 20, versiMinApp: '1.0.56' },
+    simpanPetugasYandal: { fn: simpanPetugasYandal_, menu: 'OPS_PETUGAS_YANDAL', tulis: true, batasMenit: 10, versiMinApp: '1.0.56' },
+    // v1.0.57: Gudang Material (admin, menu OPS_GUDANG_MATERIAL; modul 75-77_Gudang_*.js)
+    getIzinMaterial: { fn: getIzinMaterial_, menu: 'OPS_GUDANG_MATERIAL', batasMenit: 30 },
+    simpanIzinMaterial: { fn: simpanIzinMaterial_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 20 },
+    getGudangStok: { fn: getGudangStok_, menu: 'OPS_GUDANG_MATERIAL', batasMenit: 40 },
+    tambahStokGudang: { fn: tambahStokGudang_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    kirimStokTim: { fn: kirimStokTim_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    tarikStokTim: { fn: tarikStokTim_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    koreksiStok: { fn: koreksiStok_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    getSelisihGudang: { fn: getSelisihGudang_, menu: 'OPS_GUDANG_MATERIAL', batasMenit: 40 },
+    selesaikanSelisih: { fn: selesaikanSelisih_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    getPemakaianGudang: { fn: getPemakaianGudang_, menu: 'OPS_GUDANG_MATERIAL', batasMenit: 40 },
+    koreksiPemakaian: { fn: koreksiPemakaian_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    batalkanPemakaian: { fn: batalkanPemakaian_, menu: 'OPS_GUDANG_MATERIAL', tulis: true, batasMenit: 30 },
+    getFotoGudang: { fn: getFotoGudang_, menu: 'OPS_GUDANG_MATERIAL', batasMenit: 80 },
+    // v1.0.57: petugas Yandal (menu OPS_STOK_MATERIAL)
+    getStokYandal: { fn: getStokYandal_, menu: 'OPS_STOK_MATERIAL', batasMenit: 60 },
+    simpanPemeriksaanStok: { fn: simpanPemeriksaanStok_, menu: 'OPS_STOK_MATERIAL', tulis: true, batasMenit: 30 },
+    simpanPemakaianMcb: { fn: simpanPemakaianMcb_, menu: 'OPS_STOK_MATERIAL', tulis: true, batasMenit: 60 },
+    simpanPemakaianSusulan: { fn: simpanPemakaianSusulan_, menu: 'OPS_STOK_MATERIAL', tulis: true, batasMenit: 30 },
+    getFotoGudangYandal: { fn: getFotoGudangYandal_, menu: 'OPS_STOK_MATERIAL', batasMenit: 80 },
+    // v1.0.51: Absensi safety briefing (ADMIN_ES + ADMIN, menu OPS_ABSENSI). Tanggal selalu hari berjalan WIB, isian pengabsen lain terkunci.
+    getAbsensi: { fn: getAbsensi_, menu: 'OPS_ABSENSI', batasMenit: 20 },
+    simpanAbsensi: { fn: simpanAbsensi_, menu: 'OPS_ABSENSI', tulis: true, batasMenit: 10 },
     // v0.63.5: Arsip P0 (tim akun YANDAL sendiri) + Rank Yandal (beranda). Tanpa menu: dibatasi di fungsi.
     getArsipYandal: { fn: getArsipYandal_, batasMenit: 20 },
     getRankYandal: { fn: getRankYandal_, batasMenit: 20 },
@@ -59,6 +89,9 @@ function endpoints_() {
     // v1.0.31: P0 dari WO Tindak Lanjut di shift sesi (yan_P0) + fotonya, tampil seperti P0 lokal (hanya baca)
     getP0WoYandal: { fn: getP0WoYandal_, syncShift: true, batasMenit: 30 },
     getFotoP0WoYandal: { fn: getFotoP0WoYandal_, syncShift: true, batasMenit: 60 },
+    // v1.0.50: Request P0 ke Command Center (tab P0_PENUGASAN, CC_SHEET_ID) + baca balik status (dibatasi di fungsi)
+    requestP0Cc: { fn: requestP0Cc_, syncShift: true, batasMenit: 20 },
+    getStatusP0Cc: { fn: getStatusP0Cc_, syncShift: true, batasMenit: 30 },
     // v0.66.0: Pengecekan Switching (anak P0), aturan sama dengan kirim P0
     simpanSwitchingYandal: { fn: simpanSwitchingYandal_, syncShift: true, batasMenit: 40 },
     uploadFotoSwitchingYandal: { fn: uploadFotoSwitchingYandal_, syncShift: true, batasMenit: 40 },
@@ -66,8 +99,8 @@ function endpoints_() {
     simpanGarduYandal: { fn: simpanGarduYandal_, syncShift: true, batasMenit: 40 },
     uploadFotoGarduYandal: { fn: uploadFotoGarduYandal_, syncShift: true, batasMenit: 60 },
     // v0.75.0: Approval P0 (menu OPS_VERIFIKASI_P0, khusus ADMIN / SUPER dicek di fungsi) + aturan Yandal (Pengaturan)
-    getApprovalP0: { fn: getApprovalP0_, menu: 'OPS_VERIFIKASI_P0', batasMenit: 30 },
-    getFotoApprovalP0: { fn: getFotoApprovalP0_, menu: 'OPS_VERIFIKASI_P0', batasMenit: 80 },
+    getApprovalP0: { fn: getApprovalP0_, cache: true, menu: 'OPS_VERIFIKASI_P0', batasMenit: 30 },
+    getFotoApprovalP0: { fn: getFotoApprovalP0_, cache: true, menu: 'OPS_VERIFIKASI_P0', batasMenit: 80 },
     simpanApprovalP0: { fn: simpanApprovalP0_, menu: 'OPS_VERIFIKASI_P0', tulis: true, batasMenit: 40 },
     ubahJenisP0: { fn: ubahJenisP0_, menu: 'OPS_VERIFIKASI_P0', tulis: true, batasMenit: 20 },
     simpanAturanYandal: { fn: simpanAturanYandal_, menu: 'OPS_VERIFIKASI_P0', tulis: true, batasMenit: 10 },
@@ -77,11 +110,11 @@ function endpoints_() {
     uploadFotoBaGardu: { fn: uploadFotoBaGardu_, menu: 'OPS_BA_GARDU', tulis: true, batasMenit: 40 },
     simpanBaGardu: { fn: simpanBaGardu_, menu: 'OPS_BA_GARDU', tulis: true, batasMenit: 10 },
     // v0.71.0: PDF BA lewat Cloud Run sisi-pdf-engine (stateless) + daftar BA untuk buat / buat ulang / buka PDF
-    getDaftarBaGardu: { fn: getDaftarBaGardu_, menu: 'OPS_BA_GARDU', batasMenit: 30 },
+    getDaftarBaGardu: { fn: getDaftarBaGardu_, cache: true, menu: 'OPS_BA_GARDU', batasMenit: 30 },
     buatPdfBaGardu: { fn: buatPdfBaGardu_, menu: 'OPS_BA_GARDU', tulis: true, batasMenit: 6 },
     // v0.76.0: BA tanpa Drive di HP (foto / PDF lewat server) + edit BA
-    getBaGardu: { fn: getBaGardu_, menu: 'OPS_BA_GARDU', batasMenit: 30 },
-    getFotoBaGardu: { fn: getFotoBaGardu_, menu: 'OPS_BA_GARDU', batasMenit: 40 },
+    getBaGardu: { fn: getBaGardu_, cache: true, menu: 'OPS_BA_GARDU', batasMenit: 30 },
+    getFotoBaGardu: { fn: getFotoBaGardu_, cache: true, menu: 'OPS_BA_GARDU', batasMenit: 40 },
     getPdfBaGardu: { fn: getPdfBaGardu_, menu: 'OPS_BA_GARDU', batasMenit: 20 },
     ubahBaGardu: { fn: ubahBaGardu_, menu: 'OPS_BA_GARDU', tulis: true, batasMenit: 10 },
     // v0.78.0: BA TTD (upload per bagian <= 2 MB), Kirim EAM format v1, Update Master Gardu dari BA TTD
@@ -94,7 +127,7 @@ function endpoints_() {
     lepasNomorGardu: { fn: lepasNomorGardu_, menu: 'OPS_BA_GARDU', tulis: true, batasMenit: 30 },
     // v0.86.0: file Arsip BA v1 (baca saja, sheet arsip_BA_V1); daftar arsip ikut getDaftarBaGardu sumber V1 / SEMUA
     getFileArsipBaGardu: { fn: getFileArsipBaGardu_, menu: 'OPS_BA_GARDU', batasMenit: 20 },
-    // v0.87.0: inputan Hartek petugas (PETUGAS HARTEK, hari ini saja untuk tulis). Lihat modules/71_Hartek.js
+    // v0.87.0: inputan Hartek petugas (PETUGAS HARTEK, hari ini saja untuk tulis). Lihat modules/50_Hartek.js
     getMaterialHartek: { fn: getMaterialHartek_, menu: 'OPS_HARTEK_INPUT', batasMenit: 30 },
     getHartekHarian: { fn: getHartekHarian_, menu: 'OPS_HARTEK_INPUT', batasMenit: 30 },
     getJaringanHartek: { fn: getJaringanHartek_, menu: 'OPS_HARTEK_INPUT', batasMenit: 30 },
@@ -108,7 +141,7 @@ function endpoints_() {
     simpanGroundingHartek: { fn: simpanGroundingHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     simpanPemerataanHartek: { fn: simpanPemerataanHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     uploadFotoHartek: { fn: uploadFotoHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 60 },   // v1.0.0: foto grounding / pemerataan
-    // v1.0.0: Inspeksi Jaringan petugas (PETUGAS INSPEKSI_JARINGAN, tulis hari ini saja). Lihat modules/73_InsJar.js
+    // v1.0.0: Inspeksi Jaringan petugas (PETUGAS INSPEKSI_JARINGAN, tulis hari ini saja). Lihat modules/52_InsJar.js
     getMasterInsJar: { fn: getMasterInsJar_, menu: 'OPS_INSJAR_INPUT', batasMenit: 30 },
     getInsJarHarian: { fn: getInsJarHarian_, menu: 'OPS_INSJAR_INPUT', batasMenit: 30 },
     buatHeaderInsJar: { fn: buatHeaderInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 20 },
@@ -119,7 +152,7 @@ function endpoints_() {
     ubahTemuanInsJar: { fn: ubahTemuanInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 40 },   // v1.0.5
     uploadFotoInsJar: { fn: uploadFotoInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 60 },   // v1.0.0
     getFotoTemuanInsJar: { fn: getFotoTemuanInsJar_, menu: 'OPS_INSJAR_INPUT', batasMenit: 80 },   // v1.0.19
-    // v1.0.8: Inspeksi Gardu petugas (PETUGAS INSPEKSI_GARDU). Lihat modules/74_InsDu.js
+    // v1.0.8: Inspeksi Gardu petugas (PETUGAS INSPEKSI_GARDU). Lihat modules/53_InsDu.js
     getMasterInsDu: { fn: getMasterInsDu_, menu: 'OPS_INSDU_INPUT', batasMenit: 30 },
     getInsDuHarian: { fn: getInsDuHarian_, menu: 'OPS_INSDU_INPUT', batasMenit: 30 },
     buatHeaderInsDu: { fn: buatHeaderInsDu_, menu: 'OPS_INSDU_INPUT', tulis: true, batasMenit: 20 },
@@ -139,7 +172,7 @@ function endpoints_() {
     uploadFotoTemuanInspeksi: { fn: uploadFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 60 },   // v1.0.0
     getFotoTemuanInspeksi: { fn: getFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 80 },   // v1.0.19: foto di kartu temuan
     // v1.0.10: WO tindak lanjut temuan. Admin (OPS_PENERUSAN_WO) teruskan / pindah / tarik; tim ROW / HARTEK / YANDAL
-    // (OPS_WO_TIM) mulai, catat pekerjaan + foto, selesai (= masuk realisasi tim). Lihat modules/75_TindakLanjut.js
+    // (OPS_WO_TIM) mulai, catat pekerjaan + foto, selesai (= masuk realisasi tim). Lihat modules/57_TindakLanjut_Tim.js + 58_TindakLanjut_Selesai.js
     getWoAdmin: { fn: getWoAdmin_, menu: 'OPS_PENERUSAN_WO', batasMenit: 30 },
     teruskanWo: { fn: teruskanWo_, menu: 'OPS_PENERUSAN_WO', tulis: true, batasMenit: 40 },
     // v1.0.18: pindah / tarik WO terkirim hanya di menu Pindah Tim TO (Penerusan WO tab Terkirim = lihat saja)
@@ -148,73 +181,110 @@ function endpoints_() {
     getFotoWoPindah: { fn: getFotoWoPindah_, menu: 'OPS_PINDAH_TIM_TO', batasMenit: 60 },
     pindahWo: { fn: pindahWo_, menu: 'OPS_PINDAH_TIM_TO', tulis: true, batasMenit: 40 },
     getFotoWoAdmin: { fn: getFotoWoAdmin_, menu: 'OPS_PENERUSAN_WO', batasMenit: 60 },   // v1.0.15: foto temuan / tiang di Penerusan WO
+    // v1.0.50: peta Temuan Inspeksi (web, baca saja)
+    getPetaTemuan: { fn: getPetaTemuan_, menu: 'OPS_PETA_TEMUAN', batasMenit: 30 },
+    // v1.0.51: menu web Checkpoint Jaringan (4 sub-tab seperti v1). Lihat modules/65_Checkpoint.js
+    getCheckpoint: { fn: getCheckpoint_, cache: true, menu: 'OPS_CHECKPOINT', batasMenit: 30 },
+    getRekapJenisTemuan: { fn: getRekapJenisTemuan_, cache: true, menu: 'OPS_PETA_TEMUAN', batasMenit: 30 },   // v1.0.51 tab Rincian Jenis Temuan
+    getFotoPetaTemuan: { fn: getFotoPetaTemuan_, menu: 'OPS_PETA_TEMUAN', batasMenit: 60 },
     getWoTim: { fn: getWoTim_, menu: 'OPS_WO_TIM', batasMenit: 30 },
     mulaiWo: { fn: mulaiWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 20 },
     simpanPekerjaanWo: { fn: simpanPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 40 },
     hapusPekerjaanWo: { fn: hapusPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 20 },
     uploadFotoWo: { fn: uploadFotoWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 60 },
     getFotoWoTim: { fn: getFotoWoTim_, menu: 'OPS_WO_TIM', batasMenit: 60 },
-    // v1.0.16: verifikasi WO ganda (dua tim mengunggah WO yang sama), admin. Lihat modules/75_TindakLanjut.js
+    // v1.0.16: verifikasi WO ganda (dua tim mengunggah WO yang sama), admin. Lihat modules/59_TindakLanjut_Ganda.js
     getWoGanda: { fn: getWoGanda_, menu: 'OPS_WO_GANDA', batasMenit: 30 },
     getFotoWoGanda: { fn: getFotoWoGanda_, menu: 'OPS_WO_GANDA', batasMenit: 60 },
     putuskanWoGanda: { fn: putuskanWoGanda_, menu: 'OPS_WO_GANDA', tulis: true, batasMenit: 20 },   // v1.0.15: foto temuan + pekerjaan di WO Tim
     selesaiWo: { fn: selesaiWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 10 },
     // v1.0.17: sinkron atomik, segel laporan tim sesudah semua antrean HP diterima (ringkasan HP = ringkasan server).
-    // Lihat modules/76_SinkronAtomik.js
+    // Lihat modules/91_SinkronAtomik.js
     segelSinkronHartek: { fn: segelSinkronHartek_, menu: 'OPS_HARTEK_INPUT', tulis: true, batasMenit: 30 },
     segelSinkronInsJar: { fn: segelSinkronInsJar_, menu: 'OPS_INSJAR_INPUT', tulis: true, batasMenit: 30 },
     segelSinkronInsDu: { fn: segelSinkronInsDu_, menu: 'OPS_INSDU_INPUT', tulis: true, batasMenit: 30 },
-    // v1.0.17: Arsip Laporan tim Hartek / Inspeksi Jaringan / Inspeksi Gardu (pola getArsipRow). Lihat modules/77_Arsip_Tim.js
+    // v1.0.17: Arsip Laporan tim Hartek / Inspeksi Jaringan / Inspeksi Gardu (pola getArsipRow). Lihat modules/72_Arsip_Tim.js
     getArsipHartek: { fn: getArsipHartek_, menu: 'OPS_HARTEK_INPUT', batasMenit: 20 },
     getArsipInsJar: { fn: getArsipInsJar_, menu: 'OPS_INSJAR_INPUT', batasMenit: 20 },
     getArsipInsDu: { fn: getArsipInsDu_, menu: 'OPS_INSDU_INPUT', batasMenit: 20 },
-    // v1.0.17: Jadwal Padam (port v1), khusus admin menu OPS_JADWAL_PADAM. Lihat modules/78_JadwalPadam.js
-    getMasterJadwalPadam: { fn: getMasterJadwalPadam_, menu: 'OPS_JADWAL_PADAM', batasMenit: 30 },
-    getJadwalPadam: { fn: getJadwalPadam_, menu: 'OPS_JADWAL_PADAM', batasMenit: 30 },
+    // v1.0.17: Jadwal Padam (port v1), khusus admin menu OPS_JADWAL_PADAM. Lihat modules/70_JadwalPadam.js
+    getMasterJadwalPadam: { fn: getMasterJadwalPadam_, cache: true, menu: 'OPS_JADWAL_PADAM', batasMenit: 30 },
+    getJadwalPadam: { fn: getJadwalPadam_, cache: true, menu: 'OPS_JADWAL_PADAM', batasMenit: 30 },
     getWaJadwalPadam: { fn: getWaJadwalPadam_, menu: 'OPS_JADWAL_PADAM', batasMenit: 20 },
     simpanJadwalPadam: { fn: simpanJadwalPadam_, menu: 'OPS_JADWAL_PADAM', tulis: true, batasMenit: 30 },
     ubahJadwalPadam: { fn: ubahJadwalPadam_, menu: 'OPS_JADWAL_PADAM', tulis: true, batasMenit: 30 },
     ubahStatusJadwalPadam: { fn: ubahStatusJadwalPadam_, menu: 'OPS_JADWAL_PADAM', tulis: true, batasMenit: 30 },
     hapusJadwalPadam: { fn: hapusJadwalPadam_, menu: 'OPS_JADWAL_PADAM', tulis: true, batasMenit: 20 },
     // v1.0.17: Kalender tim (pekerjaan tim + WO + jadwal padam per hari). Tanpa menu: dibatasi di fungsi ke PETUGAS bertim,
-    // data tim sesi sendiri. Lihat modules/79_Kalender_Tim.js
+    // data tim sesi sendiri. Lihat modules/71_Kalender_Tim.js
     getKalenderTim: { fn: getKalenderTim_, batasMenit: 20 },
-    // v1.0.19: lonceng notifikasi header (tanpa menu: isi dibatasi menu sesi di fungsi). Lihat modules/83_Lonceng.js
+    // v1.0.19: lonceng notifikasi header (tanpa menu: isi dibatasi menu sesi di fungsi). Lihat modules/81_Lonceng.js
     getNotifikasi: { fn: getNotifikasi_, batasMenit: 30 },
     tandaiNotifikasi: { fn: tandaiNotifikasi_, batasMenit: 30 },
     // v1.0.19: update APK dari folder Drive (APK_FOLDER_ID), semua akun bersesi. Lihat 09_Versi.js
     getUpdateApp: { fn: getUpdateApp_, batasMenit: 10 },
+    // v1.0.61: update APK dari halaman login (tanpa sesi; rem global di fungsi). Lihat 09_Versi.js
+    getUpdateAppPublik: { fn: getUpdateAppPublik_, publik: true },
     // v1.0.17: riwayat gardu (pengukuran arus / tegangan, temuan + perbaikan, BA / manajemen trafo), admin Pengukuran Gardu.
-    // Lihat modules/80_Riwayat_Gardu.js
-    getRiwayatGardu: { fn: getRiwayatGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 },
+    // Lihat modules/34_Gardu_Riwayat.js
+    getRiwayatGardu: { fn: getRiwayatGardu_, cache: true, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 40 },
     // v1.0.22: Update Pengukuran Gardu = satu pengukuran riwayat ditulis ke Master Gardu (pengukuran terbaru)
     updateUkurMasterGardu: { fn: updateUkurMasterGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 },
     // v1.0.35: form Update Data Gardu v1 (HI): baca Master_Gardu + Suhu & Fisik, tulis ke 3 file sheet lama + db_Gardu.
-    // Lihat modules/81_HI_Gardu.js
-    getHiGardu: { fn: getHiGardu_, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 30 },
+    // Lihat modules/35_Gardu_HI.js
+    getHiGardu: { fn: getHiGardu_, cache: true, menu: 'OPS_PENGUKURAN_GARDU', batasMenit: 30 },
     updateHiGardu: { fn: updateHiGardu_, menu: 'OPS_PENGUKURAN_GARDU', tulis: true, batasMenit: 10 },
-    // v1.0.26: ubah pekerjaan WO DRAFT (sesudah foto Sebelum, sebelum foto Sesudah). Lihat modules/75_TindakLanjut.js
-    ubahPekerjaanWo: { fn: ubahPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 30 }
+    // v1.0.26: ubah pekerjaan WO DRAFT (sesudah foto Sebelum, sebelum foto Sesudah). Lihat modules/57_TindakLanjut_Tim.js
+    ubahPekerjaanWo: { fn: ubahPekerjaanWo_, menu: 'OPS_WO_TIM', tulis: true, batasMenit: 30 },
+    // v1.0.37: History Gangguan (penyulang, AR, pick up) dari salinan SiSi_Gangguan. Lihat modules/63_Gangguan.js
+    getHistoriGangguan: { fn: getHistoriGangguan_, cache: true, menu: 'OPS_REKAP_GANGGUAN', batasMenit: 30 },
+    // v1.0.51: tab Cover Gardu di History Gangguan (db_Gardu). Lihat modules/31_Gardu_Master.js
+    getCoverGardu: { fn: getCoverGardu_, cache: true, menu: 'OPS_REKAP_GANGGUAN', batasMenit: 30 },
+    sinkronHistoriGangguan: { fn: sinkronHistoriGangguan_, menu: 'OPS_REKAP_GANGGUAN', tulis: true, batasMenit: 3 },
+    // v1.0.56: Data Aset (ITB) dari master db_Aset_ITB. Lihat modules/67_AsetItb.js
+    // 8 Nov 2026: Master Switching (pendataan aset switching dari lapangan, ADMIN / SUPER; modul 96_Master_Switching.js)
+    getMasterSwitching: { fn: getMasterSwitching_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
+    simpanSwitching: { fn: simpanSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
+    uploadFotoSwitching: { fn: uploadFotoSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 40 },
+    getFotoSwitching: { fn: getFotoSwitching_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 60 },
+    // 8 Nov 2026: Segmen + Verifikasi Tiang (ADMIN / SUPER; modul 98_Segmen.js, 99_Verifikasi_Tiang.js)
+    // Master Jaringan (menu OPS_MASTER_SWITCHING): section + penyulang + segmen (100_Jaringan_Admin.js, 98_Segmen.js)
+    getSegmen: { fn: getSegmen_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
+    simpanSegmen: { fn: simpanSegmen_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
+    getJaringan: { fn: getJaringan_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
+    simpanSection: { fn: simpanSection_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
+    setAktifPenyulang: { fn: setAktifPenyulang_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 20 },
+    getVerifikasiTiang: { fn: getVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
+    getTiangJalur: { fn: getTiangJalur_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
+    simpanVerifikasiTiang: { fn: simpanVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60 },
+    uploadFotoTiang: { fn: uploadFotoTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60 },
+    getFotoTiang: { fn: getFotoTiang_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 60 },
+    getDataAset: { fn: getDataAset_, cache: true, menu: 'OPS_DATA_ASET', batasMenit: 30 },
+    sinkronDataAset: { fn: sinkronDataAset_, menu: 'OPS_DATA_ASET', tulis: true, batasMenit: 3 },
+    // v1.0.38: tiket baca API MySQL Hostinger untuk website (tanpa menu: hanya platform WEB, isi = menu WEB sesi).
+    // Lihat modules/93_Mysql.js
+    getTiketApi: { fn: getTiketApi_, batasMenit: 20 }
   };
 }
 
 function doPost(e) {
-  var hasil;
+  var mulai = Date.now(), req = null, hasil;
   try {
     var teks = (e && e.postData && e.postData.contents) || '';
     // v0.47: maks 4 MB (foto terbesar 2 MB = ~2,8 MB base64). Dicek sebelum JSON.parse & sebelum sesi.
     if (teks.length > PAYLOAD_MAKS_) throw new SisiError_('PAYLOAD_TERLALU_BESAR');
-    var req;
     try { req = JSON.parse(teks || '{}'); } catch (x) { throw new SisiError_('JSON_TIDAK_VALID'); }
     hasil = proses_(req, platformDoPost_(req));
   } catch (err) {
     hasil = gagal_(err);
   }
-  return ContentService.createTextOutput(JSON.stringify(hasil)).setMimeType(ContentService.MimeType.JSON);
+  var keluar = JSON.stringify(hasil);
+  catatUkur_(req && req.action, platformDoPost_(req), mulai, hasil, keluar.length);   // 6 Nov 2026: lama per aksi (08_Ukur.js)
+  return ContentService.createTextOutput(keluar).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
- * v1.0.34 web admin (permintaan kvlar 26 Okt 2026): website admin di domain sendiri (Hostinger) memanggil doPost yang sama
+ * v1.0.34 web admin (permintaan Master Guswan 26 Okt 2026): website admin di domain sendiri (Hostinger) memanggil doPost yang sama
  * dengan HP, ditandai platform 'WEB' (selain itu = HP). Bukan batas keamanan: platform WEB hanya untuk role ROLE_WEB_
  * (dicek saat login dan di guard_), menu disaring kolom platform db_Menu, kunci versi APK tidak berlaku.
  */
@@ -229,13 +299,16 @@ function doGet() {
 
 /** Untuk halaman web: google.script.run.rpc({action, token, data}). */
 function rpc(req) {
+  var mulai = Date.now(), hasil;
   try {
     // v0.62.5: batas 4 MB yang sama dengan doPost (dulu rpc tanpa batas ukuran).
     var teks;
     try { teks = JSON.stringify(req || {}); } catch (x) { throw new SisiError_('REQUEST_TIDAK_VALID'); }
     if (!teks || teks.length > PAYLOAD_MAKS_) throw new SisiError_('PAYLOAD_TERLALU_BESAR');
-    return proses_(req || {}, 'WEB');
-  } catch (err) { return gagal_(err); }
+    hasil = proses_(req || {}, 'WEB');
+  } catch (err) { hasil = gagal_(err); }
+  catatUkur_(req && req.action, 'WEB', mulai, hasil, 0);   // 6 Nov 2026: lama per aksi (08_Ukur.js)
+  return hasil;
 }
 
 function proses_(req, platform) {
@@ -246,15 +319,24 @@ function proses_(req, platform) {
   var ep = daftar[nama];
   cekVersiHp_(req, platform, nama);   // v0.81.1: app di bawah versi minimum (opsional, WAJIB_VERSI_APP)
   var sesi = ep.publik ? null : guard_(req.token, ep, platform, nama);
+  cekVersiFitur_(req, platform, ep);  // v1.0.56: fitur yang butuh app tertentu (versiMinApp) saja yang ditolak, sisanya tetap jalan
   var data = req.data === undefined || req.data === null ? {} : req.data;
   if (typeof data !== 'object' || Array.isArray(data)) throw new SisiError_('DATA_TIDAK_VALID');
-  var isi = ep.fn(sesi, data, platform);
-  catatKirimanLaporan_(ep, data);   // v1.0.36: kiriman petugas = ringkasan laporan tanggal itu disusun ulang (~1 menit)
+  // v1.0.36: endpoint baca bertanda cache dari website = jawaban tersimpan (modules/92_Cache_Baca.js)
+  var mulaiMs = Date.now();
+  var hasil = denganCacheBaca_(ep, nama, sesi, data, platform, function () { return ep.fn(sesi, data, platform); });
+  var isi = hasil.isi;
+  // v1.0.38: jawaban jadi Pengukuran Gardu ke MySQL (website) + kiriman data gardu menghapusnya. Lihat modules/93_Mysql.js
+  if (platform === 'WEB' && !hasil.dariCache) simpanJawabanMysql_(nama, data, isi, mulaiMs);
+  catatKirimanGarduMysql_(nama, ep, data);
+  catatKirimanLaporan_(ep, data);   // v1.0.36: kiriman petugas = tanggal itu ditandai kotor (v1.0.45: disusun 18:00 / saat dibuka)
+  catatTulisCacheBaca_(ep);          // v1.0.36: data berubah = jawaban baca tersimpan kedaluwarsa
   // v0.64.2: jam server (dicap SETELAH proses) = patokan jam terpercaya HP (jam monoton). Ada di semua jawaban.
   // v0.81.0: versi backend di setiap jawaban (HP tahu backend baru di-deploy, lalu cek update)
   // v1.0.22: revisi master (ADMIN_lengkapiMaster) di setiap jawaban: berubah = HP mengunduh ulang Master Data + Gardu
   var c = cfg_(), jawab = { ok: true, env: c.ENV, data: isi, waktu: sekarangIso_(), versi: VERSI_BACKEND_ };
   if (c.MASTER_REVISI) jawab.master = c.MASTER_REVISI;
+  if (hasil.dariCache) jawab.cache = true;
   return jawab;
 }
 

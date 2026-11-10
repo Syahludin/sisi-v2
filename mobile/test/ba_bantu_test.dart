@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sisi_row/core/api_client.dart';
 import 'package:sisi_row/features/gardu/ba_bantu.dart';
+import 'package:sisi_row/features/gardu/ba_pemeriksaan_screen.dart';
 import 'package:sisi_row/features/gardu/ba_penggantian_screen.dart';
+import 'package:sisi_row/features/gardu/ba_switching_screen.dart';
 import 'package:sisi_row/features/gardu/berita_acara_screen.dart';
 
 void main() {
@@ -62,10 +64,29 @@ void main() {
     for (final j in KatalogBa.trafo) {
       expect(j.kapan.isNotEmpty, isTrue, reason: j.nama);
     }
-    expect(KatalogBa.trafo.where((j) => j.siap).map((j) => j.nama), ['Pengoperasian Trafo', 'Penggantian Trafo']);
+    expect(KatalogBa.trafo.where((j) => j.siap).map((j) => j.nama), ['Pengoperasian Trafo', 'Penggantian Trafo', 'Pemeriksaan Trafo']);
     expect(KatalogBa.trafo.first.alur, [('', 'AKTIF')]);
     expect(KatalogBa.trafo.firstWhere((j) => j.nama == 'Penggantian Trafo').alur, [('AKTIF', 'AKTIF'), ('TIDAK AKTIF', 'AKTIF')]);
     expect(KatalogBa.trafo.firstWhere((j) => j.nama == 'Pemeriksaan Trafo').alur, isEmpty);
+  });
+
+  test('v1.0.46: Pemeriksaan Trafo: gardu + Petugas 1 wajib, lampiran 1..6 opsional, tanpa EAM / Update Master', () {
+    expect(cekKelengkapanPemeriksaanBa(garduId: null, petugas1Id: 'p1'), 'Pilih gardu dari Master Gardu dulu.');
+    expect(cekKelengkapanPemeriksaanBa(garduId: 'g1', petugas1Id: null), 'Pilih Petugas 1.');
+    expect(cekKelengkapanPemeriksaanBa(garduId: 'g1', petugas1Id: 'p1'), isNull);
+    expect(slotFotoPemeriksaan.map((s) => s.$1), ['LAMPIRAN_1', 'LAMPIRAN_2', 'LAMPIRAN_3', 'LAMPIRAN_4', 'LAMPIRAN_5', 'LAMPIRAN_6']);
+    expect(jenisBaForm.contains('Pemeriksaan Trafo'), isTrue);
+    expect([jenisBaMaster('Pengoperasian Trafo'), jenisBaMaster('Penggantian Trafo'), jenisBaMaster('Pemeriksaan Trafo')], [true, true, false]);
+  });
+
+  test('v1.0.49: BA Switching: 5 jenis siap, foto wajib Konstruksi + SLD (+ Konstruksi Sesudah), tanpa EAM / master', () {
+    expect(KatalogBa.switching.map((j) => j.nama), jenisBaSwitching);
+    expect(KatalogBa.switching.every((j) => j.siap && jenisBaForm.contains(j.nama) && !jenisBaMaster(j.nama)), isTrue);
+    expect([for (final s in slotFotoSwitching('Pengoperasian Switching')) if (s.$3) s.$1], ['KONSTRUKSI', 'SLD_SEBELUM', 'SLD_SESUDAH']);
+    expect([for (final s in slotFotoSwitching('Relokasi Switching')) if (s.$3) s.$1], ['KONSTRUKSI', 'KONSTRUKSI_SESUDAH', 'SLD_SEBELUM', 'SLD_SESUDAH']);
+    expect(fotoKurangSwitching('Penggantian Switching', {'KONSTRUKSI', 'SLD_SEBELUM', 'SLD_SESUDAH'}), ['Konstruksi Switching Sesudah']);
+    expect(fotoKurangSwitching('Kerusakan Switching', {'KONSTRUKSI', 'SLD_SEBELUM', 'SLD_SESUDAH'}), isEmpty);
+    expect([switchingSesudah('Relokasi Switching'), switchingKerusakan('Pemeriksaan Switching'), switchingSesudah('Pengoperasian Switching')], [true, true, false]);
   });
 
   test('v0.98.0: cekKelengkapanPenggantianBa mewajibkan gardu, 2 foto nameplate, dan Petugas 1', () {

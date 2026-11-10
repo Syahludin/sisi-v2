@@ -14,7 +14,7 @@ import '../hartek/hartek_store.dart' show GudangHartek, OpHartek, PanggilHartek,
 import 'insdu_bantu.dart';
 import 'insdu_lokal.dart';
 
-/// v1.0.12 (permintaan kvlar 21 Okt 2026): Inspeksi Gardu lokal dulu, kirim ke server otomatis di latar (pola InsJarStore).
+/// v1.0.12 (permintaan Master Guswan 21 Okt 2026): Inspeksi Gardu lokal dulu, kirim ke server otomatis di latar (pola InsJarStore).
 ///
 /// Tabel lokal sama dengan Hartek / InsJar (hartek_lokal / hartek_antre, kunci user_id): akun tim INSPEKSI_GARDU tidak
 /// memakai modul lain, jadi data tidak tercampur. Master dropdown: master_cache 'insdu_master'.
@@ -144,17 +144,27 @@ class InsDuStore extends ChangeNotifier {
       });
 
   /// Gardu yang diinspeksi. [tampil] = data gardu dari master (noGardu, penyulang, section, alamat, kapasitasKva, merkTrafo).
-  Future<String> tambahGardu(Sesi s, String garduId, String tier, Map<String, dynamic> tampil) => _kunci(() async {
+  /// v1.0.38: [kapasitasKva] / [merkTrafo] = koreksi petugas (null = tidak diubah, server memakai Master Gardu).
+  Future<String> tambahGardu(Sesi s, String garduId, String tier, Map<String, dynamic> tampil, {num? kapasitasKva, String? merkTrafo}) =>
+      _kunci(() async {
         final tgl = tanggalIni();
         final d0 = await _baca(s.userId, tgl);
         final h = InsDuLokal.header(d0);
         if (h == null) throw ApiException('DATA_TIDAK_DITEMUKAN');
         if (InsDuLokal.garduGanda(d0, garduId)) throw ApiException('GARDU_GANDA');
         final id = _uuid.v4();
-        await _gudang.tambahOp(_op(s.userId, tgl, 'simpanRealisasi', id,
-            {'headerId': '${h['headerId']}', 'garduId': garduId, 'tier': tier, 'idBaris': id}));
+        await _gudang.tambahOp(_op(s.userId, tgl, 'simpanRealisasi', id, {
+          'headerId': '${h['headerId']}',
+          'garduId': garduId,
+          'tier': tier,
+          'idBaris': id,
+          if (kapasitasKva != null) 'kapasitasKva': kapasitasKva,
+          if (merkTrafo != null) 'merkTrafo': merkTrafo,
+        }));
         await _ubahDoc(s.userId, tgl, (d) => InsDuLokal.tambahRealisasi(d, {
               ...tampil,
+              if (kapasitasKva != null) 'kapasitasKva': kapasitasKva,
+              if (merkTrafo != null) 'merkTrafo': merkTrafo,
               'realisasiId': id,
               'kodeRealisasi': '',
               'garduId': garduId,
@@ -165,7 +175,8 @@ class InsDuStore extends ChangeNotifier {
       });
 
   /// v1.0.14: ubah gardu / tier gardu yang sudah diinput. [g] = gardu baru (null = gardu tetap).
-  Future<void> ubahGardu(Sesi s, String realisasiId, String tier, {GarduInsDu? g}) => _kunci(() async {
+  Future<void> ubahGardu(Sesi s, String realisasiId, String tier, {GarduInsDu? g, num? kapasitasKva, String? merkTrafo}) =>
+      _kunci(() async {
         final tgl = tanggalIni();
         final d0 = await _baca(s.userId, tgl);
         final r = InsDuLokal.realisasi(d0, realisasiId);
@@ -174,9 +185,20 @@ class InsDuStore extends ChangeNotifier {
         final kunci = InsDuLokal.kunciUbahGardu(r, tierBaru: tier, gantiGardu: baru != null);
         if (kunci != null) throw ApiException(kunci);
         if (baru != null && InsDuLokal.garduGanda(d0, baru.garduId)) throw ApiException('GARDU_GANDA');
-        final tampil = <String, dynamic>{'tier': tier, if (baru != null) 'garduId': baru.garduId, if (baru != null) ...tampilGarduInsDu(baru)};
+        final tampil = <String, dynamic>{
+          'tier': tier,
+          if (baru != null) 'garduId': baru.garduId,
+          if (baru != null) ...tampilGarduInsDu(baru),
+          if (kapasitasKva != null) 'kapasitasKva': kapasitasKva, // v1.0.38
+          if (merkTrafo != null) 'merkTrafo': merkTrafo,
+        };
         await _ubahNode(s, tgl, 'simpanRealisasi', 'ubahRealisasi', realisasiId, {'realisasiId': realisasiId},
-            {'tier': tier, if (baru != null) 'garduId': baru.garduId},
+            {
+              'tier': tier,
+              if (baru != null) 'garduId': baru.garduId,
+              if (kapasitasKva != null) 'kapasitasKva': kapasitasKva,
+              if (merkTrafo != null) 'merkTrafo': merkTrafo,
+            },
             (d, tandai) => InsDuLokal.ubahIsianRealisasi(d, realisasiId, tampil, tandaiUbah: tandai));
       });
 

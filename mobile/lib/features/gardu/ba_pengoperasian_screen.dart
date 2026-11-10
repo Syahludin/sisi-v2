@@ -26,12 +26,6 @@ import 'ba_bantu.dart';
 import 'ba_repository.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// Merk trafo (sama v1 BA_MERK_TRAFO). "Lainnya" = ketik sendiri.
-const merkTrafoBa = <String>[
-  'Alsthom Atlantique', 'Amtra Electric', 'B&D', 'Centrado', 'J&P', 'Lucky Light', 'Mastergreen', 'Maxima', 'Monata', 'Morawa',
-  'Trafindo', 'Trafoindo', 'Triputra Electric Abadi', 'Schneider', 'Shenyang', 'Sintra', 'Starlite', 'Unindo', 'Voltra', 'Weltraf',
-];
-
 /// Slot foto Pengoperasian Trafo (urutan + label sama v1). Kunci = slot server.
 const slotFotoPengoperasian = <(String, String)>[
   ('NAMEPLATE', 'Nameplate Trafo'),
@@ -60,7 +54,7 @@ class _Foto {
   String? shaTerkirim;
 }
 
-/// v0.70.0 (keputusan kvlar 9 Okt 2026): form BA Pengoperasian Trafo (format kartu v1). Wajib online.
+/// v0.70.0 (keputusan Master Guswan 9 Okt 2026): form BA Pengoperasian Trafo (format kartu v1). Wajib online.
 /// Nomor gardu, ID BA, No BA Full ditentukan server saat simpan. Foto boleh kamera atau galeri.
 /// v0.76.0: Simpan = masuk antrean latar belakang (AntreanBa), form langsung tertutup. [ubahBaId] = edit BA tersimpan
 /// (nomor gardu, ID BA, No BA, Tanggal BA tetap; foto lama diunduh lewat server, yang diganti saja yang dikirim).
@@ -683,7 +677,7 @@ class _BaPengoperasianScreenState extends State<BaPengoperasianScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(nomorTampil, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.navy900)),
-                // v0.76.0 (permintaan kvlar): keterangan pesanan nomor dihapus; nomor BATAL tetap diberi tanda
+                // v0.76.0 (permintaan Master Guswan): keterangan pesanan nomor dihapus; nomor BATAL tetap diberi tanda
                 if (dipakai.isNotEmpty)
                   const Text('Nomor BATAL dipakai ulang', style: TextStyle(fontSize: 11, color: AppColors.neutral700)),
                 if (_edit && '${_detail?['noBaFull'] ?? ''}'.isNotEmpty)

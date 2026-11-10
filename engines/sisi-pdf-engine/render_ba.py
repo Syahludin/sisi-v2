@@ -7,6 +7,7 @@ dipotong), tanda tangan Mengetahui / Pemeriksa, halaman 2 lampiran foto 2x2.
 Bedanya dengan v1: renderer ini TIDAK membaca spreadsheet dan TIDAK menyentuh Drive. Semua data + foto dikirim
 Apps Script di body request, hasilnya bytes PDF.
 """
+import contextvars
 import datetime
 import io
 import os
@@ -41,6 +42,8 @@ BULAN_ID = [
 # Slot foto Pengoperasian Trafo (nama slot = BA_SLOT_FOTO_ di Apps Script) -> sel lampiran (urutan grid 2x2 v1).
 SLOT_PENGOPERASIAN = ["NAMEPLATE", "FULL_GARDU", "NAMEPLATE_PHB", "BOX_PHB"]
 SLOT_PENGGANTIAN = ["NAMEPLATE", "NAMEPLATE_SESUDAH", "FULL_GARDU", "FULL_GARDU_SESUDAH", "NAMEPLATE_PHB_SESUDAH", "BOX_PHB_SESUDAH"]
+SLOT_PEMERIKSAAN = ["LAMPIRAN_%d" % i for i in range(1, 7)]   # v1: foto megger 1..6, semua opsional
+SLOT_SWITCHING = ["NAMEPLATE", "KONSTRUKSI", "NAMEPLATE_SESUDAH", "KONSTRUKSI_SESUDAH", "SLD_SEBELUM", "SLD_SESUDAH"]
 FOTO_MAKS_PX = 1400
 
 
@@ -226,6 +229,16 @@ def _draw_logo(pdf, x, y, height):
         return 0
 
 
+# v1.0.50 multi-unit: nama ULP dari data["ulp"] (backend cfg ULP_NAMA), bawaan Toboali. ContextVar = aman antar-permintaan.
+_ULP = contextvars.ContextVar("ulp", default="Toboali")
+
+
+def _pakai_ulp(data):
+    nama = _safe((data or {}).get("ulp")) or "Toboali"
+    _ULP.set(nama)
+    return nama
+
+
 def _draw_kop(pdf, top_y, judul, sub):
     left = MARGIN_LEFT
     right = PAGE_W - MARGIN_RIGHT
@@ -234,7 +247,7 @@ def _draw_kop(pdf, top_y, judul, sub):
     pdf.drawString(left + logo_w + 10, top_y - 14, "PT. PLN (Persero)")
     pdf.setFont(FONT_REG, 9)
     pdf.drawString(left + logo_w + 10, top_y - 27, "UIW Bangka Belitung")
-    pdf.drawString(left + logo_w + 10, top_y - 38, "UP3 Bangka ULP Toboali")
+    pdf.drawString(left + logo_w + 10, top_y - 38, "UP3 Bangka ULP " + _ULP.get())
     y = top_y - 50
     pdf.setLineWidth(1.4)
     pdf.line(left, y, right, y)
@@ -272,7 +285,7 @@ def _draw_signatures(pdf, x, y, width, data):
     p2_y = p1_y - row_h
 
     pdf.setFont(FONT_REG, 9)
-    pdf.drawString(name_x, head_y, "Toboali, " + (tanggal or ""))
+    pdf.drawString(name_x, head_y, _ULP.get() + ", " + (tanggal or ""))
     pdf.drawString(name_x, sub_y, "Pemeriksa,")
 
     def pemeriksa(base_y, no, nama, jabatan):
@@ -292,9 +305,9 @@ def _draw_signatures(pdf, x, y, width, data):
     pemeriksa(p2_y, 2, data.get("petugas2"), data.get("jabatan2") or "Petugas 2")
 
     mgr_x = x + 20
-    jabatan_m = _safe(data.get("jabatanMengetahui")) or "Manager ULP Toboali"
+    jabatan_m = _safe(data.get("jabatanMengetahui")) or "Manager ULP " + _ULP.get()
     nama_m = _safe(data.get("mengetahui")) or "(...................)"
-    # Mengetahui, jabatan, nama: satu sumbu tengah (tengah teks jabatan), nama + garis bawah center (permintaan kvlar)
+    # Mengetahui, jabatan, nama: satu sumbu tengah (tengah teks jabatan), nama + garis bawah center (permintaan Master Guswan)
     mgr_cx = mgr_x + stringWidth(jabatan_m, FONT_REG, 9) / 2
     pdf.setFont(FONT_REG, 9)
     pdf.drawCentredString(mgr_cx, sub_y, "Mengetahui")
@@ -492,7 +505,7 @@ def build_pengoperasian_trafo(data, foto):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(PAGE_W, PAGE_H))
     pdf.setTitle("Berita Acara Pengoperasian Trafo " + (_safe(data.get("nomorTrafo")) or ""))
-    pdf.setAuthor("SiSi ULP Toboali")
+    pdf.setAuthor("SiSi ULP " + _pakai_ulp(data))
     pdf.setCreator("sisi-pdf-engine")
     _page1_pengoperasian(pdf, data)
     _page2_pengoperasian(pdf, data, foto)
@@ -658,10 +671,310 @@ def build_penggantian_trafo(data, foto):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(PAGE_W, PAGE_H))
     pdf.setTitle("Berita Acara Penggantian Trafo " + (_safe(data.get("nomorTrafo")) or ""))
-    pdf.setAuthor("SiSi ULP Toboali")
+    pdf.setAuthor("SiSi ULP " + _pakai_ulp(data))
     pdf.setCreator("sisi-pdf-engine")
     _page1_penggantian(pdf, data)
     _page2_penggantian(pdf, data, foto)
+    pdf.save()
+    return buffer.getvalue()
+
+
+# =========================================================
+# PEMERIKSAAN TRAFO (port v1 _build_page1_pemeriksaan / _build_page2_pemeriksaan)
+# =========================================================
+def _sel_pemeriksaan(foto):
+    """Lampiran yang benar-benar terisi (maks 6), dinomori ulang 1..n (1 foto = 1 kotak, sama v1)."""
+    sel = []
+    for slot in SLOT_PEMERIKSAAN:
+        if foto.get(slot):
+            sel.append(("Lampiran %d" % (len(sel) + 1), foto.get(slot)))
+    return sel
+
+
+def _paragraf_judul(pdf, x, y, width, judul, isi):
+    pdf.setFont(FONT_BOLD, 10)
+    pdf.drawString(x, y, judul)
+    y -= 14
+    pdf.setFont(FONT_REG, 9)
+    for line in _wrap(isi, FONT_REG, 9, width):
+        pdf.drawString(x, y, line)
+        y -= 13
+    return y - 8
+
+
+def _page1_pemeriksaan(pdf, data, total):
+    x = MARGIN_LEFT
+    width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    nomor = _safe(data.get("nomorBAFull")) or _safe(data.get("nomorBA")) or "-"
+    nomor = re.sub(r"^\s*No\.?\s*", "", nomor) or "-"
+    y = _draw_kop(pdf, PAGE_H - MARGIN_Y, "BERITA ACARA PEMERIKSAAN TRAFO", "No. " + nomor)
+
+    y -= 4
+    pdf.setFont(FONT_REG, 9)
+    for line in _wrap(_kalimat_pembuka(data.get("tanggalBA")), FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+    y -= 32
+
+    col = width / 2
+
+    def petugas_row(nama, jabatan):
+        nonlocal y
+        pdf.setFont(FONT_REG, 9)
+        pdf.drawString(x + 18, y, "Nama :")
+        pdf.drawString(x + col, y, "Jabatan :")
+        y -= 16
+        pdf.drawString(x + 30, y, _safe(nama) or "-")
+        pdf.drawString(x + col + 12, y, _safe(jabatan) or "-")
+        y -= 18
+
+    petugas_row(data.get("petugas1"), data.get("jabatan1"))
+    petugas_row(data.get("petugas2"), data.get("jabatan2"))
+    y -= 2
+
+    pengantar = ("Telah melakukan Pemeriksaan Trafo " + (_safe(data.get("nomorTrafo")) or "-")
+                 + ", Pada tanggal " + (_tanggal_panjang(data.get("tanggalPekerjaan")) or "-")
+                 + " dengan kondisi sebagai berikut :")
+    for line in _wrap(pengantar, FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+    y -= 26
+
+    gap, tab = 18, 20
+    col_w = (width - tab - gap) / 2
+    left_x = x + tab
+    right_x = left_x + col_w + gap
+    head_y = y
+    pdf.setFont(FONT_BOLD, 10)
+    pdf.drawString(left_x, head_y, "DATA TRAFO")
+    pdf.drawString(right_x, head_y, "DATA PHB-TR")
+    head_y -= 14
+
+    trafo_pairs = [
+        ("Nomor Gardu", data.get("nomorTrafo")),
+        ("Kapasitas", _kva(data.get("kapasitas"))),
+        ("Merk", data.get("merk")),
+        ("Nomor Seri", data.get("nomorSeri")),
+        ("Tahun", data.get("tahun")),
+        ("Konstruksi", data.get("konstruksi")),
+        ("Penyulang", data.get("penyulang")),
+        ("Section", data.get("section")),
+        ("Alamat", data.get("alamat")),
+    ]
+    phb_pairs = [
+        ("Merk PHB-TR", data.get("phbMerk")),
+        ("Nomor Seri PHB-TR", data.get("phbSeri")),
+        ("Tahun PHB-TR", data.get("phbTahun")),
+        ("Jumlah Jurusan", data.get("jurusan")),
+        ("Koordinat", data.get("koordinat")),
+    ]
+    y_left = _draw_defs(pdf, left_x, head_y, col_w, trafo_pairs, line_h=16)
+    y_right = _draw_defs(pdf, right_x, head_y, col_w, phb_pairs, line_h=16)
+    y = min(y_left, y_right) - 20
+
+    if _safe(data.get("kesimpulan")):
+        y = _paragraf_judul(pdf, x, y, width, "KESIMPULAN", _safe(data.get("kesimpulan")))
+    if _safe(data.get("catatan")):
+        y = _paragraf_judul(pdf, x, y, width, "CATATAN", _safe(data.get("catatan")))
+
+    pdf.setFont(FONT_REG, 9)
+    for line in _wrap("Demikian berita acara ini kami buat, untuk dapat dipergunakan sebagaimana mestinya.",
+                      FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+
+    _draw_signatures(pdf, x, y - 26, width, data)
+    _halaman(pdf, 1, total)
+    pdf.showPage()
+
+
+def _page2_pemeriksaan(pdf, sel, total):
+    x = MARGIN_LEFT
+    width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    y = _draw_kop(pdf, PAGE_H - MARGIN_Y, "Lampiran", "")
+    gap = 16
+    cols = 1 if len(sel) == 1 else 2
+    rows = (len(sel) + cols - 1) // cols
+    grid_top = y - 6
+    grid_bottom = MARGIN_Y + 20
+    cell_w = (width - gap * (cols - 1)) / cols
+    cell_h = (grid_top - grid_bottom - gap * (rows - 1)) / rows
+    for i, (judul, raw) in enumerate(sel):
+        r, c = divmod(i, cols)
+        _draw_photo_cell(pdf, x + c * (cell_w + gap), grid_top - r * (cell_h + gap), cell_w, cell_h, judul, "", _gambar(raw))
+    _halaman(pdf, 2, total)
+    pdf.showPage()
+
+
+def build_pemeriksaan_trafo(data, foto):
+    """Tanpa lampiran = PDF 1 halaman (sama v1)."""
+    sel = _sel_pemeriksaan(foto)
+    total = 2 if sel else 1
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(PAGE_W, PAGE_H))
+    pdf.setTitle("Berita Acara Pemeriksaan Trafo " + (_safe(data.get("nomorTrafo")) or ""))
+    pdf.setAuthor("SiSi ULP " + _pakai_ulp(data))
+    pdf.setCreator("sisi-pdf-engine")
+    _page1_pemeriksaan(pdf, data, total)
+    if sel:
+        _page2_pemeriksaan(pdf, sel, total)
+    pdf.save()
+    return buffer.getvalue()
+
+
+# =========================================================
+# SWITCHING (port v1 _build_page1_switching / _build_page2_switching, satu jalur untuk semua jenis switching)
+# =========================================================
+def _switching_flags(data):
+    jl = _safe(data.get("jenisPekerjaan")).lower()
+    return ("penggantian" in jl) or ("relokasi" in jl), ("pemeriksaan" in jl) or ("kerusakan" in jl)
+
+
+def _page1_switching(pdf, data):
+    x = MARGIN_LEFT
+    width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    jenis = _safe(data.get("jenisPekerjaan")) or "Switching"
+    perlu_sesudah, perlu_kerusakan = _switching_flags(data)
+    nomor = _safe(data.get("nomorBAFull")) or _safe(data.get("nomorBA")) or "-"
+    nomor = re.sub(r"^\s*No\.?\s*", "", nomor) or "-"
+    y = _draw_kop(pdf, PAGE_H - MARGIN_Y, "BERITA ACARA " + jenis.upper(), "No. " + nomor)
+
+    y -= 4
+    pdf.setFont(FONT_REG, 9)
+    for line in _wrap(_kalimat_pembuka(data.get("tanggalBA")), FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+    y -= 32
+
+    col = width / 2
+
+    def petugas_row(nama, jabatan):
+        nonlocal y
+        pdf.setFont(FONT_REG, 9)
+        pdf.drawString(x + 18, y, "Nama :")
+        pdf.drawString(x + col, y, "Jabatan :")
+        y -= 16
+        pdf.drawString(x + 30, y, _safe(nama) or "-")
+        pdf.drawString(x + col + 12, y, _safe(jabatan) or "-")
+        y -= 18
+
+    petugas_row(data.get("petugas1"), data.get("jabatan1"))
+    petugas_row(data.get("petugas2"), data.get("jabatan2"))
+    y -= 2
+
+    pengantar = ("Telah melakukan " + jenis + " " + (_safe(data.get("namaSwitching")) or "-")
+                 + ", Pada tanggal " + (_tanggal_panjang(data.get("tanggalPekerjaan")) or "-")
+                 + " dengan kondisi sebagai berikut :")
+    for line in _wrap(pengantar, FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+    y -= 26
+
+    tab = 20
+    sebelum = [
+        ("Jenis Switching", data.get("jenisSwitching")),
+        ("Nama Switching", data.get("namaSwitching")),
+        ("Merk", data.get("merk")),
+        ("Tipe", data.get("tipe")),
+        ("Nomor Seri", data.get("nomorSeri")),
+        ("Penyulang", data.get("penyulang")),
+        ("Section", data.get("section")),
+        ("Koordinat", data.get("koordinat")),
+    ]
+    if perlu_sesudah:
+        gap = 18
+        col_w = (width - tab - gap) / 2
+        left_x = x + tab
+        right_x = left_x + col_w + gap
+        pdf.setFont(FONT_BOLD, 10)
+        pdf.drawString(left_x, y, "DATA SWITCHING SEBELUM")
+        pdf.drawString(right_x, y, "DATA SWITCHING SESUDAH")
+        sesudah = [
+            ("Jenis Switching", data.get("jenisSwitchingSesudah")),
+            ("Nama Switching", data.get("namaSwitchingSesudah")),
+            ("Merk", data.get("merkSesudah")),
+            ("Tipe", data.get("tipeSesudah")),
+            ("Nomor Seri", data.get("nomorSeriSesudah")),
+            ("Penyulang", data.get("penyulangSesudah")),
+            ("Section", data.get("sectionSesudah")),
+            ("Koordinat", data.get("koordinatSesudah")),
+            ("Asal Switching", data.get("asalSwitching")),
+        ]
+        y_left = _draw_defs(pdf, left_x, y - 14, col_w, sebelum, line_h=16)
+        y_right = _draw_defs(pdf, right_x, y - 14, col_w, sesudah, line_h=16)
+        y = min(y_left, y_right) - 14
+    else:
+        left_x = x + tab
+        pdf.setFont(FONT_BOLD, 10)
+        pdf.drawString(left_x, y, "DATA SWITCHING")
+        y = _draw_defs(pdf, left_x, y - 14, width - tab, sebelum, line_h=16) - 14
+
+    ket = []
+    if _safe(data.get("keteranganTambahan")):
+        ket.append(("Keterangan Tambahan", data.get("keteranganTambahan")))
+    if perlu_kerusakan and _safe(data.get("keteranganKerusakan")):
+        ket.append(("Keterangan Kerusakan / Pemeriksaan", data.get("keteranganKerusakan")))
+    if ket:
+        left_x = x + tab
+        pdf.setFont(FONT_BOLD, 10)
+        pdf.drawString(left_x, y, "KETERANGAN")
+        y = _draw_defs(pdf, left_x, y - 14, width - tab, ket, line_h=16) - 14
+
+    pdf.setFont(FONT_REG, 9)
+    for line in _wrap("Demikian berita acara ini kami buat, untuk dapat dipergunakan sebagaimana mestinya.",
+                      FONT_REG, 9, width):
+        y -= 12
+        pdf.drawString(x, y, line)
+
+    _draw_signatures(pdf, x, y - 26, width, data)
+    _halaman(pdf, 1, 2)
+    pdf.showPage()
+
+
+def _page2_switching(pdf, data, foto):
+    x = MARGIN_LEFT
+    width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    y = _draw_kop(pdf, PAGE_H - MARGIN_Y, "Lampiran", "")
+    perlu_sesudah, _ = _switching_flags(data)
+    # sama v1: nameplate hanya kalau fotonya ada, konstruksi selalu, SLD kalau ada
+    sel = []
+    if perlu_sesudah:
+        if foto.get("NAMEPLATE"):
+            sel.append(("Nameplate Switching Sebelum", _safe(data.get("nomorSeri")), foto.get("NAMEPLATE")))
+        if foto.get("NAMEPLATE_SESUDAH"):
+            sel.append(("Nameplate Switching Sesudah", _safe(data.get("nomorSeriSesudah")), foto.get("NAMEPLATE_SESUDAH")))
+        sel.append(("Konstruksi Switching Sebelum", "", foto.get("KONSTRUKSI")))
+        sel.append(("Konstruksi Switching Sesudah", "", foto.get("KONSTRUKSI_SESUDAH")))
+    else:
+        if foto.get("NAMEPLATE"):
+            sel.append(("Nameplate Switching", _safe(data.get("nomorSeri")), foto.get("NAMEPLATE")))
+        sel.append(("Konstruksi Switching", "", foto.get("KONSTRUKSI")))
+    if foto.get("SLD_SEBELUM"):
+        sel.append(("SLD Sebelum", "", foto.get("SLD_SEBELUM")))
+    if foto.get("SLD_SESUDAH"):
+        sel.append(("SLD Sesudah", "", foto.get("SLD_SESUDAH")))
+    gap = 16
+    rows = max(1, (len(sel) + 1) // 2)
+    grid_top = y - 6
+    grid_bottom = MARGIN_Y + 20
+    cell_w = (width - gap) / 2
+    cell_h = (grid_top - grid_bottom - gap * (rows - 1)) / rows
+    for i, (judul, sub, raw) in enumerate(sel):
+        r, c = divmod(i, 2)
+        _draw_photo_cell(pdf, x + c * (cell_w + gap), grid_top - r * (cell_h + gap), cell_w, cell_h, judul, sub, _gambar(raw))
+    _halaman(pdf, 2, 2)
+    pdf.showPage()
+
+
+def build_switching(data, foto):
+    """Semua jenis BA Switching (jenisPekerjaan di data)."""
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(PAGE_W, PAGE_H))
+    pdf.setTitle("Berita Acara " + (_safe(data.get("jenisPekerjaan")) or "Switching") + " " + (_safe(data.get("namaSwitching")) or ""))
+    pdf.setAuthor("SiSi ULP " + _pakai_ulp(data))
+    pdf.setCreator("sisi-pdf-engine")
+    _page1_switching(pdf, data)
+    _page2_switching(pdf, data, foto)
     pdf.save()
     return buffer.getvalue()
 
@@ -670,4 +983,6 @@ def build_penggantian_trafo(data, foto):
 JENIS = {
     "pengoperasian-trafo": (build_pengoperasian_trafo, SLOT_PENGOPERASIAN),
     "penggantian-trafo": (build_penggantian_trafo, SLOT_PENGGANTIAN),
+    "pemeriksaan-trafo": (build_pemeriksaan_trafo, SLOT_PEMERIKSAAN),
+    "switching": (build_switching, SLOT_SWITCHING),
 }

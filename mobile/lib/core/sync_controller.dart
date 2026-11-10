@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../features/absensi/absensi_antre.dart';
 import '../features/hartek/hartek_store.dart';
 import '../features/insdu/insdu_store.dart';
 import '../features/insjar/insjar_store.dart';
@@ -28,6 +29,7 @@ class SyncController extends ChangeNotifier {
       InsDuStore? insdu,
       WoStore? wo,
       AntreanTemuanAdmin? temuanAdmin,
+      AntreanAbsensi? absensi,
       Future<void> Function()? probeOnline})
       : _p0 = p0,
         _installId = installId,
@@ -36,6 +38,7 @@ class SyncController extends ChangeNotifier {
         _insdu = insdu,
         _wo = wo,
         _temuanAdmin = temuanAdmin,
+        _absensi = absensi,
         _probeOnline = probeOnline;
 
   final SyncService _sync;
@@ -49,6 +52,7 @@ class SyncController extends ChangeNotifier {
   final InsDuStore? _insdu; // v1.0.12: Inspeksi Gardu lokal + kirim otomatis
   final WoStore? _wo; // v1.0.16: WO tindak lanjut tim offline + kirim otomatis
   final AntreanTemuanAdmin? _temuanAdmin; // v1.0.29: temuan inspeksi admin, kirim di latar (tanpa hitungan / pesan)
+  final AntreanAbsensi? _absensi; // v1.0.51: absensi safety briefing, kirim di latar (dihitung sebagai data belum terkirim)
   final Future<void> Function()? _probeOnline; // v1.0.3: cek koneksi tanpa menunggu ada data antrean
 
   /// v0.95.0: sinkron diminta saat sync lain berjalan (mis. data Hartek baru disimpan) = jalan lagi sesudahnya.
@@ -140,7 +144,21 @@ class SyncController extends ChangeNotifier {
   /// v0.63.4: data akun [s] yang belum sampai server (outbox + foto tertunda). Dipakai gerbang sync akhir shift YANDAL.
   Future<int> jumlahTertunda(Sesi s) async =>
       await _outbox.jumlahBelumTerkirim(s.userId) + await _foto.jumlahTertunda(s.userId) + await _jumlahP0(s) + await _jumlahHartek(s) + await _jumlahInsJar(s) + await _jumlahInsDu(s) +
-      await _jumlahWo(s);
+      await _jumlahWo(s) + await _jumlahAbsensi(s);
+
+  /// v1.0.51: isian absensi tanpa galat yang belum diterima server (bergalat = ditolak server, tidak menahan layanan latar).
+  Future<int> _jumlahAbsensi(Sesi sesi) async {
+    final a = _absensi;
+    return a != null && sesi.bisaUbah(AntreanAbsensi.menu) ? await a.jumlahTertunda(sesi.userId) : 0;
+  }
+
+  /// v1.0.51: kirim antrean absensi di latar (punya penjaga jalan-ganda sendiri), terpisah dari sinkron modul tim.
+  Future<void> _sinkronAbsensi(Sesi s) async {
+    final a = _absensi;
+    if (a == null || !s.bisaUbah(AntreanAbsensi.menu)) return;
+    await a.kirim(s);
+    if (_sesi?.token == s.token) await hitungUlang();
+  }
 
   /// v1.0.16: isian WO tindak lanjut yang belum diterima server.
   Future<int> _jumlahWo(Sesi s) async {
@@ -195,7 +213,8 @@ class SyncController extends ChangeNotifier {
         await _jumlahHartek(s) +
         await _jumlahInsJar(s) +
         await _jumlahInsDu(s) +
-        await _jumlahWo(s);
+        await _jumlahWo(s) +
+        await _jumlahAbsensi(s);
     final tindakan = await _outbox.jumlahPerluTindakan(s.userId);
     final gagal = await _foto.jumlahGagal(s.userId);
     if (_sesi?.userId != s.userId) return; // v0.62.5: sesi berganti selama menghitung
@@ -235,6 +254,7 @@ class SyncController extends ChangeNotifier {
       return;
     }
     unawaited(_sinkronWo(s)); // v1.0.16
+    unawaited(_sinkronAbsensi(s)); // v1.0.51
     final ta = _temuanAdmin;
     if (ta != null && s.bisaUbah(AntreanTemuanAdmin.menu)) unawaited(ta.kirim(s)); // v1.0.29: penjaga jalan-ganda sendiri
     if (_jalan) {

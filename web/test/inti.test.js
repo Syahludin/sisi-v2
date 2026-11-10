@@ -10,13 +10,13 @@ import { bacaSesi, hapusSesi, simpanSesi } from '../src/sesi.js';
 const URL_EXEC = 'https://script.google.com/macros/s/AKfycbzAsnMU7mkT1AVucY31fkd79u3mVzqx_-bzankSP/exec';
 
 test('config: hanya URL /exec Apps Script yang diterima, env selain production = staging', () => {
-  assert.deepEqual(bacaConfig({ SISI_CONFIG: { apiUrl: URL_EXEC, env: 'production' } }), { apiUrl: URL_EXEC, env: 'production' });
-  assert.deepEqual(bacaConfig({ SISI_CONFIG: { apiUrl: ' ' + URL_EXEC + ' ' } }), { apiUrl: URL_EXEC, env: 'staging' });
+  assert.deepEqual(bacaConfig({ SISI_CONFIG: { apiUrl: URL_EXEC, env: 'production' } }), { apiUrl: URL_EXEC, env: 'production', apiBacaUrl: '' });
+  assert.deepEqual(bacaConfig({ SISI_CONFIG: { apiUrl: ' ' + URL_EXEC + ' ' } }), { apiUrl: URL_EXEC, env: 'staging', apiBacaUrl: '' });
   for (const salah of ['http://script.google.com/macros/s/AKfycbzAsnMU7mkT1AVucY31fkd79u3m/exec', 'https://evil.example/macros/s/AKfycbzAsnMU7mkT1AVucY31fkd79u3m/exec',
     'https://script.google.com/macros/s/ISI_ID_DEPLOYMENT/exec', URL_EXEC + '?x=1', 42]) {
     assert.equal(bacaConfig({ SISI_CONFIG: { apiUrl: salah } }).apiUrl, '', String(salah));
   }
-  assert.deepEqual(bacaConfig({}), { apiUrl: '', env: 'staging' });
+  assert.deepEqual(bacaConfig({}), { apiUrl: '', env: 'staging', apiBacaUrl: '' });
 });
 
 function fetchPalsu(jawab) {

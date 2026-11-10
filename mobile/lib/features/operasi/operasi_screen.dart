@@ -11,18 +11,24 @@ import 'katalog_operasi.dart';
 import 'laporan_tim_screen.dart';
 import 'laporan_up3_screen.dart';
 import 'pemakaian_engine_screen.dart';
+import '../absensi/absensi_screen.dart';
 import '../yandal/approval_p0_screen.dart';
+import '../gudang/gudang_admin_screen.dart';
 import '../yandal/petugas_yandal_screen.dart';
+import '../gangguan/gangguan_screen.dart';
+import '../gangguan/laporan_gangguan_screen.dart';
 import '../gardu/arsip_ba_lembar.dart';
 import '../gardu/berita_acara_screen.dart';
 import '../gardu/pengukuran_gardu_screen.dart';
 import '../insjar/input_temuan_inspeksi_screen.dart';
 import '../jadwal_padam/jadwal_padam_screen.dart';
+import '../switching/master_jaringan_screen.dart';
+import '../tiang/verifikasi_tiang_screen.dart';
 import '../wo/wo_admin_screen.dart';
 import '../wo/wo_ganda_screen.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// Tab Operasi untuk ADMIN / SUPER / ADMIN_ES (v0.50, desain kvlar 4 Okt 2026).
+/// Tab Operasi untuk ADMIN / SUPER / ADMIN_ES (v0.50, desain Master Guswan 4 Okt 2026).
 /// Grup tile dari KatalogOperasi; tiap modul hanya tampil kalau menu_kode-nya ada di menu sesi (db_Menu + db_Akses).
 /// Modul yang belum dibangun di v2 tetap tampil dengan badge "Segera" dan keterangan saat diketuk.
 class OperasiScreen extends StatefulWidget {
@@ -94,12 +100,20 @@ class _OperasiScreenState extends State<OperasiScreen> {
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LaporanUp3Screen(deps: widget.deps, sesi: widget.sesi, bagian: 'UIW')));
       case 'OPS_PETUGAS_YANDAL': // v0.63.0
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PetugasYandalScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_ABSENSI': // v1.0.51: Absensi Safety Briefing (ADMIN_ES + ADMIN)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AbsensiScreen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_PENGUKURAN_GARDU': // v0.69.0
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PengukuranGarduScreen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_BA_GARDU': // v0.69.0
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => BeritaAcaraScreen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_ENGINE': // v0.85.0
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PemakaianEngineScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_GUDANG_MATERIAL': // v1.0.57
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => GudangAdminScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_VERIFIKASI_TIANG':
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => VerifikasiTiangScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_MASTER_SWITCHING': // 1.0.63
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => MasterJaringanScreen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_VERIFIKASI_P0': // v0.75.0
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ApprovalP0Screen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_INPUT_TEMUAN': // v1.0.0: Input Temuan Inspeksi (admin)
@@ -110,6 +124,10 @@ class _OperasiScreenState extends State<OperasiScreen> {
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WoAdminScreen(deps: widget.deps, sesi: widget.sesi, pindah: true)));
       case 'OPS_JADWAL_PADAM': // v1.0.17: Jadwal Padam (port v1) + format WA rentang tanggal, khusus admin
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => JadwalPadamScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_REKAP_GANGGUAN': // v1.0.38: History Gangguan (admin)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => GangguanScreen(deps: widget.deps, sesi: widget.sesi)));
+      case 'OPS_LAP_GANGGUAN': // v1.0.59: Laporan Gangguan Penyulang (admin)
+        await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => LaporanGangguanScreen(deps: widget.deps, sesi: widget.sesi)));
       case 'OPS_WO_GANDA': // v1.0.16: Verifikasi WO Ganda (admin)
         await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => WoGandaScreen(deps: widget.deps, sesi: widget.sesi)));
     }

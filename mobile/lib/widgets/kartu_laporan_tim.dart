@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import 'sisi_motif.dart';
 import 'wa_panel.dart';
 
-/// v0.90.0 (permintaan kvlar 14 Okt 2026): satu pola kartu laporan untuk semua tim (ROW, Hartek), mengikuti kartu
+/// v0.90.0 (permintaan Master Guswan 14 Okt 2026): satu pola kartu laporan untuk semua tim (ROW, Hartek), mengikuti kartu
 /// shift Yandal: kartu navy, kode + tanggal, pensil ubah di kanan atas, info singkat KM + koordinat, panel angka
 /// ringkasan (ROW: Rabas / Tebang Sedang / Tebang Besar, Hartek: per jenis pekerjaan), tombol + di kanan bawah.
 /// Ketuk kartu = halaman ringkasan detail. Tanpa chip: status ditulis sebagai kalimat pendek.
@@ -400,7 +400,7 @@ class PanelAngkaRingkas extends StatelessWidget {
 }
 
 /// Satu kelompok di ringkasan detail: ikon, judul, sub, angka kecil di kanan, lalu baris rincian.
-/// v1.0.34 (permintaan kvlar 24 Okt 2026): desain baru. Kepala bergradasi [warna] (ikon, judul, sub, [catatan] peringatan),
+/// v1.0.34 (permintaan Master Guswan 24 Okt 2026): desain baru. Kepala bergradasi [warna] (ikon, judul, sub, [catatan] peringatan),
 /// angka per jenis berupa pil berwarna (warna sama dengan panel total), rincian per baris dalam kotak lembut, lalu kaki
 /// [labelBuka] + [aksi] (mis. tombol download foto penyulang).
 class GrupRingkasan extends StatelessWidget {
@@ -579,7 +579,7 @@ class _PilAngka extends StatelessWidget {
   }
 }
 
-/// v1.0.20 (permintaan kvlar 23 Okt 2026): kartu "belum ada laporan hari ini" seragam untuk ROW, Hartek, Inspeksi
+/// v1.0.20 (permintaan Master Guswan 23 Okt 2026): kartu "belum ada laporan hari ini" seragam untuk ROW, Hartek, Inspeksi
 /// Jaringan, Inspeksi Gardu (pola Laporan ROW): latar Jaringan SiSi, ikon modul, langkah singkat, tombol mulai kuning.
 /// [onMulai] null = tombol tidak tampil (tanpa hak ubah / sedang sibuk); [labelMulai] bisa diganti (mis. tunggakan).
 class KartuMulaiLaporan extends StatelessWidget {

@@ -6,7 +6,7 @@ import '../../core/wib.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.63.4 (keputusan kvlar 8 Okt 2026): gerbang akhir shift akun YANDAL.
+/// v0.63.4 (keputusan Master Guswan 8 Okt 2026): gerbang akhir shift akun YANDAL.
 /// Shift sudah selesai = tidak bisa input / membuat P0 lagi (dashboard ditutup), tapi data yang sudah ada
 /// (P0 selesai maupun belum) WAJIB dikirim dulu. Selesai terkirim = keluar otomatis. Offline = menunggu sinyal,
 /// dicoba ulang otomatis. Lewat batas mode sync = keluar, data tetap di HP dan dikirim setelah login lagi.
@@ -120,7 +120,7 @@ class _SyncAkhirShiftScreenState extends State<SyncAkhirShiftScreen> with Single
     return j > 0 ? '$j jam $m mnt' : '${d.inMinutes < 1 ? 1 : d.inMinutes} mnt';
   }
 
-  /// v0.66.4 (permintaan kvlar 9 Okt 2026): tampilan gerbang dibuat lebih hidup: header gradasi + ikon berdenyut,
+  /// v0.66.4 (permintaan Master Guswan 9 Okt 2026): tampilan gerbang dibuat lebih hidup: header gradasi + ikon berdenyut,
   /// identitas shift, kartu jumlah data, tahapan (shift selesai > kirim data > keluar otomatis), batas kirim + sisa waktu.
   Widget _header() {
     final info = [widget.tim, widget.kodeShift].where((v) => v.trim().isNotEmpty).join(' · ');

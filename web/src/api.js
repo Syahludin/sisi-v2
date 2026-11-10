@@ -14,9 +14,11 @@ export class GalatApi extends Error {
   }
 }
 
-export const BATAS_WAKTU_MS = 30000;
+// v1.0.38: 60 dtk (dulu 30), sama dengan HP. Apps Script yang baru bangun / menunggu lock kiriman lain bisa >30 dtk
+// walau tetap selesai; memutus di 30 dtk membuang kerja server dan memunculkan "Server terlalu lama menjawab".
+export const BATAS_WAKTU_MS = 60000;
 
-/** batasMs: endpoint berat (laporan, simpan) boleh lebih lama, sama dengan HP (60 dtk). */
+/** batasMs: endpoint sangat berat (PDF, file, sinkron) boleh lebih lama dari batas bawaan. */
 export async function panggil(apiUrl, action, { token, data, batasMs = BATAS_WAKTU_MS } = {}, fetchFn = globalThis.fetch) {
   if (!apiUrl) throw new GalatApi('CONFIG_KOSONG');
   const henti = new AbortController();

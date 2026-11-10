@@ -13,7 +13,7 @@ import 'insjar_lokal.dart';
 /// v1.0.0: isian form Inspeksi Jaringan, dipakai petugas (HP, offline) dan admin (Input Temuan Inspeksi).
 /// Form temuan admin = form petugas + pilihan penyulang (petugas: penyulang dari penyulang utama, hanya dibaca).
 
-/// v1.0.2 (keputusan kvlar 19 Okt 2026): foto temuan + foto tiang WAJIB (petugas dan admin, form sama).
+/// v1.0.2 (keputusan Master Guswan 19 Okt 2026): foto temuan + foto tiang WAJIB (petugas dan admin, form sama).
 const bool fotoTemuanWajib = true;
 const String awalanFotoInsJar = 'foto_';
 

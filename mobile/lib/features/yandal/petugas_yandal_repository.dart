@@ -1,14 +1,20 @@
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
 
-/// v0.63.0: Pindah Tim Petugas Yandal (ADMIN / SUPER). Pure Dart kecuali pemanggilan API.
+/// v0.63.0: Pindah Tim Petugas Yandal (ADMIN / SUPER); v1.0.51: semua tim. Pure Dart kecuali pemanggilan API.
 class TimYandal {
-  const TimYandal({required this.timId, required this.nama, required this.kode});
+  const TimYandal({required this.timId, required this.nama, required this.kode, this.jenis = ''});
   final String timId;
   final String nama;
   final String kode;
 
-  factory TimYandal.dariJson(Map<String, dynamic> j) => TimYandal(timId: '${j['timId']}', nama: '${j['nama'] ?? ''}', kode: '${j['kode'] ?? ''}');
+  /// v1.0.51: Pindah Tim berlaku untuk semua tim; batas anggota (min-maks) hanya untuk jenis YANDAL.
+  final String jenis;
+
+  bool get yandal => jenis == 'YANDAL';
+
+  factory TimYandal.dariJson(Map<String, dynamic> j) =>
+      TimYandal(timId: '${j['timId']}', nama: '${j['nama'] ?? ''}', kode: '${j['kode'] ?? ''}', jenis: '${j['jenis'] ?? ''}');
 }
 
 class PetugasYandal {

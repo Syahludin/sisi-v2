@@ -1,3 +1,5 @@
+import 'env.dart';
+
 /// Sesi login di HP (PRD F-AUTH). Pure Dart, bisa dites tanpa Flutter.
 class Sesi {
   Sesi({
@@ -63,7 +65,7 @@ class Sesi {
   String get timKode => (profil['timKode'] as String?) ?? '';
   String get timNama => (profil['timNama'] as String?) ?? '';
   String get jenisTim => (profil['jenisTim'] as String?) ?? '';
-  String get ulp => (profil['ulp'] as String?) ?? 'Toboali';
+  String get ulp => (profil['ulp'] as String?) ?? Env.ulp;
   String get timId => (profil['timId'] as String?) ?? '';
 
   /// v0.50: ADMIN / SUPER / ADMIN_ES memakai tab Operasi (lihat laporan semua tim), bukan input ROW.

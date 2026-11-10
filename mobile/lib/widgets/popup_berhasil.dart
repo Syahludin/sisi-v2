@@ -15,6 +15,7 @@ Future<void> tampilPopupBerhasil(
   required String judul,
   String? keterangan,
   Duration lama = const Duration(milliseconds: 2600),
+  bool tembus = false,
 }) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return Future.value();
@@ -26,6 +27,7 @@ Future<void> tampilPopupBerhasil(
       judul: judul,
       keterangan: keterangan,
       lama: lama,
+      tembus: tembus,
       onSelesai: () {
         if (_PopupAktif.entry == entry) _PopupAktif.entry = null;
         if (entry.mounted) entry.remove();
@@ -40,7 +42,7 @@ Future<void> tampilPopupBerhasil(
   return selesai.future;
 }
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): pengganti pesan bawah "Tersimpan di HP. Dikirim otomatis ke server." sesudah
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): pengganti pesan bawah "Tersimpan di HP. Dikirim otomatis ke server." sesudah
 /// form disimpan: pop up centang muncul-hilang "Data Berhasil disimpan". Status kirim tetap terlihat di kartu laporan.
 Future<void> tampilDataTersimpan(BuildContext context) => tampilPopupBerhasil(context, judul: 'Data Berhasil disimpan');
 
@@ -65,8 +67,11 @@ class PopupBerhasil extends StatefulWidget {
     required this.onSelesai,
     this.keterangan,
     this.lama = const Duration(milliseconds: 2600),
+    this.tembus = false,
   });
 
+  /// [tembus] = sentuhan lolos ke layar di belakang (kartu hanya penanda, mis. Approval P0 yang lanjut ke P0 berikutnya).
+  final bool tembus;
   final String judul;
   final String? keterangan;
   final Duration lama;
@@ -151,34 +156,37 @@ class _PopupBerhasilState extends State<PopupBerhasil> with SingleTickerProvider
   Widget build(BuildContext context) {
     final tenang = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return Positioned.fill(
-      child: GestureDetector(
-        key: const ValueKey('popup-berhasil'),
-        behavior: HitTestBehavior.opaque,
-        onTap: _ketuk,
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) {
-            final t = _c.value;
-            final masuk = Curves.easeOutBack.transform(_antara(t, 0, 0.12));
-            final keluar = Curves.easeIn.transform(_antara(t, 0.88, 1));
-            final opasitasKartu = (_antara(t, 0, 0.08) * (1 - keluar)).clamp(0.0, 1.0);
-            final skalaKartu = (0.82 + 0.18 * masuk) * (1 - 0.06 * keluar);
-            final centang = tenang ? 1.0 : _kedip.transform(t).clamp(0.0, 1.0);
-            final letup = tenang ? 1.0 : _letup.transform(t);
-            final cincin = tenang ? 1.0 : _cincin.transform(t);
-            return ColoredBox(
-              color: Colors.black.withAlpha((46 * opasitasKartu).round()),
-              child: Center(
-                child: Opacity(
-                  opacity: opasitasKartu,
-                  child: Transform.scale(
-                    scale: skalaKartu,
-                    child: _kartu(centang, letup, cincin),
+      child: IgnorePointer(
+        ignoring: widget.tembus,
+        child: GestureDetector(
+          key: const ValueKey('popup-berhasil'),
+          behavior: HitTestBehavior.opaque,
+          onTap: _ketuk,
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) {
+              final t = _c.value;
+              final masuk = Curves.easeOutBack.transform(_antara(t, 0, 0.12));
+              final keluar = Curves.easeIn.transform(_antara(t, 0.88, 1));
+              final opasitasKartu = (_antara(t, 0, 0.08) * (1 - keluar)).clamp(0.0, 1.0);
+              final skalaKartu = (0.82 + 0.18 * masuk) * (1 - 0.06 * keluar);
+              final centang = tenang ? 1.0 : _kedip.transform(t).clamp(0.0, 1.0);
+              final letup = tenang ? 1.0 : _letup.transform(t);
+              final cincin = tenang ? 1.0 : _cincin.transform(t);
+              return ColoredBox(
+                color: Colors.black.withAlpha((46 * opasitasKartu).round()),
+                child: Center(
+                  child: Opacity(
+                    opacity: opasitasKartu,
+                    child: Transform.scale(
+                      scale: skalaKartu,
+                      child: _kartu(centang, letup, cincin),
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

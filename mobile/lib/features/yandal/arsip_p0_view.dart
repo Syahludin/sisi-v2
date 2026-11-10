@@ -14,7 +14,7 @@ import 'p0_model.dart' show teksMenit;
 import 'yandal_arsip_repository.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.63.5 (keputusan kvlar 8 Okt 2026): tab Arsip P0, mirip Arsip ROW. Download shift tim sendiri yang sudah
+/// v0.63.5 (keputusan Master Guswan 8 Okt 2026): tab Arsip P0, mirip Arsip ROW. Download shift tim sendiri yang sudah
 /// selesai untuk rentang tanggal (sampai hari ini), disimpan di HP, lalu ditampilkan:
 /// kartu tahun > kartu bulan > kartu tanggal > kartu shift > (ketuk) daftar P0. Melihat arsip bisa offline.
 class ArsipP0View extends StatefulWidget {

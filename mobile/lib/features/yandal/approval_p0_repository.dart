@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
 
-/// v0.75.0 (permintaan kvlar 10 Okt 2026): Approval P0 (menu OPS_VERIFIKASI_P0, ADMIN / SUPER). Alur v1 Verifikasi P0:
+/// v0.75.0 (permintaan Master Guswan 10 Okt 2026): Approval P0 (menu OPS_VERIFIKASI_P0, ADMIN / SUPER). Alur v1 Verifikasi P0:
 /// tanggal > tab Menunggu / Approved / Rejected > kartu dengan foto Sebelum / Pekerjaan / Sesudah > Setujui / Tolak,
 /// plus koreksi jenis pekerjaan. Keputusan langsung ke server (point + rekap shift dihitung server saat itu).
 class ApprovalP0Repository {

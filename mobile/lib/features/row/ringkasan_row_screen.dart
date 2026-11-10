@@ -14,7 +14,7 @@ import 'row_model.dart';
 import 'unduh_foto_row.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.90.0 (permintaan kvlar 14 Okt 2026): ringkasan detail laporan ROW, dibuka dengan mengetuk kartu laporan.
+/// v0.90.0 (permintaan Master Guswan 14 Okt 2026): ringkasan detail laporan ROW, dibuka dengan mengetuk kartu laporan.
 /// Total Rabas / Tebang Sedang / Tebang Besar, lalu per penyulang (angka per jenis + rincian per section).
 /// Ketuk penyulang = daftar eksekusi. Kelola laporan (ubah, batal, WA dari server) tetap di Detail Laporan.
 /// v1.0.34: kartu penyulang desain baru + tombol Download Foto (semua foto penyulang ke galeri).

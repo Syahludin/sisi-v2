@@ -1,6 +1,7 @@
-/// v1.0.11 (permintaan kvlar 21 Okt 2026): bantuan murni (tanpa Flutter) modul Inspeksi Gardu di HP:
+/// v1.0.11 (permintaan Master Guswan 21 Okt 2026): bantuan murni modul Inspeksi Gardu di HP:
 /// master dropdown, label cover, hitung beban (sama dengan hasilUkurGardu_ server), status ukur, teks tunggakan.
 library;
+  import '../gardu/ba_bantu.dart' show kvaStandarBa, merkTrafoBa;
 
 String teksInsDu(Object? v) => v?.toString().trim() ?? '';
 
@@ -283,4 +284,19 @@ String waTeksInsDu({
   }
   if (urut.isEmpty) b..add('')..add('Belum ada gardu yang masuk laporan.');
   return b.join('\n');
+}
+
+/// v1.0.38: pilihan dropdown kapasitas trafo: kVA standar + kVA Master Gardu + nilai sekarang, urut naik.
+List<String> pilihanKvaInsDu(MasterInsDu m, String? kini) {
+  final s = <num>{...kvaStandarBa, for (final g in m.gardu) if (g.kapasitasKva != null && g.kapasitasKva! > 0) g.kapasitasKva!};
+  final k = angkaInsDu(kini);
+  if (k != null && k > 0) s.add(k);
+  return [for (final n in s.toList()..sort()) angkaInsDuTampil(n)];
+}
+
+/// v1.0.38: pilihan dropdown merk trafo: daftar merk BA + merk Master Gardu + nilai sekarang, urut abjad.
+List<String> pilihanMerkInsDu(MasterInsDu m, String? kini) {
+  final s = <String>{...merkTrafoBa, for (final g in m.gardu) if (g.merk.trim().isNotEmpty) g.merk.trim()};
+  if ((kini ?? '').trim().isNotEmpty) s.add(kini!.trim());
+  return s.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 }

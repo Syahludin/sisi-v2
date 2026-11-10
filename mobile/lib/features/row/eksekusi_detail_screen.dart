@@ -25,7 +25,7 @@ import 'watermark.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// Detail eksekusi + foto. Foto Pekerjaan / Sesudah biasanya menyusul dari sini.
-/// v0.65.6 (keputusan kvlar 8 Okt 2026): foto kamera diverifikasi di review kamera, tombol Simpan Foto di kamera langsung
+/// v0.65.6 (keputusan Master Guswan 8 Okt 2026): foto kamera diverifikasi di review kamera, tombol Simpan Foto di kamera langsung
 /// menyimpan ke HP (offline pun bisa); foto galeri langsung disimpan sesudah dipilih. Tidak ada lagi tombol Simpan di
 /// halaman ini. Terkirim otomatis saat online. Edit = ubah data pekerjaan. Download ulang = tarik foto dari server.
 class EksekusiDetailScreen extends StatefulWidget {

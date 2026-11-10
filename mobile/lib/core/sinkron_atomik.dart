@@ -7,14 +7,14 @@ import 'api_client.dart';
 import 'kode_error.dart';
 import 'sesi.dart';
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): SINKRONISASI ATOMIK laporan tim (Hartek, Inspeksi Jaringan, Inspeksi Gardu).
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): SINKRONISASI ATOMIK laporan tim (Hartek, Inspeksi Jaringan, Inspeksi Gardu).
 ///
 /// Antrean HP dikirim satu per satu, jadi selama antrean belum habis ringkasan di server sudah berubah sementara
 /// rincian / foto / format WA belum lengkap. Status "tersinkron" (cloud hijau, tombol WA, SIAP WA admin) kini hanya
 /// diberikan kalau:
 ///   1. antrean laporan hari itu kosong (tidak ada yang menunggu / ditolak), dan
 ///   2. laporan sudah DISEGEL: ringkasan HP (jumlah baris tiap bagian + foto + sidik ID) sama dengan ringkasan yang
-///      disusun server dari sheet (endpoint segelSinkronHartek / InsJar / InsDu, backend modules/76_SinkronAtomik.js), dan
+///      disusun server dari sheet (endpoint segelSinkronHartek / InsJar / InsDu, backend modules/91_SinkronAtomik.js), dan
 ///   3. isi laporan di HP masih sama dengan ringkasan saat disegel (data baru = proses lagi sampai disegel ulang).
 /// Rumus [ringkasSinkron] HARUS sama persis dengan ringkasSegel_ di server.
 

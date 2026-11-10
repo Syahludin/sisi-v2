@@ -25,7 +25,7 @@
 .jp-kal-hari--libur { color: var(--red-700); }
 .jp-kal-hari--ini { border-color: var(--brand-500); }
 .jp-kal-hari--pilih { background: var(--brand-700); color: #fff; border-color: var(--brand-700); }
-.jp-kal-hari--pilih:hover { background: var(--brand-800); }
+.jp-kal-hari--pilih:hover { background: var(--utama-hover); }
 .jp-kal-tanda { display: flex; gap: 3px; height: 6px; }
 .jp-titik { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 .jp-titik--padam { background: var(--red-600); }
@@ -53,7 +53,7 @@
 .jp-tabel td { vertical-align: middle; }
 .jp-tabel .k-angka { white-space: nowrap; }
 .jp-tgl-baris th {
-  padding: 14px 6px 6px; border-bottom: 1px solid var(--neutral-200); background: #fff;
+  padding: 14px 6px 6px; border-bottom: 1px solid var(--neutral-200); background: var(--putih);
   font-size: 13px; font-weight: 900; color: var(--brand-950); text-align: left;
 }
 .jp-tgl-baris em { font-style: normal; color: var(--brand-700); }

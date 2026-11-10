@@ -28,13 +28,14 @@ class AuthRepository {
   final ApiClient _api;
   final SessionStore _store;
 
-  Future<HasilLogin> login(String username, String password, {String? perangkat, bool gpsPalsu = false}) async {
+  Future<HasilLogin> login(String username, String password, {String? perangkat, bool gpsPalsu = false, String? kodeStg}) async {
     final d = await _api.call('login', data: {
       'username': username.trim().toLowerCase(),
       'password': password, // tidak di-trim
       'installId': await _store.installId(),
       if (perangkat != null && perangkat.isNotEmpty) 'perangkat': perangkat,
       'gpsPalsu': gpsPalsu,
+      if (kodeStg != null && kodeStg.isNotEmpty) 'kodeStg': kodeStg, // v1.0.61: hanya APK staging
     });
     if (d['tahap'] == 'PILIH_PETUGAS') return LoginPilihPetugas(TiketYandal.dariJson(d)); // v0.63.0: belum ada token
     final s = Sesi.dariLogin(d);

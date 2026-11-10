@@ -36,7 +36,7 @@ Future<void> bukaDaftarTemuan(BuildContext c, DataRingkasTemuan d,
 
 /// v1.0.17: kartu ringkasan temuan di halaman Temuan Inspeksi.
 /// v1.0.18: ringkas + rincian di halaman terpisah, pilihan per jenis / per section.
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): daftar temuan tidak lagi di halaman utama. Ketuk jenis = halaman daftar temuan
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): daftar temuan tidak lagi di halaman utama. Ketuk jenis = halaman daftar temuan
 /// jenis itu (semua penyulang, bisa dipilih / dicari per penyulang); ketuk section = rincian section itu saja.
 class KartuRingkasTemuan extends StatelessWidget {
   const KartuRingkasTemuan({
@@ -258,7 +258,7 @@ const Map<StatusTemuan, Color> warnaStatusTemuan = {
 };
 
 /// v1.0.21: jumlah per status dalam satu baris (titik warna + angka + label pendek), status kosong tidak ditulis.
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): tidak di-wrap ke baris kedua; layar sempit = mengecil sendiri.
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): tidak di-wrap ke baris kedua; layar sempit = mengecil sendiri.
 class TeksStatusTemuan extends StatelessWidget {
   const TeksStatusTemuan(this.status, {super.key});
   final List<int> status;
@@ -292,7 +292,7 @@ class TeksStatusTemuan extends StatelessWidget {
   }
 }
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): ringkasan status penanganan temuan yang sedang tampil (ikut filter):
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): ringkasan status penanganan temuan yang sedang tampil (ikut filter):
 /// empat kotak sama lebar, angka besar berwarna + label status.
 class RingkasStatusTemuan extends StatelessWidget {
   const RingkasStatusTemuan({super.key, required this.status});
@@ -371,7 +371,7 @@ class _KartuSection extends StatelessWidget {
   final String penyulang;
   final RingkasSection s;
 
-  // v1.0.29 (permintaan kvlar 24 Okt 2026): kepala section berlatar merek muda (ikon, nama, jumlah jenis, angka besar).
+  // v1.0.29 (permintaan Master Guswan 24 Okt 2026): kepala section berlatar merek muda (ikon, nama, jumlah jenis, angka besar).
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -428,7 +428,7 @@ class _AngkaPil extends StatelessWidget {
       );
 }
 
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): satu jenis temuan di halaman section = kartu sendiri. Angka besar di kotak
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): satu jenis temuan di halaman section = kartu sendiri. Angka besar di kotak
 /// gradien, nama jenis, persen dari section, bar status, jumlah per status. Ketuk = daftar temuan jenis itu.
 class _KartuJenisTemuan extends StatelessWidget {
   const _KartuJenisTemuan({required this.j, required this.total, required this.maks, required this.onTap});
@@ -678,7 +678,7 @@ class RingkasanSectionScreen extends StatelessWidget {
   }
 }
 
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): kartu satu temuan di halaman daftar temuan (desain ulang). Kepala berwarna status
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): kartu satu temuan di halaman daftar temuan (desain ulang). Kepala berwarna status
 /// penanganan (ikon, kode, jenis, pil status), lalu baris info berikon (lokasi, tiang / gardu, tanggal, tim inspeksi),
 /// deskripsi dalam kotak, [foto] (FotoRincian), [bawah] (status WO / galat kirim) dari layar induk.
 class KartuDaftarTemuan extends StatelessWidget {

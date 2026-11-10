@@ -14,7 +14,7 @@ import '../row/row_model.dart' show Koordinat;
 import '../row/row_repository.dart' show RowError;
 import '../row/watermark.dart';
 
-/// v1.0.0 (permintaan kvlar 19 Okt 2026): foto lapangan Hartek (grounding, pemerataan beban) dan Inspeksi Jaringan
+/// v1.0.0 (permintaan Master Guswan 19 Okt 2026): foto lapangan Hartek (grounding, pemerataan beban) dan Inspeksi Jaringan
 /// (foto temuan, foto tiang). Sama dengan P0: kamera SiSi saja (landscape + watermark), tanpa galeri. Foto ditulis ke
 /// folder app lalu dikirim lewat antrean (uploadFotoHartek / uploadFotoInsJar), jadi tetap jalan tanpa sinyal.
 class FotoLapangan {

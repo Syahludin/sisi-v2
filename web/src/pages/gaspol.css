@@ -1,0 +1,42 @@
+/* GASPOL UP3 (v1.0.44): tabel lebar 38 kolom, kepala 2 baris menempel, 3 kolom pertama menempel saat digeser (sama dengan v1). */
+.gs-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+.gs-isian { display: grid; gap: 4px; }
+.gs-isian .k-input { width: 170px; }
+
+.gs-bungkus {
+  background: var(--putih); border: 1px solid var(--neutral-200); border-radius: 12px;
+  overflow: auto; max-height: calc(100dvh - 243px); min-height: 220px; transition: opacity .15s;
+}
+.gs-bungkus--muat { opacity: .55; pointer-events: none; }
+.gs-tabel { border-collapse: separate; border-spacing: 0; font-size: 12.5px; color: var(--neutral-900); white-space: nowrap; width: max-content; }
+.gs-tabel th, .gs-tabel td {
+  border-bottom: 1px solid var(--neutral-150); border-right: 1px solid var(--neutral-150); padding: 8px 10px; text-align: center;
+}
+.gs-tabel thead th {
+  position: sticky; background: var(--neutral-50); font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neutral-700);
+}
+.gs-tabel thead tr.gs-grp th { top: 0; z-index: 4; height: 35px; box-sizing: border-box; }
+.gs-tabel thead tr.gs-sub th { top: 35px; z-index: 3; white-space: normal; min-width: 96px; max-width: 140px; line-height: 1.3; }
+.gs-tabel tbody tr:hover td { background: var(--brand-50); }
+
+/* 3 kolom pertama (No, Tanggal, Section) menempel di kiri */
+.gs-c1, .gs-c2, .gs-c3 { position: sticky; z-index: 2; background: var(--putih); }
+.gs-tabel thead .gs-c1, .gs-tabel thead .gs-c2, .gs-tabel thead .gs-c3 { z-index: 5; }
+.gs-c1 { left: 0; width: 44px; min-width: 44px; box-sizing: border-box; }
+.gs-c2 { left: 44px; width: 104px; min-width: 104px; box-sizing: border-box; }
+.gs-c3 { left: 148px; min-width: 120px; text-align: left !important; box-shadow: 2px 0 0 var(--neutral-200); }
+
+.gs-tabel thead .gs-id { background: var(--brand-100); color: var(--brand-800); }
+.gs-g-sutm { background: #dcfce7 !important; color: #15803d !important; }
+.gs-g-row { background: #ecfccb !important; color: #4d7c0f !important; }
+.gs-g-harkom { background: #dbeafe !important; color: #1d4ed8 !important; }
+.gs-g-harkons { background: #fef3c7 !important; color: #b45309 !important; }
+.gs-g-gardu { background: #f3e8ff !important; color: #7e22ce !important; }
+.gs-g-sutr { background: #cffafe !important; color: #0e7490 !important; }
+.gs-g-lain { background: #fee2e2 !important; color: #b91c1c !important; }
+
+.gs-angka { font-variant-numeric: tabular-nums; }
+.gs-nol { color: var(--neutral-300); }
+.gs-kiri { text-align: left !important; }
+.gs-kosong { padding: 36px 12px !important; color: var(--neutral-500); text-align: left !important; }
+.gs-kosong p { margin: 8px 0 0; }

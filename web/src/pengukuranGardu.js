@@ -2,7 +2,7 @@
  * Pengukuran Gardu (menu OPS_PENGUKURAN_GARDU), logika murni tanpa React.
  *  - daftar gardu dari getMaster modul `gardu` (sama HP), riwayat dari getRiwayatGardu (3 sumber),
  *    updateUkurMasterGardu (satu pengukuran riwayat -> db_Gardu);
- *  - form Update Data Gardu v1 (HI, 182 isian, hiGardu.def.js): getHiGardu / updateHiGardu. v1.0.35 (keputusan kvlar
+ *  - form Update Data Gardu v1 (HI, 182 isian, hiGardu.def.js): getHiGardu / updateHiGardu. v1.0.35 (keputusan Master Guswan
  *    26 Okt 2026): db_Gardu sumber utama, website menulis db_Gardu; server lalu menulis gardu itu ke 3 file sheet lama
  *    (Master HI Toboali, Master HI HP, Master HI UP3) yang mengikuti db_Gardu.
  */
@@ -107,3 +107,29 @@ export function jenisKategori(k) {
   if (t === 'cukup') return 'ok';
   return 'v1';
 }
+
+const FASA = ['R', 'S', 'T', 'N'];
+
+/**
+ * v1.0.36: isian per fasa ("Jurusan A R", "Bushing TM S", "R") disusun jadi tabel baris x fasa agar mudah diisi.
+ * Semua label harus berakhiran fasa; selain itu null (tampil sebagai grid biasa). Murni (diuji).
+ * -> { kolom: ['R','S','T',...], baris: [{ nama, sel: { R: field, ... } }] }
+ */
+export function matriksFasa(fields) {
+  if (!fields || fields.length < 3) return null;
+  const baris = [], per = {}, ada = new Set();
+  for (const f of fields) {
+    const m = /^(?:(.*\S)\s+)?([RSTN])$/.exec(String(f.label || '').trim());
+    if (!m) return null;
+    const nama = m[1] || '';
+    if (/[-–]$/.test(nama)) return null;   // 'R - S' = tegangan antar fasa, bukan per fasa
+    if (!per[nama]) { per[nama] = { nama, sel: {} }; baris.push(per[nama]); }
+    if (per[nama].sel[m[2]]) return null;
+    per[nama].sel[m[2]] = f;
+    ada.add(m[2]);
+  }
+  return { kolom: FASA.filter((x) => ada.has(x)), baris };
+}
+
+/** Jumlah isian terisi (tidak kosong) dari daftar field. */
+export const jumlahTerisi = (fields, nilai) => fields.filter((f) => String(nilai[f.col] ?? '').trim() !== '').length;

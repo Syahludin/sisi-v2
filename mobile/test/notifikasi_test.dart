@@ -11,14 +11,13 @@ Sesi _sesi(String role, {String jenisTim = '', List<Map<String, dynamic>> menu =
 
 void main() {
   // v0.83.0: notifikasi pengingat login Yandal
-  test('penerima: akun YANDAL + ADMIN / SUPER, bukan ROW / ADMIN_ES', () {
-    expect(perluNotifikasi(_sesi('PETUGAS', jenisTim: 'YANDAL')), isTrue);
+  test('v1.0.45 penerima: ADMIN / SUPER saja, bukan Yandal / ROW / tim WO / ADMIN_ES', () {
+    expect(perluNotifikasi(_sesi('PETUGAS', jenisTim: 'YANDAL')), isFalse);
     expect(perluNotifikasi(_sesi('ADMIN')), isTrue);
     expect(perluNotifikasi(_sesi('SUPER')), isTrue);
     expect(perluNotifikasi(_sesi('PETUGAS', jenisTim: 'ROW')), isFalse);
     expect(perluNotifikasi(_sesi('ADMIN_ES')), isFalse);
-    // v1.0.29: tim tindak lanjut (menu WO) menerima WO baru
-    expect(perluNotifikasi(_sesi('PETUGAS', jenisTim: 'ROW', menu: const [{'kode': 'OPS_WO_TIM', 'aksi': 'UBAH'}])), isTrue);
+    expect(perluNotifikasi(_sesi('PETUGAS', jenisTim: 'ROW', menu: const [{'kode': 'OPS_WO_TIM', 'aksi': 'UBAH'}])), isFalse);
   });
 
   test('v1.0.29 ketuk notifikasi push = item lonceng (WO / temuan / P0), pengingat login tanpa layar tujuan', () {

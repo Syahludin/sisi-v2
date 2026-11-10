@@ -115,7 +115,7 @@ class P0Repository {
     return null;
   }
 
-  /// v0.66.4 (keputusan kvlar 9 Okt 2026): edit penyulang / section / daerah P0 (section salah pilih).
+  /// v0.66.4 (keputusan Master Guswan 9 Okt 2026): edit penyulang / section / daerah P0 (section salah pilih).
   /// Hanya shift berjalan, P0 belum selesai, Pengecekan Switching sebelum switching disimpan. Sudah terkirim =
   /// dikirim ulang ke server (simpanP0Yandal ubahLokasi) pada sync berikutnya.
   Future<P0Lokal> ubahLokasi(Sesi s, P0Lokal x,

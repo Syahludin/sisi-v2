@@ -15,7 +15,7 @@ import 'gardu_widgets.dart';
 import 'riwayat_gardu_screen.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.69.0 (permintaan kvlar 9 Okt 2026): menu Pengukuran Gardu (Operasi, ADMIN / SUPER / ADMIN_ES sesuai db_Akses).
+/// v0.69.0 (permintaan Master Guswan 9 Okt 2026): menu Pengukuran Gardu (Operasi, ADMIN / SUPER / ADMIN_ES sesuai db_Akses).
 /// Berbasis Master Gardu lokal (offline): ringkasan kategori beban yang bisa diketuk sebagai saringan, cari, saring
 /// penyulang / kapasitas / range beban, urutkan, dan detail per gardu. Referensi v1: GarduScreen (filter nomor,
 /// range, kapasitas, kriteria) + kartu cincin beban, dikembangkan jadi satu layar interaktif.

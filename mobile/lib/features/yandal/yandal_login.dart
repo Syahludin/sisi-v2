@@ -1,6 +1,6 @@
-/// v0.63.0 (keputusan kvlar 7 Okt 2026): login akun tim YANDAL 2 tahap. Pure Dart, bisa dites tanpa Flutter.
+/// v0.63.0 (keputusan Master Guswan 7 Okt 2026): login akun tim YANDAL 2 tahap. Pure Dart, bisa dites tanpa Flutter.
 ///
-/// Tahap 1 (login) memberi [TiketYandal]: daftar petugas tim (db_Petugas.tim_yandal), shift saat ini, dan crew yang
+/// Tahap 1 (login) memberi [TiketYandal]: daftar petugas tim (db_Petugas.tim), shift saat ini, dan crew yang
 /// sudah dipilih HP lain (kalau shift sudah dimulai). Tahap 2 (mulaiShiftYandal) memakai tiket + 1-2 petugas.
 class PetugasPilih {
   const PetugasPilih({required this.petugasId, required this.nama, this.sibuk = false});
@@ -73,7 +73,7 @@ class TiketYandal {
       ];
 }
 
-/// Teks verifikasi sebelum masuk (keputusan kvlar 7 Okt 2026).
+/// Teks verifikasi sebelum masuk (keputusan Master Guswan 7 Okt 2026).
 String teksKonfirmasiPetugas(List<String> nama) {
   final b = StringBuffer('Apakah user yang masuk saat ini adalah\n');
   for (var i = 0; i < nama.length; i++) {

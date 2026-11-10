@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'sisi_loader.dart';
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): tarik-untuk-refresh bergaya SiSi, pengganti [RefreshIndicator] (lingkaran
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): tarik-untuk-refresh bergaya SiSi, pengganti [RefreshIndicator] (lingkaran
 /// bawaan). Tarik daftar ke bawah dari paling atas: bulatan putih berisi logo S ([SisiLoader]) turun mengikuti jari;
 /// lepas melewati batas = [onRefresh] berjalan dan logo tetap tampil sampai selesai.
 /// Sama dengan RefreshIndicator: anak harus bisa di-scroll (AlwaysScrollableScrollPhysics untuk isi pendek) dan
 /// hanya scroll langsung (depth 0) yang dihitung.
-/// v1.0.22 (permintaan kvlar): logo diperbesar supaya proses refresh terlihat jelas.
+/// v1.0.22 (permintaan Master Guswan): logo diperbesar supaya proses refresh terlihat jelas.
 class RefreshSisi extends StatefulWidget {
   const RefreshSisi({super.key, required this.onRefresh, required this.child});
   final Future<void> Function() onRefresh;

@@ -3,7 +3,7 @@
  * Push + redeploy ke deployment web app yang SAMA (URL /exec tidak berubah).
  * Pakai: npm run deploy:staging -- "deskripsi versi"
  * Deployment ID dibaca dari backend/.deploy.json (tidak ikut git/zip; contoh di .deploy.example.json).
- * Production wajib --yakin.
+ * Production / unit lain (ulpmentok) wajib --yakin. claspUser di .clasp.<env>.json ikut dipakai (lihat push.js).
  */
 const fs = require('fs');
 const path = require('path');
@@ -12,12 +12,13 @@ const { spawnSync } = require('child_process');
 const env = process.argv[2];
 const yakin = process.argv.includes('--yakin');
 const desk = process.argv.slice(3).filter((a) => a !== '--yakin').join(' ').trim();
-if (!['staging', 'production'].includes(env)) {
-  console.error('Pakai: node scripts/deploy.js <staging|production> "deskripsi"');
+const TARGET = ['staging', 'production', 'ulpmentok'];
+if (!TARGET.includes(env)) {
+  console.error('Pakai: node scripts/deploy.js <' + TARGET.join('|') + '> "deskripsi"');
   process.exit(1);
 }
-if (env === 'production' && !yakin) {
-  console.error('Deploy ke PRODUCTION butuh flag --yakin');
+if (env !== 'staging' && !yakin) {
+  console.error(`Deploy ke ${env.toUpperCase()} butuh flag --yakin`);
   process.exit(1);
 }
 if (!desk) {
@@ -46,5 +47,7 @@ const jalan = (cmd, args) => {
 };
 jalan('node', [path.join('scripts', 'push.js'), env, ...(yakin ? ['--yakin'] : [])]);
 console.log(`-> redeploy ${env.toUpperCase()} ke deployment ${id.slice(0, 12)}...`);
-jalan('clasp', ['deploy', '-i', id, '-d', desk]);
+const claspFile = path.join(root, `.clasp.${env}.json`);
+const claspUser = fs.existsSync(claspFile) ? JSON.parse(fs.readFileSync(claspFile, 'utf8')).claspUser : undefined;
+jalan('clasp', [...(claspUser ? ['-u', String(claspUser)] : []), 'deploy', '-i', id, '-d', desk]);
 console.log('Selesai. URL /exec tetap sama.');

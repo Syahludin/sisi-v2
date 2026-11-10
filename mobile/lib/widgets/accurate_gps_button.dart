@@ -14,12 +14,12 @@ class HasilGps {
   final double akurasiM;
 }
 
-/// Kolom koordinat + tombol GPS + chip akurasi (v0.43, desain kvlar 4 Okt 2026).
+/// Kolom koordinat + tombol GPS + chip akurasi (v0.43, desain Master Guswan 4 Okt 2026).
 /// Saat mengambil titik: ikon tombol jadi spinner, kolom tidak bisa diedit dan berisi "Mengambil Koordinat",
 /// chip di bawah kolom menampilkan akurasi yang terus berubah. Tanpa kartu / panel.
 /// Ketuk spinner = selesai sekarang memakai titik terbaik yang sudah ada.
 /// Aturan pengambilan di [PengambilanGps] (target ±5 m, 30 detik pakai terbaik, lokasi palsu ditolak).
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): tampilan sama dengan kolom koordinat Input Temuan Inspeksi (form Hartek):
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): tampilan sama dengan kolom koordinat Input Temuan Inspeksi (form Hartek):
 /// label tebal di atas kolom, kolom abu muda bersudut 14, tombol GPS [TombolGpsSisi].
 class KolomKoordinat extends StatefulWidget {
   const KolomKoordinat({

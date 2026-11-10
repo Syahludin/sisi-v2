@@ -47,7 +47,8 @@ function login_(_, data, platform) {
     password: { tipe: 'teks', wajib: true, maks: 200, mentah: true },
     perangkat: { tipe: 'teks', maks: 120 },
     installId: { tipe: 'uuid' },     // ID instalasi app (HP). Web tidak mengirim.
-    gpsPalsu: { tipe: 'bool' }       // v0.38: HP mendeteksi lokasi palsu (mock) sebelum login = ditolak + dicatat
+    gpsPalsu: { tipe: 'bool' },      // v0.38: HP mendeteksi lokasi palsu (mock) sebelum login = ditolak + dicatat
+    kodeStg: { tipe: 'teks', maks: 40, mentah: true }   // v1.0.61: kode pengaman APK staging (hanya diminta bila STG_KODE diisi)
   });
   var c = cfg_();
   var username = d.username.toLowerCase();
@@ -57,7 +58,7 @@ function login_(_, data, platform) {
   try {
     return loginInti_(d, username, platform, c, batas);
   } catch (e) {
-    if (e && (e.kode === 'LOGIN_GAGAL' || e.kode === 'GPS_PALSU')) catatGagalLogin_(username, batas);
+    if (e && (e.kode === 'LOGIN_GAGAL' || e.kode === 'GPS_PALSU' || e.kode === 'KODE_STG_SALAH')) catatGagalLogin_(username, batas);
     throw e;
   }
 }
@@ -76,7 +77,7 @@ function kunciGagalGlobal_() { return 'login-gagal:g:' + Math.floor(Date.now() /
  * (30/menit) mengunci login semua petugas. Username terdaftar hanya kena batas per username.
  * Batas per username dicek tanpa sheet; daftar username terdaftar dari cache (db_Users dibaca maks 1x / 5 menit,
  * hanya saat batas global terlewati).
- * v0.62.4 (keputusan kvlar 7 Okt 2026): HP DIKENAL (installId ini pernah login sukses ke akun ini, barisnya di
+ * v0.62.4 (keputusan Master Guswan 7 Okt 2026): HP DIKENAL (installId ini pernah login sukses ke akun ini, barisnya di
  * auth_Perangkat belum dicabut) tidak ikut rem per username maupun kunci akun 5x. Jatahnya sendiri: 5x salah =
  * HP itu saja yang dibatasi 15 menit. Jadi orang lain yang sengaja salah password tidak bisa mengunci petugas di
  * HP-nya sendiri. HP asing / web tetap berbagi satu ember per akun (ganti-ganti installId tidak menambah jatah).
@@ -265,6 +266,12 @@ function loginInti_(d, username, platform, c, batas) {
     if (catatAudit) auditLog_({ username: username }, 'LOGIN_GPS_PALSU', '', d.perangkat || '', platform);
     throw new SisiError_('GPS_PALSU');
   }
+  // v1.0.61: APK staging yang jatuh ke petugas tidak bisa masuk tanpa kode yang hanya diketahui admin. Dicek sebelum
+  // sheet dibaca; salah dihitung sebagai percobaan gagal (rem login). Web tidak terkena.
+  if (c.ENV === 'staging' && c.STG_KODE && platform !== 'WEB' && String(d.kodeStg || '') !== c.STG_KODE) {
+    if (catatAudit) auditLog_({ username: username }, 'LOGIN_KODE_STG_SALAH', '', d.perangkat || '', platform);
+    throw new SisiError_('KODE_STG_SALAH');
+  }
   // 1) BACA + HASH tanpa lock.
   var users = (batas && batas.users) || tabel_('MASTER_SHEET_ID', 'db_Users').rows;
   w('baca_users');
@@ -325,13 +332,13 @@ function loginInti_(d, username, platform, c, batas) {
 
   var profil = profilUser_(String(user.user_id), users);   // db_Users tidak dibaca ulang
   w('baca_tim');
-  // v1.0.34 web admin (permintaan kvlar 26 Okt 2026): website hanya untuk Admin / Admin ES. Dicek sesudah password benar
+  // v1.0.34 web admin (permintaan Master Guswan 26 Okt 2026): website hanya untuk Admin / Admin ES. Dicek sesudah password benar
   // (tidak membocorkan role ke penebak password) dan tidak menambah hitungan gagal login.
   if (platform === 'WEB' && ROLE_WEB_().indexOf(profil.role) === -1) {
     if (catatAudit) auditLog_(profil, 'LOGIN_WEB_DITOLAK', '', 'role ' + profil.role, platform);
     throw new SisiError_('WEB_KHUSUS_ADMIN');
   }
-  // v0.63.0 (keputusan kvlar 7 Okt 2026): akun tim YANDAL = login 2 tahap. Password benar -> tiket (bukan token),
+  // v0.63.0 (keputusan Master Guswan 7 Okt 2026): akun tim YANDAL = login 2 tahap. Password benar -> tiket (bukan token),
   // lalu pilih 1-2 petugas + konfirmasi (mulaiShiftYandal) baru token dibuat. Menit peralihan shift = ditolak.
   var yandal = petugasYandal_(profil) ? siapkanLoginYandal_(profil) : null;
   w('yandal');
@@ -386,6 +393,8 @@ function loginInti_(d, username, platform, c, batas) {
   } else {
     pasangSesiBaru_(profil, hashToken, null);
     hasil = { token: token, profil: profil, menu: menu, offlineSampai: offlineSampai_(new Date()) };
+    var tiketApi = tiketCekSesiMysql_(profil, platform, menu || []);   // v1.0.38: website, API baca MySQL (93_Mysql.js)
+    if (tiketApi) hasil.tiketApi = tiketApi;
   }
   if (c.ENV === 'staging') hasil._waktu = w.ringkas();   // rincian ms, hanya staging
   return hasil;
@@ -476,6 +485,8 @@ function cekSesi_(sesi, data, platform) {
   simpanSesiCache_(segar);
   var hasil = { profil: profilPublik_(segar), menu: menuUntuk_(segar, platform),
                 offlineSampai: offlineSampai_(new Date()), waktuServer: sekarangIso_() };
+  var tiketApi = tiketCekSesiMysql_(segar, platform, hasil.menu);   // v1.0.38: website, API baca MySQL (93_Mysql.js)
+  if (tiketApi) hasil.tiketApi = tiketApi;
   if (sampai) {
     hasil.sesiSampai = new Date(sampai).toISOString();
     hasil.offlineSampai = hasil.sesiSampai;
@@ -524,7 +535,7 @@ function kunciGagalGanti_(userId) { return 'ganti-pw-gagal:' + sha256Hex_(String
 var GANTI_PW_MAKS_GAGAL_ = 5;   // salah password lama 5x = ditolak 15 menit (cache), mencegah tebak password lewat sesi curian
 
 /**
- * v0.67.0 (keputusan kvlar 9 Okt 2026): Ganti Password oleh pemilik akun (menu Pengaturan).
+ * v0.67.0 (keputusan Master Guswan 9 Okt 2026): Ganti Password oleh pemilik akun (menu Pengaturan).
  * Password lama wajib benar; password baru minimal 10 karakter, beda dari lama dan dari username.
  * Akun tim YANDAL ditolak (dipakai bergantian tiap shift: ganti password lewat admin).
  * Sukses: sesi LAIN akun ini dicabut (sesi yang sedang dipakai tetap), kunci login dibuka, dicatat GANTI_PASSWORD.

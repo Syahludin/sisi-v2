@@ -9,7 +9,7 @@ import '../../widgets/sisi_widgets.dart';
 import 'yandal_login.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.63.0 (keputusan kvlar 7 Okt 2026): akun tim YANDAL memilih 1-2 petugas shift ini, lalu verifikasi
+/// v0.63.0 (keputusan Master Guswan 7 Okt 2026): akun tim YANDAL memilih 1-2 petugas shift ini, lalu verifikasi
 /// "Apakah user yang masuk saat ini adalah ...". Shift sudah dimulai HP lain = crew dikunci, cukup konfirmasi.
 /// Hasil (pop): Sesi kalau berhasil masuk, null kalau batal / tiket habis (kembali ke login).
 class PilihPetugasScreen extends StatefulWidget {
@@ -151,7 +151,7 @@ class _PilihPetugasScreenState extends State<PilihPetugasScreen> {
   }
 }
 
-/// v0.65.11 (permintaan kvlar 9 Okt 2026): kartu verifikasi petugas yang lebih menarik. Isi sama dengan keputusan
+/// v0.65.11 (permintaan Master Guswan 9 Okt 2026): kartu verifikasi petugas yang lebih menarik. Isi sama dengan keputusan
 /// 7 Okt 2026 (teksKonfirmasiPetugas): "Apakah user yang masuk saat ini adalah ... Jika sudah betul silahkan lanjut login".
 /// Kepala bergradasi + ikon perisai, info tim / shift / sesi, kartu per petugas (avatar inisial), dua tombol lebar.
 class _DialogVerifikasi extends StatelessWidget {

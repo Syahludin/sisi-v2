@@ -12,7 +12,7 @@ import '../theme/app_colors.dart';
 import 'api_client.dart';
 import 'versi.dart';
 
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): update aplikasi langsung dari app. Server (getUpdateApp) memberi APK versi
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): update aplikasi langsung dari app. Server (getUpdateApp) memberi APK versi
 /// terbaru di folder Drive (APK_FOLDER_ID): HP mengunduh di latar dengan progres, mencocokkan ukuran + SHA-256, lalu
 /// membuka pemasang Android. Android tetap menolak APK yang tanda tangannya beda dengan app terpasang.
 ///
@@ -25,7 +25,8 @@ class PembaruApk {
   PembaruApk._();
 
   /// Hasil: true = pemasang Android dibuka. false = tidak ada update / gagal / dibatalkan (pesan sudah tampil di dialog).
-  static Future<bool> jalankan(BuildContext context, ApiClient api, String token) async {
+  /// v1.0.61: [token] null = belum login (halaman login): memakai getUpdateAppPublik, hasilnya sama.
+  static Future<bool> jalankan(BuildContext context, ApiClient api, String? token) async {
     final st = ValueNotifier<_Status>(const _Status('Memeriksa update...'));
     final batal = _Batal();
     final nav = Navigator.of(context, rootNavigator: true);
@@ -41,7 +42,7 @@ class PembaruApk {
     }
 
     try {
-      final r = await api.call('getUpdateApp', token: token, data: {'versiApp': versiApp}, timeout: const Duration(seconds: 40));
+      final r = await api.call(token == null ? 'getUpdateAppPublik' : 'getUpdateApp', token: token, data: {'versiApp': versiApp}, timeout: const Duration(seconds: 40));
       if (batal.ya) return false;
       if (r['tersedia'] != true || r['apk'] is! Map) throw _Galat.hubungiAdmin();
       final apk = Map<String, dynamic>.from(r['apk'] as Map);

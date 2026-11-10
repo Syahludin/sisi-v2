@@ -3,16 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { panggil } from '../api.js';
 import { namaPerangkat } from '../perangkat.js';
 import { pesan } from '../pesan.js';
+import { simpanTiket } from '../apiBaca.js';
 import { simpanSesi } from '../sesi.js';
 import Ikon from '../components/Ikon.jsx';
 import MotifJaringan from '../components/MotifJaringan.jsx';
 import SisiLoader from '../components/SisiLoader.jsx';
+import { aset } from '../rute.js';
 import './login.css';
 
 const JEDA_BERHASIL_MS = 1600;
 
 /**
- * Login web admin (keputusan kvlar 26 Okt 2026): 70:30, gaya aplikasi HP. Kiri = panggung SiSi (motif tiang & kawat,
+ * Login web admin (keputusan Master Guswan 26 Okt 2026): 70:30, gaya aplikasi HP. Kiri = panggung SiSi (motif tiang & kawat,
  * logo bercahaya); kanan = panel kaca gelap berisi tombol kuning Login, form muncul sesudah diklik. Berhasil = kartu
  * "Login Berhasil" lalu dashboard. Website khusus Admin / Admin ES (backend menolak role lain: WEB_KHUSUS_ADMIN).
  */
@@ -67,6 +69,7 @@ export default function Login({ config, pesanAwal = '', onMasuk }) {
       if (!d.token || d.tahap) throw Object.assign(new Error('WEB_KHUSUS_ADMIN'), { kode: 'WEB_KHUSUS_ADMIN' });
       const sesi = { token: d.token, profil: d.profil, menu: d.menu || [], env: config.env, versi: j.versi || '' };
       simpanSesi(sesi);
+      simpanTiket(d.token, d.tiketApi);   // v1.0.38: tiket API baca MySQL ikut login (baca pertama tanpa getTiketApi)
       setSandi('');
       setBerhasil(sesi);
       setTimeout(() => onMasuk(sesi), JEDA_BERHASIL_MS);
@@ -90,7 +93,7 @@ export default function Login({ config, pesanAwal = '', onMasuk }) {
       <section className="lg-kiri" aria-label="SiSi PLN ULP Toboali">
         <MotifJaringan className="lg-motif" />
         {config.env === 'staging' && <div className="lg-stg">STAGING</div>}
-        <div className="lg-logo"><img src="./img/logo-sisi.png" alt="Logo SiSi" /></div>
+        <div className="lg-logo"><img src={aset('img/logo-sisi.png')} alt="Logo SiSi" /></div>
         <div className="lg-teks">
           <h1 className="lg-sisi">SiSi</h1>
           <div className="lg-kicker"><span className="lg-percik" />SISTEM INTEGRASI · PANEL ADMIN</div>
@@ -100,7 +103,7 @@ export default function Login({ config, pesanAwal = '', onMasuk }) {
         <div className="lg-foot">Sistem Integrasi © 2026 · PLN ULP Toboali</div>
       </section>
 
-      <div className="lg-pln"><img src="./img/logo-pln.png" alt="PLN" /></div>
+      <div className="lg-pln"><img src={aset('img/logo-pln.png')} alt="PLN" /></div>
 
       <aside className="lg-auth">
 

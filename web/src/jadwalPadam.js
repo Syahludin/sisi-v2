@@ -1,6 +1,6 @@
 /**
  * Jadwal Padam (menu OPS_JADWAL_PADAM, khusus admin), logika murni tanpa React. Rumus sama dengan server
- * (backend/src/modules/78_JadwalPadam.js) dan HP (jadwal_padam_bantu.dart): dampak (gardu, pelanggan, daerah, VIP,
+ * (backend/src/modules/70_JadwalPadam.js) dan HP (jadwal_padam_bantu.dart): dampak (gardu, pelanggan, daerah, VIP,
  * beban) dari Master Daerah Padam, durasi lewat tengah malam = +24 jam, ENS = beban MW x durasi x 1444,7 (rupiah bulat ke atas).
  * Server tetap menghitung ulang semuanya; di sini hanya pratinjau + ringkasan.
  */

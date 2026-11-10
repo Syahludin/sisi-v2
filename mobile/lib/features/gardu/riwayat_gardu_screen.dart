@@ -18,7 +18,7 @@ import 'gardu_widgets.dart';
 import '../../widgets/popup_berhasil.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): pilihan saat kartu gardu diketuk di menu admin Pengukuran Gardu.
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): pilihan saat kartu gardu diketuk di menu admin Pengukuran Gardu.
 enum PilihanGardu { perbaikan, pengukuran }
 
 Future<PilihanGardu?> pilihTampilanGardu(BuildContext context, Gardu g) => showModalBottomSheet<PilihanGardu>(
@@ -392,13 +392,13 @@ class _RiwayatGarduScreenState extends State<RiwayatGarduScreen> {
   }
 
   // ---------- tab 2: pengukuran ----------
-  // v1.0.21 (permintaan kvlar 23 Okt 2026): kartu Data Trafo (nameplate + koordinat ke Google Maps). Isi kartu ukur
+  // v1.0.21 (permintaan Master Guswan 23 Okt 2026): kartu Data Trafo (nameplate + koordinat ke Google Maps). Isi kartu ukur
   // dikelompokkan: arus, tegangan fasa-netral, fasa-fasa.
-  // v1.0.22 (permintaan kvlar 23 Okt 2026): Pengukuran Terbaru hanya dari Master Gardu (tanpa membandingkan 3 sumber) dan
+  // v1.0.22 (permintaan Master Guswan 23 Okt 2026): Pengukuran Terbaru hanya dari Master Gardu (tanpa membandingkan 3 sumber) dan
   // dibaca dari Master Gardu yang sama dengan Data Trafo, jadi keduanya tampil bersamaan tanpa menunggu server. Pengukuran
   // Terbaru dan Riwayat sama-sama bertab Semua / LWBP / WBP, urut terbaru ke terlama, kartu bisa dibuka / ditutup.
   // Riwayat: Update Pengukuran Gardu = pengukuran itu menjadi pengukuran Master Gardu (Pengukuran Terbaru ikut berubah).
-  // v1.0.23 (permintaan kvlar 23 Okt 2026): Master Gardu punya blok WBP dan LWBP (Pengukuran Terbaru = 2 kartu). Tiap seksi
+  // v1.0.23 (permintaan Master Guswan 23 Okt 2026): Master Gardu punya blok WBP dan LWBP (Pengukuran Terbaru = 2 kartu). Tiap seksi
   // dibungkus satu kartu besar (judul satu baris, tombol ikon buka / tutup semua di kanan atas). Tanggal DD MMMM YYYY.
 
   static const _menuUkur = 'OPS_PENGUKURAN_GARDU';
@@ -731,7 +731,7 @@ class _GrupUkur extends StatelessWidget {
       );
 }
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): data trafo (nameplate) dari Master Gardu terkini + koordinat trafo yang bisa
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): data trafo (nameplate) dari Master Gardu terkini + koordinat trafo yang bisa
 /// diketuk untuk membuka Google Maps. Pengganti kartu Pengukuran Terakhir + Arus & Tegangan di tab Pengukuran.
 class _KartuDataTrafo extends StatelessWidget {
   const _KartuDataTrafo(this.g, {required this.onLengkap});

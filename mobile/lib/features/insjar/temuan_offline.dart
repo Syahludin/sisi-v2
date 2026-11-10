@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../hartek/hartek_store.dart' show GudangHartek;
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): daftar temuan inspeksi OFFLINE untuk menu Temuan Inspeksi (admin).
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): daftar temuan inspeksi OFFLINE untuk menu Temuan Inspeksi (admin).
 /// Temuan rentang tanggal diunduh sekali (getTemuanInspeksi dari / sampai) lalu disimpan di HP (master_cache), jadi tab
 /// Daftar Temuan langsung tampil tanpa menunggu server. Filter + ringkasan dihitung di HP.
 
@@ -72,7 +72,7 @@ List<String> pilihanFilterTemuan(List<Map<String, dynamic>> semua, KategoriFilte
   return k == KategoriFilterTemuan.tanggal ? (l..sort((a, b) => b.compareTo(a))) : (l..sort());
 }
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): status penanganan temuan dari WO-nya. Bukan filter: dihitung dari daftar yang
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): status penanganan temuan dari WO-nya. Bukan filter: dihitung dari daftar yang
 /// sedang tampil, jadi berlaku di semua kondisi filter (per section, per jenis, per penyulang).
 enum StatusTemuan { belumTim, diTim, dikerjakan, selesai }
 
@@ -132,7 +132,7 @@ String sectionTemuan(Map<String, dynamic> t) {
   return [if (p.isNotEmpty) p, if (s.isNotEmpty) s].join(' · ');
 }
 
-/// v1.0.18 (permintaan kvlar 22 Okt 2026): ringkasan per section, tiap section berisi jumlah per jenis temuan.
+/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): ringkasan per section, tiap section berisi jumlah per jenis temuan.
 /// Section terbanyak dulu (sama banyak = abjad); jenis di dalamnya urut sama dengan [ringkasJenisTemuan].
 List<RingkasSection> ringkasSectionTemuan(List<Map<String, dynamic>> l) {
   final grup = <String, List<Map<String, dynamic>>>{};
@@ -163,7 +163,7 @@ String namaPenyulangTemuan(Map<String, dynamic> t) => _t(t['penyulang']).isEmpty
 typedef RingkasSection = ({String section, int jumlah, List<RingkasJenis> jenis, List<int> status});
 typedef RingkasPenyulang = ({String penyulang, int jumlah, List<RingkasSection> section, List<int> status});
 
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): ringkasan per penyulang (abjad) > section (kolom urutan db_Jaringan; section di
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): ringkasan per penyulang (abjad) > section (kolom urutan db_Jaringan; section di
 /// luar master di belakang, abjad) > jumlah per jenis temuan.
 List<RingkasPenyulang> ringkasPenyulangTemuan(List<Map<String, dynamic>> l, Map<String, List<String>> urutan) {
   final grup = <String, Map<String, List<Map<String, dynamic>>>>{};

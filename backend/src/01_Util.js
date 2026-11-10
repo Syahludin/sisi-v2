@@ -10,7 +10,7 @@ SisiError_.prototype = Object.create(Error.prototype);
 SisiError_.prototype.constructor = SisiError_;
 
 function ROLE_VALID_() { return ['SUPER', 'ADMIN', 'ADMIN_ES', 'PETUGAS']; }
-// v1.0.34 web admin (permintaan kvlar 26 Okt 2026): website (Hostinger) khusus role ini, login + setiap panggilan.
+// v1.0.34 web admin (permintaan Master Guswan 26 Okt 2026): website (Hostinger) khusus role ini, login + setiap panggilan.
 function ROLE_WEB_() { return ['ADMIN', 'ADMIN_ES']; }
 
 function uuid_() { return Utilities.getUuid(); }

@@ -15,7 +15,7 @@ import 'foto_lapangan.dart';
 import 'hartek_form.dart' show pesanHartek;
 import 'hartek_lokal.dart';
 
-/// v0.95.0 (permintaan kvlar 14 Okt 2026): Hartek lokal dulu, kirim ke server otomatis.
+/// v0.95.0 (permintaan Master Guswan 14 Okt 2026): Hartek lokal dulu, kirim ke server otomatis.
 ///
 /// Layar SELALU membaca laporan dari HP (tanpa menunggu server), simpan = tulis lokal + masuk antrean.
 /// Antrean dikirim berurutan (FIFO) oleh SyncController: saat app dibuka, tiap 5 menit, dan setelah data disimpan.
@@ -347,7 +347,7 @@ class HartekStore extends ChangeNotifier {
         return id;
       });
 
-  /// v0.97.0 / v0.97.4 (kvlar 15 Okt 2026): ubah rincian pekerjaan yang sudah diisi (nama/jenis pekerjaan + jumlah).
+  /// v0.97.0 / v0.97.4 (Master Guswan 15 Okt 2026): ubah rincian pekerjaan yang sudah diisi (nama/jenis pekerjaan + jumlah).
   /// Pekerjaan yang BELUM diterima server cukup diperbaiki di antreannya, jadi tidak ada panggilan ubah yang ditolak.
   Future<void> ubahPekerjaan(Sesi s, String pekerjaanId, Map<String, dynamic> data, Map<String, dynamic> tampil) =>
       _kunci(() async {

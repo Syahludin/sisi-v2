@@ -1,5 +1,5 @@
 /**
- * v0.81.0 (permintaan kvlar 10 Okt 2026): notifikasi update app. Versi backend DITULIS DI KODE dan WAJIB sama dengan
+ * v0.81.0 (permintaan Master Guswan 10 Okt 2026): notifikasi update app. Versi backend DITULIS DI KODE dan WAJIB sama dengan
  * versi app (mobile/pubspec.yaml), dicek test. Deploy backend = server langsung memberi tahu HP lama untuk update.
  *
  * ping -> data.versi = { server, minimum, linkUnduh, catatan }. Semua jawaban proses_ juga membawa `versi` (server),
@@ -18,7 +18,7 @@
  *   APK_FOLDER_ID       v1.0.19: folder Drive berisi APK (nama memuat versi, mis. SiSi-STG-1.0.19.apk). HP yang login
  *                       memanggil getUpdateApp lalu mengunduh + memasang APK langsung dari app (tanpa unduh terpisah).
  */
-var VERSI_BACKEND_ = '1.0.34';
+var VERSI_BACKEND_ = '1.0.70';
 
 function pecahVersi_(v) {
   var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(v === null || v === undefined ? '' : v).trim());
@@ -45,10 +45,18 @@ function infoVersi_() {
 
 /** v0.81.1: HP di bawah versi minimum ditolak kalau WAJIB_VERSI_APP = YA. versiApp kosong = app lama (<= 0.80). */
 function cekVersiHp_(req, platform, nama) {
-  if (platform !== 'MOBILE' || nama === 'ping' || nama === 'getUpdateApp') return;   // v1.0.19: unduh update tetap boleh
+  if (platform !== 'MOBILE' || nama === 'ping' || nama === 'getUpdateApp' || nama === 'getUpdateAppPublik') return;   // v1.0.19: unduh update tetap boleh
   if (String(PropertiesService.getScriptProperties().getProperty('WAJIB_VERSI_APP') || '').trim().toUpperCase() !== 'YA') return;
   var v = String(req.versiApp || '');
   var b = bandingVersi_(v, infoVersi_().minimum);
+  if (b === null || b < 0) throw new SisiError_('UPDATE_APLIKASI_DULU', v || 'tanpa versi');
+}
+
+/** v1.0.56: endpoint bertanda versiMinApp hanya untuk app >= versi itu (mis. Pindah Tim Petugas semua tim). App lama tetap bisa memakai fitur lain. */
+function cekVersiFitur_(req, platform, ep) {
+  if (platform !== 'MOBILE' || !ep.versiMinApp) return;
+  var v = String(req.versiApp || '');
+  var b = bandingVersi_(v, ep.versiMinApp);
   if (b === null || b < 0) throw new SisiError_('UPDATE_APLIKASI_DULU', v || 'tanpa versi');
 }
 
@@ -73,7 +81,7 @@ function apkTerbaru_() {
   var cache = CacheService.getScriptCache();
   var c = cache.get(APK_CACHE_);
   if (c) return JSON.parse(c);
-  var id = String(PropertiesService.getScriptProperties().getProperty('APK_FOLDER_ID') || '').trim();
+  var id = propKonfig_('APK_FOLDER_ID');
   if (!id) return null;
   var it = DriveApp.getFolderById(id).getFiles(), pilih = null;
   while (it.hasNext()) {
@@ -100,9 +108,31 @@ function wajibSesiUpdate_(sesi) {
 
 function getUpdateApp_(sesi, data) {
   wajibSesiUpdate_(sesi);
+  return jawabUpdateApp_(data);
+}
+
+/** {versiApp} -> {tersedia, apk?}: APK versi tertinggi yang lebih baru dari app pemanggil. Dipakai versi bersesi dan versi publik. */
+function jawabUpdateApp_(data) {
   var versiApp = validasi_(data, { versiApp: { tipe: 'teks', maks: 20 } }).versiApp;
   var apk = apkTerbaru_();
   if (!apk) return { tersedia: false };
   var lebihBaru = !pecahVersi_(versiApp) || bandingVersi_(apk.versi, versiApp) > 0;
   return lebihBaru ? { tersedia: true, apk: apk } : { tersedia: false, versi: apk.versi };
+}
+
+/** Rem global update tanpa sesi: maks UPDATE_PUBLIK_MAKS_ panggilan per menit untuk SEMUA HP (jawabannya sudah di-cache 10 menit). */
+var UPDATE_PUBLIK_MAKS_ = 60;
+
+/**
+ * v1.0.61 (permintaan Master Guswan 5 Nov 2026): update aplikasi dari halaman LOGIN. Sama dengan getUpdateApp tetapi TANPA sesi,
+ * supaya petugas yang belum bisa login (app terlalu lama) tetap bisa mengunduh + memasang APK terbaru dari app.
+ * Yang dibuka hanya info APK (versi, ukuran, sha256, link unduh) yang memang sudah "siapa saja yang punya link"; tidak ada data SiSi.
+ */
+function getUpdateAppPublik_(sesi, data) {
+  var cache = CacheService.getScriptCache();
+  var kunci = 'rem:updpub:' + Math.floor(Date.now() / 60000);
+  var n = Number(cache.get(kunci) || 0) + 1;
+  if (n > UPDATE_PUBLIK_MAKS_) throw new SisiError_('TERLALU_SERING');
+  cache.put(kunci, String(n), 120);
+  return jawabUpdateApp_(data);
 }

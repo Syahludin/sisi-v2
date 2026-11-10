@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): animasi loading berbentuk logo SiSi, pengganti spinner bawaan
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): animasi loading berbentuk logo SiSi, pengganti spinner bawaan
 /// (CircularProgressIndicator) di seluruh aplikasi.
 ///
 /// Satu garis membentuk huruf S dengan sudut patah, digambar berurutan seperti logo SiSi:
 ///   kanan bawah (ekor atas) -> kiri atas -> kiri bawah (tengah) -> kanan bawah -> kiri bawah -> naik ke kiri atas (ekor
-///   bawah). v1.0.31 (permintaan kvlar 24 Okt 2026): ruas terakhir naik ke kiri atas supaya S utuh seperti logo (ekor atas
+///   bawah). v1.0.31 (permintaan Master Guswan 24 Okt 2026): ruas terakhir naik ke kiri atas supaya S utuh seperti logo (ekor atas
 ///   dan ekor bawah sama-sama melengkung ke dalam).
 /// Siklus: garis tumbuh dari titik awal sampai ujung (titik sudut muncul saat dilewati kepala garis), menetap sebentar,
 /// lalu terhapus dari pangkal ke ujung, berulang. HP dengan "kurangi animasi" = S utuh tanpa gerak.
@@ -30,7 +30,7 @@ class SisiLoader extends StatefulWidget {
   final bool diam;
 
   /// Titik sudut S patah dalam kotak 0..1 (urutan gambar).
-  /// v1.0.33 (permintaan kvlar 24 Okt 2026): titik atas dan titik bawah satu garis tegak (x = .5); seluruh S simetris
+  /// v1.0.33 (permintaan Master Guswan 24 Okt 2026): titik atas dan titik bawah satu garis tegak (x = .5); seluruh S simetris
   /// titik terhadap pusat (.5, .5), tiap titik punya cermin: ekor atas <-> ekor bawah, kiri <-> kanan.
   static const List<Offset> titik = [
     Offset(.80, .30), // kanan bawah (ekor atas)

@@ -72,11 +72,21 @@ function tambahBanyak_(t, daftar) {
 }
 
 /**
+ * v1.0.58: tab berkolom timestamp_update selalu dicap waktu server saat baris diubah (selisih daftar WO membacanya).
+ * Pemanggil yang mengisi timestamp_update sendiri tetap menang. Mengembalikan salinan; argumen tidak diubah.
+ */
+function capWaktuUbah_(t, perubahan) {
+  if (t.header.indexOf('timestamp_update') === -1 || Object.prototype.hasOwnProperty.call(perubahan, 'timestamp_update')) return perubahan;
+  return Object.assign({}, perubahan, { timestamp_update: sekarangIso_() });
+}
+
+/**
  * Ubah sebagian kolom satu baris, dengan cek revision (optimistic concurrency).
  * Hanya kolom yang disebut yang ditulis, bukan satu baris penuh.
  * WAJIB dipanggil di dalam denganLock_().
  */
 function ubahBaris_(t, kolomId, id, perubahan, revisionLama) {
+  perubahan = capWaktuUbah_(t, perubahan);
   var idxId = t.header.indexOf(kolomId);
   if (idxId === -1) throw new SisiError_('KOLOM_TIDAK_ADA', kolomId);
   var kunci = Object.keys(perubahan);
@@ -127,6 +137,7 @@ function tulisBlok_(t, ubah, baru, opsi) {
   if (!ubah.length && !baru.length) return;
   var lebar = t.header.length, akhir = Math.max(t.sheet.getLastRow(), 1);
   var idxRev = t.header.indexOf('revision');
+  ubah = ubah.map(function (x) { return { r: x.r, u: capWaktuUbah_(t, x.u) }; });
   ubah.forEach(function (x) {
     if (!x.r || !x.r._baris || x.r._baris < 2 || x.r._baris > akhir) throw new SisiError_('DATA_TIDAK_DITEMUKAN', t.nama);
     Object.keys(x.u).forEach(function (k) {

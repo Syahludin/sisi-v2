@@ -2,7 +2,7 @@
   "name": "sisi-v2",
   "private": true,
   "scripts": {
-    "test": "node --test tests/backend.test.js",
+    "test": "node --test tests/backend.test.js tests/asetItb.test.js tests/gudang.test.js tests/gudangAdmin.test.js tests/gudangYandal.test.js tests/gudangPemakaian.test.js tests/gudangSelisih.test.js tests/gudangFoto.test.js tests/ukur.test.js tests/gudangMerk.test.js tests/gudangKeperluan.test.js tests/tiangMaster.test.js tests/masterSwitching.test.js tests/tiangItb.test.js tests/verifikasiTiang.test.js tests/masterJaringan.test.js",
     "test:web": "npm --prefix web test",
     "build:web": "npm --prefix web run build",
     "push:staging": "npm --prefix backend run push:staging",

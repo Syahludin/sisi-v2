@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/api_client.dart';
 import '../../core/deps.dart';
@@ -13,17 +17,22 @@ import '../insjar/insjar_header.dart';
 import 'wo_bantu.dart';
 import 'wo_foto_server.dart';
 import 'wo_penerusan.dart';
+import 'wo_selisih.dart';
+import 'wo_pilih_tim.dart';
+import 'wo_sinkron.dart';
+import 'wo_teruskan.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.11 (permintaan kvlar 21 Okt 2026): Penerusan WO Temuan untuk admin (menu OPS_PENERUSAN_WO).
+/// v1.0.11 (permintaan Master Guswan 21 Okt 2026): Penerusan WO Temuan untuk admin (menu OPS_PENERUSAN_WO).
 /// Temuan inspeksi (petugas Inspeksi Jaringan / Gardu dan admin) diteruskan ke tim ROW / HARTEK / YANDAL yang aktif.
 /// Selama WO masih Terkirim, admin boleh memindah ke tim lain atau menarik kembali. Sesudah tim klik Mulai kerjakan,
 /// WO terkunci (server menolak WO_SUDAH_DIMULAI). WO Selesai menampilkan tindak lanjut + rincian pekerjaan tim.
 /// v1.0.15: foto temuan / tiang dimuat dari server (getFotoWoAdmin), filter penyulang / tanggal / tim inspeksi.
-/// v1.0.16 (kvlar 22 Okt 2026): daftar = kartu ringkas temuan (ketuk = detail lengkap WO + foto pekerjaan tim);
+/// v1.0.16 (Master Guswan 22 Okt 2026): daftar = kartu ringkas temuan (ketuk = detail lengkap WO + foto pekerjaan tim);
 /// teruskan / pindah / tarik diproses di latar (PenerusanWo), WO langsung hilang dari daftar. Daftar awal = Baru.
-/// v1.0.18 (permintaan kvlar 22 Okt 2026): pindah + tarik WO terkirim pindah ke menu Pindah Tim TO ([pindah] = true:
+/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): pindah + tarik WO terkirim pindah ke menu Pindah Tim TO ([pindah] = true:
 /// daftar WO Terkirim saja, endpoint getWoPindah / pindahWo / tarikWo). Di Penerusan WO tab Terkirim hanya untuk dilihat.
 class WoAdminScreen extends StatefulWidget {
   const WoAdminScreen({super.key, required this.deps, required this.sesi, this.pindah = false});
@@ -56,6 +65,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
   Map<String, dynamic>? _data;
   String? _galat;
   bool _muat = false;
+  int? _waktuSimpan; // v1.0.47: _data dari simpanan HP (ms waktu simpan); null = segar dari server
 
   Sesi get _sesi => widget.sesi;
   PenerusanWo get _antre => PenerusanWo.i;
@@ -71,6 +81,10 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
   void initState() {
     super.initState();
     _antre.addListener(_dengar);
+    // v1.0.47: kiriman yang belum terkirim sebelum app ditutup dilanjutkan (akun yang sama)
+    unawaited(_antre.pulihkan(_sesi.userId, (aksi, data) => _api(aksi, data), selesai: (ok) {
+      if (ok && mounted) unawaited(_segarkan(diam: true));
+    }));
     unawaited(_segarkan());
   }
 
@@ -92,103 +106,82 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
 
   void _pesan(String p) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(p), duration: const Duration(seconds: 2)));
 
+  /// v1.0.58: kunci simpanan HP = akun + layar + rentang tanggal (status, penyulang, tim inspeksi disaring di HP).
+  String get _kunciSimpan {
+    final r = _rentang;
+    return [_sesi.userId, _pindah ? 'pindah' : 'admin', if (r != null) tanggalIsoWo(r.start), if (r != null) tanggalIsoWo(r.end)].join('|');
+  }
+
+  String get _pesanOffline {
+    final w = _waktuSimpan;
+    return w == null || w <= 0 ? 'Offline: menampilkan data tersimpan.' : 'Offline: menampilkan data tersimpan ${waktuSimpanWo(DateTime.fromMillisecondsSinceEpoch(w), DateTime.now())}.';
+  }
+
   /// [diam] = muat ulang tanpa menampilkan galat (sesudah penerusan di latar berhasil).
-  Future<void> _segarkan({bool diam = false}) async {
+  /// v1.0.58: daftar lengkap tersimpan di HP; tampil dulu, lalu unduhan penuh (pembukaan pertama di peluncuran app ini,
+  /// atau [penuh] = tarik / tombol muat ulang) atau hanya selisih (sinkronDaftarWo). Gagal = tetap data tersimpan.
+  Future<void> _segarkan({bool diam = false, bool penuh = false}) async {
     if (_muat) return;
     setState(() {
       _muat = true;
       if (!diam) _galat = null;
     });
+    final kunci = _kunciSimpan;
     try {
       final r = _rentang;
-      final d = await _api(_pindah ? 'getWoPindah' : 'getWoAdmin', {
-        if (!_pindah) 'status': _status,
-        if (r != null) 'dari': tanggalIsoWo(r.start),
-        if (r != null) 'sampai': tanggalIsoWo(r.end),
-      });
-      if (mounted) setState(() => _data = d);
+      final h = await sinkronDaftarWo(
+        kunci: kunci,
+        aksi: _pindah ? 'getWoPindah' : 'getWoAdmin',
+        param: {if (r != null) 'dari': tanggalIsoWo(r.start), if (r != null) 'sampai': tanggalIsoWo(r.end)},
+        api: _api,
+        paksaPenuh: penuh,
+        tampilLokal: (d, waktu) {
+          if (mounted && _data == null && kunci == _kunciSimpan) {
+            setState(() {
+              _data = d;
+              _waktuSimpan = waktu;
+            });
+          }
+        },
+      );
+      if (mounted && kunci == _kunciSimpan) {
+        setState(() {
+          _data = h.data;
+          _waktuSimpan = h.gagal ? h.waktuLokal : null;
+          if (h.gagal && !diam) _galat = _pesanOffline;
+        });
+      }
       _antre.bersihkanSelesai();
+      // foto temuan kartu disimpan di HP selagi ada sinyal (tampil saat offline)
+      unawaited(FotoServerWo.praMuat(_muatFoto, [
+        for (final t in saringStatusWo(daftarWo(h.data['temuan']), _pindah ? 'TERKIRIM' : _status))
+          if (teksWo(petaWo(t['foto'])['TEMUAN']).isNotEmpty) {'temuanId': teksWo(t['temuanId']), 'slot': 'TEMUAN'},
+      ]));
     } on ApiException catch (e) {
-      if (mounted && !diam) setState(() => _galat = e.kode.startsWith('HTTP_') ? 'Butuh sinyal untuk memuat WO.' : pesanWo(e.kode));
+      final sinyal = e.kode.startsWith('HTTP_');
+      if (mounted && !diam) setState(() => _galat = sinyal ? (_data != null ? _pesanOffline : 'Butuh sinyal untuk memuat WO.') : pesanWo(e.kode));
     } catch (_) {
-      if (mounted && !diam) setState(() => _galat = 'Butuh sinyal untuk memuat WO.');
+      if (mounted && !diam) setState(() => _galat = _data != null ? _pesanOffline : 'Butuh sinyal untuk memuat WO.');
     } finally {
       if (mounted) setState(() => _muat = false);
     }
   }
 
+  /// Tarik layar / tombol muat ulang = unduhan penuh (menangkap temuan yang hilang di server).
   Future<void> _segarkanPaksa() async {
+    _muat = false;
+    await _segarkan(penuh: true);
+  }
+
+  /// Rentang tanggal berubah = kunci simpanan lain: tampil dari simpanan rentang itu + selisih (bukan unduhan penuh paksa).
+  Future<void> _segarkanUlang() async {
     _muat = false;
     await _segarkan();
   }
 
   int _rev(Map<String, dynamic> t) => num.tryParse(teksWo(t['revision']))?.toInt() ?? 1;
 
-  /// Pilih tim tujuan + catatan. Hasil (timId, catatan) atau null = batal.
-  Future<(String, String)?> _pilihTim(Map<String, dynamic> t) {
-    final wo = petaWo(t['wo']);
-    var pilih = teksWo(wo['timId']);
-    final catatan = TextEditingController(text: teksWo(wo['catatanAdmin']));
-    final grup = <String, List<Map<String, dynamic>>>{};
-    for (final x in _tim) {
-      grup.putIfAbsent(teksWo(x['jenis']), () => []).add(x);
-    }
-    return showModalBottomSheet<(String, String)>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (c) => StatefulBuilder(
-        builder: (c, setSheet) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(c).bottom),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * .85),
-            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
-              Text(teksWo(wo['status']) == StatusWo.terkirim ? 'Pindah WO ke tim lain' : 'Teruskan WO ke tim',
-                  style: HartekGaya.judulSeksi),
-              const SizedBox(height: 4),
-              Text('${teksWo(t['kodeTemuan'])} · ${teksWo(t['jenisTemuan'])}\n${lokasiTemuanWo(t)}', style: HartekGaya.sekunder),
-              if (_tim.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Text('Belum ada tim ROW / Hartek / Yandal yang aktif di db_Tim.', style: HartekGaya.sekunder),
-                ),
-              for (final g in grup.entries) ...[
-                const SizedBox(height: 14),
-                Text(g.key == 'ROW' ? 'Tim ROW' : g.key == 'HARTEK' ? 'Tim Hartek' : g.key == 'YANDAL' ? 'Tim Yandal' : g.key,
-                    style: const TextStyle(fontSize: 11.5, letterSpacing: 1, fontWeight: FontWeight.w900, color: AppColors.cyan600)),
-                for (final x in g.value)
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                    leading: Icon(pilih == teksWo(x['timId']) ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                        color: pilih == teksWo(x['timId']) ? HartekGaya.merek : AppColors.neutral400),
-                    title: Text(teksWo(x['nama']), style: const TextStyle(fontWeight: FontWeight.w700)), // v1.0.15: tanpa kode tim
-                    onTap: () => setSheet(() => pilih = teksWo(x['timId'])),
-                  ),
-              ],
-              const SizedBox(height: 12),
-              TextField(
-                controller: catatan,
-                onChanged: (_) => setSheet(() {}),
-                maxLength: 300,
-                maxLines: 3,
-                minLines: 1,
-                decoration: const InputDecoration(labelText: 'Catatan untuk tim (opsional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: pilih.isEmpty || (pilih == teksWo(wo['timId']) && catatan.text.trim() == teksWo(wo['catatanAdmin']))
-                    ? null
-                    : () => Navigator.pop(c, (pilih, catatan.text.trim())),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                icon: const Icon(Icons.send_rounded),
-                label: const Text('Kirim WO'),
-              ),
-            ]),
-          ),
-        ),
-      ),
-    ).whenComplete(() => Future<void>.delayed(const Duration(milliseconds: 500), catatan.dispose)); // tunggu animasi tutup
-  }
+  Future<(String, String)?> _pilihTim(Map<String, dynamic> t) => pilihTimWo(context, temuan: t, tim: _tim);
 
   /// v1.0.16: teruskan / pindah di latar. WO langsung hilang dari daftar. Hasil true = masuk antrean.
   Future<bool> _teruskan(Map<String, dynamic> t) async {
@@ -196,17 +189,20 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
     final p = await _pilihTim(t);
     if (p == null || !mounted) return false;
     final nama = teksWo(_tim.where((x) => teksWo(x['timId']) == p.$1).map((x) => x['nama']).firstOrNull);
-    final id = teksWo(t['temuanId']), rev = _rev(t);
-    _antre.tambah(ItemPenerusanWo(
-      temuanId: id,
-      kode: teksWo(t['kodeTemuan']),
-      judul: _pindah ? 'Dipindah ke $nama' : 'Diteruskan ke $nama',
-      kirim: () => _api(_pindah ? 'pindahWo' : 'teruskanWo', {'temuanId': id, 'timId': p.$1, if (p.$2.isNotEmpty) 'catatan': p.$2, 'revision': rev}),
+    teruskanWoKeAntre(
+      userId: _sesi.userId,
+      api: _api,
+      temuan: t,
+      timId: p.$1,
+      namaTim: nama,
+      catatan: p.$2,
+      pindah: _pindah,
       selesai: (ok) {
         if (ok && mounted) unawaited(_segarkan(diam: true));
       },
-    ));
-    _pesan('Proses Kirim WO'); // v1.0.21: progres kirim tampil di kartu atas daftar
+    );
+    // v1.0.58: kirim di latar tanpa chip proses; hanya kartu berhasil (gagal tetap tampil sebagai kartu galat di atas daftar)
+    unawaited(tampilPopupBerhasil(context, judul: 'Data berhasil disimpan', keterangan: keteranganKirimWo(teksWo(t['kodeTemuan']), nama, pindah: _pindah), tembus: true));
     return true;
   }
 
@@ -229,12 +225,16 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
       temuanId: id,
       kode: teksWo(t['kodeTemuan']),
       judul: 'Ditarik dari ${teksWo(petaWo(t['wo'])['tim'])}',
+      aksi: 'tarikWo',
+      data: {'temuanId': id, 'revision': rev},
+      userId: _sesi.userId,
       kirim: () => _api('tarikWo', {'temuanId': id, 'revision': rev}),
       selesai: (ok) {
         if (ok && mounted) unawaited(_segarkan(diam: true));
       },
     ));
-    _pesan('Proses Tarik WO');
+    unawaited(tampilPopupBerhasil(context,
+        judul: 'Data berhasil disimpan', keterangan: keteranganKirimWo(teksWo(t['kodeTemuan']), teksWo(petaWo(t['wo'])['tim']), ditarik: true), tembus: true));
     return true;
   }
 
@@ -347,6 +347,33 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
         builder: (ctx) => Scaffold(backgroundColor: HartekGaya.latar, body: SafeArea(child: _isiDetail(ctx, t))),
       ));
 
+  /// v1.0.48: Kirim WA format v1. Foto temuan dilampirkan sebagai gambar (Drive privat: link tidak terbuka penerima).
+  /// Offline = thumbnail yang tersimpan di HP; tanpa foto = teks saja (baris Foto Temuan berisi link / '-').
+  Future<void> _kirimWa(Map<String, dynamic> t) async {
+    final id = teksWo(t['temuanId']);
+    String? path;
+    if (teksWo(petaWo(t['foto'])['TEMUAN']).isNotEmpty) {
+      _pesan('Menyiapkan foto temuan...');
+      final data = {'temuanId': id, 'slot': 'TEMUAN'};
+      try {
+        path = await FotoServerWo.penuh(_muatFoto, data);
+      } catch (_) {
+        try {
+          final b = await FotoServerWo.kecil(_muatFoto, data);
+          final f = File(p.join((await getTemporaryDirectory()).path, 'wa_temuan_${id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}.jpg'));
+          await f.writeAsBytes(b, flush: true);
+          path = f.path;
+        } catch (_) {/* tanpa foto */}
+      }
+    }
+    final teks = teksWaTemuanWo(t, fotoTerlampir: path != null);
+    if (path != null) {
+      await Share.shareXFiles([XFile(path, mimeType: 'image/jpeg')], text: teks, subject: teksWo(t['kodeTemuan']));
+    } else {
+      await Share.share(teks, subject: teksWo(t['kodeTemuan']));
+    }
+  }
+
   Widget _baris(String label, String nilai) => Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -391,6 +418,14 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
               if (teksWo(t['tanggal']).isNotEmpty) _baris('Tanggal temuan', teksWo(t['tanggal'])),
               if (teksWo(t['deskripsi']).isNotEmpty) _baris('Deskripsi', teksWo(t['deskripsi'])),
               FotoTemuanWo(t: t, muat: _muatFoto),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1FA855), side: const BorderSide(color: Color(0xFF1FA855)), minimumSize: const Size.fromHeight(44)),
+                onPressed: () => unawaited(_kirimWa(t)),
+                icon: const Icon(Icons.forum_rounded),
+                label: const Text('Kirim WA'),
+              ),
             ]),
           ),
           const SizedBox(height: 12),
@@ -488,23 +523,10 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
   // ---------- antrean latar ----------
 
   Widget _barisAntre() {
-    final proses = _antre.jumlahProses;
     final gagal = _antre.daftarGagal;
-    if (proses == 0 && gagal.isEmpty) return const SizedBox.shrink();
+    // v1.0.58: item yang sedang diproses / menunggu sinyal tidak lagi ditandai (kartu berhasil sudah muncul saat dikirim); hanya gagal
+    if (gagal.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (proses > 0)
-        Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.brand100, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
-            const SisiLoader(ukuran: 18),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text('$proses WO Sedang Proses Kirim ke Tim', // v1.0.17
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HartekGaya.merek))),
-          ]),
-        ),
       for (final x in gagal)
         Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -538,11 +560,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
         onSelected: _muat
             ? null
             : (_) {
-                setState(() {
-                  _status = kode;
-                  _data = null;
-                });
-                unawaited(_segarkanPaksa());
+                setState(() => _status = kode); // v1.0.58: status disaring di HP, tanpa memanggil server
               },
       ),
     );
@@ -590,7 +608,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
       _rentang = r;
       _data = null;
     });
-    unawaited(_segarkanPaksa());
+    unawaited(_segarkanUlang());
   }
 
   void _hapusRentang() {
@@ -598,7 +616,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
       _rentang = null;
       _data = null;
     });
-    unawaited(_segarkanPaksa());
+    unawaited(_segarkanUlang());
   }
 
   void _resetFilter() {
@@ -609,7 +627,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
       _rentang = null;
       if (ulang) _data = null;
     });
-    if (ulang) unawaited(_segarkanPaksa());
+    if (ulang) unawaited(_segarkanUlang());
   }
 
   Widget _chipFilter(IconData ikon, String judul, String? nilai, VoidCallback? onTap, VoidCallback onHapus) => Padding(
@@ -653,7 +671,7 @@ class _WoAdminScreenState extends State<WoAdminScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final semua = daftarWo(_data?['temuan']);
+    final semua = saringStatusWo(daftarWo(_data?['temuan']), _pindah ? StatusWo.terkirim : _status);
     final sembunyi = _antre.disembunyikan;
     final tampil = semua
         .where((t) =>

@@ -1,7 +1,7 @@
 name: sisi_row
 description: SiSi ULP Toboali (offline first).
 publish_to: none
-version: 1.0.34+208
+version: 1.0.70+244
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -32,6 +32,8 @@ dependencies:
   firebase_messaging: ^15.1.3
   flutter_foreground_task: ">=8.14.0 <9.0.0" # v1.0.12: layanan sinkron latar (Android foreground service dataSync), jangan naik ke 9.x tanpa cek API
   open_filex: ^5.0.0
+  flutter_map: ^8.3.2 # 1.0.63: peta Master Switching (OpenStreetMap / Esri satelit, gratis tanpa API key)
+  latlong2: ^0.10.1 # 1.0.63: koordinat untuk flutter_map
 
 dev_dependencies:
   flutter_test:

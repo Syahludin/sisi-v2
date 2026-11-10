@@ -2,10 +2,11 @@
 # Pakai (dari root repo):
 #   powershell -ExecutionPolicy Bypass -File scripts\build-rilis.ps1                    # staging
 #   powershell -ExecutionPolicy Bypass -File scripts\build-rilis.ps1 -Target production
+#   powershell -ExecutionPolicy Bypass -File scripts\build-rilis.ps1 -Target ulpmentok    # v1.0.50 APK ULP Mentok
 #   powershell -ExecutionPolicy Bypass -File scripts\build-rilis.ps1 -Pasang            # + adb install -r ke semua HP
 # Production WAJIB pakai flavor (paket beda dengan staging); staging boleh tanpa flavor.
 param(
-  [ValidateSet("staging", "production")][string]$Target = "staging",
+  [ValidateSet("staging", "production", "ulpmentok")][string]$Target = "staging",
   [switch]$Pasang
 )
 $ErrorActionPreference = "Stop"
@@ -85,7 +86,7 @@ if (-not (Test-Path (Join-Path $mobile $envFile))) { throw "mobile/$envFile belu
 $g = Get-Content $gradle -Raw
 if ($g -notmatch 'signingConfigs\.getByName\("release"\)') { throw "build.gradle.kts belum memakai signingConfig release (mobile\README.md bagian Keystore rilis)." }
 $adaFlavor = $g -match 'create\("production"\)'
-if ($Target -eq "production" -and -not $adaFlavor) { throw "Flavor belum dipasang: APK production akan sepaket dengan staging. Pasang flavor dulu (mobile\README.md bagian Flavor Android)." }
+if ($Target -ne "staging" -and -not ($g -match "create\(`"$Target`"\)")) { throw "Flavor belum dipasang: APK production akan sepaket dengan staging. Pasang flavor dulu (mobile\README.md bagian Flavor Android)." }
 
 $props = @{}
 Get-Content $keyProps | Where-Object { $_ -match '^\s*([^#=]+?)\s*=(.*)$' } | ForEach-Object { $props[$Matches[1]] = $Matches[2] }

@@ -6,9 +6,13 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#102A36" />
     <title>SiSi · Panel Admin</title>
-    <link rel="icon" type="image/png" href="./img/logo-sisi.png" />
+    <!-- v1.0.36: alamat relatif (config.js, img/) dihitung dari folder web, aman di alamat halaman bertingkat -->
+    <base href="%BASE_URL%" />
+    <link rel="icon" type="image/png" href="img/logo-sisi.png" />
     <!-- Alamat backend (Apps Script /exec) di luar bundel: ganti staging / production cukup lewat File Manager Hostinger. -->
-    <script src="./config.js"></script>
+    <script src="config.js"></script>
+    <!-- tema terang/gelap dipasang sebelum cat pertama (logikanya sama dengan src/tema.js) -->
+    <script>try{var p=localStorage.getItem("sisi.web.tema");document.documentElement.setAttribute("data-tema",p==="terang"||p==="gelap"?p:(matchMedia("(prefers-color-scheme: dark)").matches?"gelap":"terang"))}catch(e){document.documentElement.setAttribute("data-tema","terang")}</script>
   </head>
   <body>
     <div id="root"></div>

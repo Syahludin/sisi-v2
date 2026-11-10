@@ -2,10 +2,12 @@ node_modules/
 backend/.clasp.json
 backend/.clasp.staging.json
 backend/.clasp.production.json
+backend/.clasp.ulpmentok.json
 backend/.deploy.json
 .clasprc.json
 mobile/env/staging.json
 mobile/env/production.json
+mobile/env/ulpmentok.json
 *.keystore
 *.jks
 key.properties

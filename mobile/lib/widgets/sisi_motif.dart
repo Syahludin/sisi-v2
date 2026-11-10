@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// v1.0.18 (permintaan kvlar 22 Okt 2026): identitas visual "Jaringan SiSi". Latar teal SiSi bergradien dengan motif
+/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): identitas visual "Jaringan SiSi". Latar teal SiSi bergradien dengan motif
 /// tiang + kawat jaringan distribusi yang samar (pekerjaan sehari-hari tim lapangan), aksen kuning PLN dipakai hemat
 /// untuk penanda judul dan angka penting. Dipakai header semua layar (HeaderInsJar, sisiAppBar), hero Beranda,
 /// dan kartu ringkasan angka.

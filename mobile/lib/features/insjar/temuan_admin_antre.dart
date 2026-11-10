@@ -11,7 +11,7 @@ import '../hartek/hartek_store.dart' show GudangHartek;
 import 'insjar_store.dart' show pesanInsJar;
 import 'temuan_offline.dart';
 
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): temuan inspeksi yang diinput admin (menu Temuan Inspeksi) tidak lagi menunggu
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): temuan inspeksi yang diinput admin (menu Temuan Inspeksi) tidak lagi menunggu
 /// server. Simpan = form langsung tertutup, temuan masuk daftar HP dan antrean ini, lalu dikirim di latar
 /// (simpanTemuanInspeksi, lalu uploadFotoTemuanInspeksi per foto). Tidak ada chip / pesan kirim.
 ///

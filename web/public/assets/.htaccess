@@ -1,0 +1,5 @@
+# v1.0.36: berkas build bernama hash (index-abc123.js) tidak pernah berubah isinya: disimpan browser 1 tahun.
+# Rilis baru = nama berkas baru (index.html selalu diambil baru), jadi tidak ada versi lama yang tersangkut.
+<IfModule mod_headers.c>
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>

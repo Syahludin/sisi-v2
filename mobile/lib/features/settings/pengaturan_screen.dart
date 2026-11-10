@@ -19,7 +19,7 @@ import 'ganti_password_screen.dart';
 import '../../widgets/sisi_loader.dart';
 
 /// Pengaturan: kartu akun, Master Data, Keluar dari Akun. Sinkron data hanya di Beranda.
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): desain ulang (kartu profil Jaringan SiSi, seksi Data & Master / Keamanan Akun /
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): desain ulang (kartu profil Jaringan SiSi, seksi Data & Master / Keamanan Akun /
 /// Aplikasi, tombol keluar jelas). Fitur tidak berubah.
 /// Logout ditolak selama outbox masih berisi data (PRD F-AUTH, Alur logout).
 class PengaturanScreen extends StatefulWidget {
@@ -165,7 +165,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
   }
 }
 
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): kartu profil Pengaturan bergaya Jaringan SiSi: inisial dalam lingkaran
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): kartu profil Pengaturan bergaya Jaringan SiSi: inisial dalam lingkaran
 /// bercincin kuning, nama, username, role / tim / ULP, status online + data belum terkirim.
 class _KartuProfil extends StatelessWidget {
   const _KartuProfil({required this.sesi, required this.online, required this.belumTerkirim});

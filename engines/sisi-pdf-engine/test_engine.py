@@ -56,6 +56,8 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("pengoperasian-trafo", r.get_json()["jenis"])
         self.assertIn("penggantian-trafo", r.get_json()["jenis"])
+        self.assertIn("pemeriksaan-trafo", r.get_json()["jenis"])
+        self.assertIn("switching", r.get_json()["jenis"])
 
     def test_tanda_salah_kedaluwarsa_tanpa_tanda(self):
         self.assertEqual(self.kirim("/v2/cek", {}, ubah_tanda=True).get_json()["kode"], "TANDA_SALAH")
@@ -79,7 +81,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(self.kirim(p, {"versi": 1, "data": {}, "foto": {"SLD": jpeg_b64()}}).get_json()["kode"], "FORMAT_SALAH")
         self.assertEqual(self.kirim(p, {"versi": 1, "data": {"a": "x" * 3000}}).get_json()["kode"], "FORMAT_SALAH")
         self.assertEqual(self.kirim(p, {"versi": 1, "data": {"a": {"b": 1}}}).get_json()["kode"], "FORMAT_SALAH")
-        self.assertEqual(self.kirim("/v2/ba/pemeriksaan-trafo", {"versi": 1, "data": {}}).get_json()["kode"], "JENIS_TIDAK_ADA")
+        self.assertEqual(self.kirim("/v2/ba/pembongkaran-trafo", {"versi": 1, "data": {}}).get_json()["kode"], "JENIS_TIDAK_ADA")
 
     def test_render_penggantian(self):
         data = {
@@ -101,6 +103,33 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(r.mimetype, "application/pdf")
         self.assertTrue(r.data.startswith(b"%PDF"))
         self.assertEqual(r.data.count(b"/Type /Page\n") + r.data.count(b"/Type /Page "), 2)
+
+    def test_render_pemeriksaan(self):
+        data = {**DATA, "jenisPekerjaan": "Pemeriksaan Trafo",
+                "kesimpulan": "Tahanan isolasi baik, trafo layak operasi. " * 6, "catatan": "Megger 5 kV"}
+        halaman = lambda b: b.count(b"/Type /Page" + bytes([10])) + b.count(b"/Type /Page ")
+        r = self.kirim("/v2/ba/pemeriksaan-trafo", {"versi": 1, "idBa": data["nomorBA"], "data": data,
+                                                    "foto": {"LAMPIRAN_1": jpeg_b64(), "LAMPIRAN_4": jpeg_b64(900, 1600), "LAMPIRAN_6": jpeg_b64()}})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertTrue(r.data.startswith(b"%PDF"))
+        self.assertEqual(halaman(r.data), 2)
+        # tanpa lampiran = 1 halaman (sama v1)
+        r = self.kirim("/v2/ba/pemeriksaan-trafo", {"versi": 1, "idBa": data["nomorBA"], "data": data, "foto": {}})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(halaman(r.data), 1)
+
+    def test_render_switching(self):
+        halaman = lambda b: b.count(b"/Type /Page" + bytes([10])) + b.count(b"/Type /Page ")
+        sw = {**DATA, "jenisPekerjaan": "Pengoperasian Switching", "jenisSwitching": "LBS Motorized", "namaSwitching": "LBS SPBU Bukit",
+              "tipe": "RL27", "keteranganTambahan": "Uji fungsi baik"}
+        foto = {"KONSTRUKSI": jpeg_b64(), "SLD_SEBELUM": jpeg_b64(), "SLD_SESUDAH": jpeg_b64(900, 1600)}
+        r = self.kirim("/v2/ba/switching", {"versi": 1, "idBa": sw["nomorBA"], "data": sw, "foto": foto})
+        self.assertEqual(r.status_code, 200, r.data[:300])
+        self.assertEqual(halaman(r.data), 2)
+        ganti = {**sw, "jenisPekerjaan": "Penggantian Switching", "jenisSwitchingSesudah": "Recloser", "namaSwitchingSesudah": "REC Bukit",
+                 "asalSwitching": "Gudang UP3"}
+        r = self.kirim("/v2/ba/switching", {"versi": 1, "idBa": sw["nomorBA"], "data": ganti, "foto": {**foto, "KONSTRUKSI_SESUDAH": jpeg_b64()}})
+        self.assertEqual(r.status_code, 200, r.data[:300])
 
     def test_foto_rusak_jadi_placeholder(self):
         r = self.kirim("/v2/ba/pengoperasian-trafo",

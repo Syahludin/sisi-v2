@@ -224,7 +224,7 @@ class SisiKosong extends StatelessWidget {
 }
 
 /// Tombol refresh kanan atas app bar ROW (v0.49): spinner putih selama berjalan.
-/// v1.0.22 (permintaan kvlar 23 Okt 2026): tombol refresh berlogo SiSi. Diam = logo S utuh (bukan panah melingkar);
+/// v1.0.22 (permintaan Master Guswan 23 Okt 2026): tombol refresh berlogo SiSi. Diam = logo S utuh (bukan panah melingkar);
 /// diketuk = logo bergerak sampai [onPressed] selesai. Hanya SATU loading yang bergerak: [sibuk] (loading halaman saat
 /// masuk / tarik-untuk-refresh / sinkron otomatis) = tombol nonaktif dan logonya diam, loading halaman yang tampil.
 /// [onPressed] sebaiknya mengembalikan Future supaya logo bergerak selama refresh berjalan.
@@ -283,7 +283,7 @@ void tampilPesan(BuildContext context, String pesan) {
     ..showSnackBar(SnackBar(content: Text(pesan)));
 }
 
-/// v1.0.31 (permintaan kvlar 24 Okt 2026): kolom wajib yang kosong = tidak bisa disimpan. Validasi Form (kolom salah jadi
+/// v1.0.31 (permintaan Master Guswan 24 Okt 2026): kolom wajib yang kosong = tidak bisa disimpan. Validasi Form (kolom salah jadi
 /// merah), lalu gulir ke kolom pertama yang salah. true = semua benar.
 bool validasiForm(GlobalKey<FormState> kunci) {
   final st = kunci.currentState;

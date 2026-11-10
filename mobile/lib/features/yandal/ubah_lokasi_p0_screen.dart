@@ -11,7 +11,7 @@ import 'lokasi_p0.dart';
 import 'p0_model.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.66.4 (keputusan kvlar 9 Okt 2026): edit penyulang / section / daerah P0 kalau salah pilih.
+/// v0.66.4 (keputusan Master Guswan 9 Okt 2026): edit penyulang / section / daerah P0 kalau salah pilih.
 /// Boleh selama P0 belum selesai di shift berjalan; Pengecekan Switching hanya sebelum data switching disimpan
 /// dan section tetap wajib LBS / ACR. Hasil = P0 baru (pop), dikirim ulang ke server saat sync.
 class UbahLokasiP0Screen extends StatefulWidget {

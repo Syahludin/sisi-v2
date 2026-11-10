@@ -233,6 +233,28 @@ void main() {
     expect(x.panggil.last, 'ubahRealisasiInsDu');
   });
 
+  test('v1.0.38 insdu: koreksi kapasitas / merk trafo ikut kiriman + tampil di HP; tanpa koreksi = tidak dikirim', () async {
+    final x = _konteks();
+    await x.store.buatHeader(_sesi, const {});
+    final ra = await x.store.tambahGardu(_sesi, 'gd-a', 'Tier 1', const {'noGardu': 'TB0101', 'kapasitasKva': 100, 'merkTrafo': 'Trafindo'},
+        kapasitasKva: 200, merkTrafo: 'Sintra');
+    final rb = await x.store.tambahGardu(_sesi, 'gd-b', 'Tier 1', const {'noGardu': 'TB0102', 'kapasitasKva': 50});
+    var d = await x.store.doc(_sesi);
+    expect([InsDuLokal.realisasi(d, ra)!['kapasitasKva'], InsDuLokal.realisasi(d, ra)!['merkTrafo']], [200, 'Sintra']);
+    final opA = x.gudang.antre.firstWhere((o) => o.target == ra), opB = x.gudang.antre.firstWhere((o) => o.target == rb);
+    expect([opA.data['kapasitasKva'], opA.data['merkTrafo']], [200, 'Sintra']);
+    expect([opB.data.containsKey('kapasitasKva'), opB.data.containsKey('merkTrafo')], [false, false], reason: 'nilai master tidak dikirim ulang');
+    // pengukuran memakai kapasitas koreksi (kVA sama, persen = kVA / 200)
+    await x.store.simpanUkur(_sesi, ra, 'LWBP', _nilai, cover: _cover);
+    d = await x.store.doc(_sesi);
+    expect((InsDuLokal.realisasi(d, ra)!['pengukuran'] as Map)['lwbp']['persen'], closeTo(24.04, 0.01));
+    // sesudah diterima server: koreksi kapasitas = antrean ubahRealisasi berisi kapasitasKva
+    await x.store.kirim(_sesi);
+    await x.store.ubahGardu(_sesi, ra, 'Tier 1', kapasitasKva: 160);
+    final op = x.gudang.antre.single;
+    expect([op.aksi, op.data['kapasitasKva'], op.data.containsKey('merkTrafo')], ['ubahRealisasi', 160, false]);
+  });
+
   test('v1.0.14 insdu: teks WA per penyulang, data PHB-TR dari master, Tier 2 tanpa baris beban, Nihil', () {
     final g = GarduInsDu(const {'garduId': 'gd-a', 'noGardu': 'TB0101', 'merkPhb': 'Schneider', 'seriPhb': 'S-1', 'tahunPhb': '2020'});
     final teks = waTeksInsDu(

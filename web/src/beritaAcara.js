@@ -18,16 +18,33 @@ export const JENIS_BA = {
   TRAFO: ['Pengoperasian Trafo', 'Penggantian Trafo', 'Pemeriksaan Trafo', 'Pembongkaran Sementara Trafo', 'Pembongkaran Trafo'],
   SWITCHING: ['Pengoperasian Switching', 'Penggantian Switching', 'Relokasi Switching', 'Pemeriksaan Switching', 'Kerusakan Switching'],
 };
-/** Jenis yang punya form, PDF, dan Update Master di v2 (BA_JENIS_SIAP_ server). */
-export const JENIS_BA_SIAP = ['Pengoperasian Trafo', 'Penggantian Trafo'];
-export const SUMBER_BA = [['SEMUA', 'Semua (v2 + arsip v1)'], ['V2', 'SiSi v2'], ['V1', 'Arsip v1']];
+/** Jenis yang punya form + PDF di v2 (BA_JENIS_SIAP_ server). */
+export const JENIS_BA_SIAP = ['Pengoperasian Trafo', 'Penggantian Trafo', 'Pemeriksaan Trafo', ...JENIS_BA.SWITCHING];   // v1.0.49 + switching
+/** v1.0.46: jenis yang mengubah Master Gardu + punya teks EAM v1 (BA_JENIS_MASTER_ server). Pemeriksaan tidak. */
+export const JENIS_BA_MASTER = ['Pengoperasian Trafo', 'Penggantian Trafo'];
 export const BATAS_HALAMAN_BA = 100;
 /** Slot foto per jenis (BA_SLOT_FOTO_ server): label tampil. */
 export const SLOT_FOTO_BA = {
   'Pengoperasian Trafo': [['NAMEPLATE', 'Nameplate Trafo'], ['FULL_GARDU', 'Foto Full Gardu'], ['NAMEPLATE_PHB', 'Nameplate PHB-TR'], ['BOX_PHB', 'Box PHB-TR']],
   'Penggantian Trafo': [['NAMEPLATE', 'Nameplate Trafo Sebelum'], ['NAMEPLATE_SESUDAH', 'Nameplate Trafo Sesudah'], ['FULL_GARDU', 'Konstruksi Trafo Sebelum'],
     ['FULL_GARDU_SESUDAH', 'Konstruksi Trafo Sesudah'], ['NAMEPLATE_PHB_SESUDAH', 'Nameplate PHB-TR Sesudah'], ['BOX_PHB_SESUDAH', 'Box PHB-TR Sesudah']],
+  'Pemeriksaan Trafo': [1, 2, 3, 4, 5, 6].map((n) => ['LAMPIRAN_' + n, 'Lampiran ' + n]),
 };
+/** v1.0.49: BA Switching yang punya data sesudah (Penggantian / Relokasi) dan keterangan kerusakan (Pemeriksaan / Kerusakan). */
+export const swSesudah = (jenis) => jenis === 'Penggantian Switching' || jenis === 'Relokasi Switching';
+export const swKerusakan = (jenis) => jenis === 'Pemeriksaan Switching' || jenis === 'Kerusakan Switching';
+/** Slot foto switching (sama slotFotoSwitching_ server): [slot, label, wajib]. */
+export function slotSwitching(jenis) {
+  const g = swSesudah(jenis);
+  return [
+    ['NAMEPLATE', g ? 'Nameplate Switching Sebelum' : 'Nameplate Switching', false],
+    ['KONSTRUKSI', g ? 'Konstruksi Switching Sebelum' : 'Konstruksi Switching', true],
+    ...(g ? [['NAMEPLATE_SESUDAH', 'Nameplate Switching Sesudah', false], ['KONSTRUKSI_SESUDAH', 'Konstruksi Switching Sesudah', true]] : []),
+    ['SLD_SEBELUM', 'SLD Sebelum', true],
+    ['SLD_SESUDAH', 'SLD Sesudah', true],
+  ];
+}
+JENIS_BA.SWITCHING.forEach((j) => { SLOT_FOTO_BA[j] = slotSwitching(j).map(([s, l]) => [s, l]); });
 
 export const TTD_MAKS_BYTE = 10 * 1024 * 1024;
 export const TTD_BAGIAN_BYTE = 2 * 1024 * 1024;
@@ -70,8 +87,8 @@ export function aksiBa(x, bolehUbah) {
     unduhPdf: pdfAda,
     uploadTtd: tulis && pdfAda,
     unduhTtd: arsip ? !!x.adaTtd : !!x.adaTtd,
-    kirimEam: tulis && ttdOk,
-    updateMaster: tulis && ttdOk && JENIS_BA_SIAP.includes(x.jenis),
+    kirimEam: tulis && ttdOk && JENIS_BA_MASTER.includes(x.jenis),
+    updateMaster: tulis && ttdOk && JENIS_BA_MASTER.includes(x.jenis),
     alasanEam: tulis && !ttdOk ? alasanTtd : '',
     alasanPdf: tulis && !pdfAda ? 'Buat PDF dulu.' : '',
   };

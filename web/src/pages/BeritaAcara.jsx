@@ -3,38 +3,43 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bukaDiTabBaru, unduhBase64 } from '../berkas.js';
 import {
   aksiBa, ARTI_TAHAP_BA, BADGE_TAHAP_BA, bagianUploadTtd, BATAS_FILE_MS, BATAS_PDF_MS, dataDaftarBa, gabungInfoBa, galatFileTtd, galatFilterBa,
-  JENIS_BA, LABEL_TAHAP_BA, MENU_BA, nomorBa, SLOT_FOTO_BA, SUMBER_BA, TAHAP_BA, tahapItemBa,
+  JENIS_BA, JENIS_BA_MASTER, JENIS_BA_SIAP, LABEL_TAHAP_BA, MENU_BA, nomorBa, SLOT_FOTO_BA, TAHAP_BA, tahapItemBa,
 } from '../beritaAcara.js';
 import Dialog, { Konfirmasi } from '../components/Dialog.jsx';
 import Ikon from '../components/Ikon.jsx';
+import PopupBerhasil from '../components/PopupBerhasil.jsx';
 import SisiLoader from '../components/SisiLoader.jsx';
 import TeksWa from '../components/TeksWa.jsx';
 import { aksiMenu } from '../katalog.js';
-import { pesan } from '../pesan.js';
+import { kodeGalat, pesan } from '../pesan.js';
+import BaForm from './BaForm.jsx';
 import './beritaAcara.css';
+import './baForm.css';
 
-const kodeGalat = (e) => (e && e.kode) || 'JARINGAN';
 const tglId = (iso) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
   return m ? new Intl.DateTimeFormat('id-ID', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(m[0] + 'T00:00:00Z')) : (iso || '-');
 };
 const angka = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? new Intl.NumberFormat('id-ID', { maximumFractionDigits: d }).format(v) : '');
+// v1.0.48: sumber selalu SEMUA (BA SiSi v2 + arsip v1 dibaca langsung, tanpa pilihan sumber)
 const FILTER_AWAL = { sumber: 'SEMUA', cari: '', tahap: '', jenis: '', dari: '', sampai: '', terlama: false };
 
 /**
- * Berita Acara Gardu (menu OPS_BA_GARDU), tahap 1 website: Daftar BA (SiSi v2 + arsip v1) dan alur satu BA
+ * Berita Acara Gardu (menu OPS_BA_GARDU): Daftar BA (SiSi v2 + arsip v1) dan alur satu BA
  * (PDF -> BA TTD -> Kirim EAM -> Update Master Gardu), mirror HP daftar_ba_screen + detail_ba_screen.
- * Buat / ubah BA (form Pengoperasian / Penggantian Trafo + foto) menyusul di tahap 2.
+ * v1.0.47: buat / ubah BA dari website (BaForm.jsx): /berita-acara/baru?jenis=<jenis>, /berita-acara/<baId>?ubah=<jenis>.
  */
-export default function BeritaAcara({ api, sesi }) {
+export default function BeritaAcara({ api, sesi, rute, keRute }) {
   const bolehUbah = aksiMenu(sesi, MENU_BA) === 'UBAH' && ['ADMIN', 'SUPER'].includes(sesi.profil?.role);
-  const [filter, setFilter] = useState(FILTER_AWAL);
+  const [filter, setFilter] = useState(() => ({ ...FILTER_AWAL, tahap: rute.query.tahap || '' }));
   const [cariKetik, setCariKetik] = useState('');
   const [hasil, setHasil] = useState(null); // { jumlah, ringkasan, isi, arsipAda }
   const [memuat, setMemuat] = useState(true);
   const [tambah, setTambah] = useState(false);
   const [galat, setGalat] = useState('');
-  const [buka, setBuka] = useState(null);
+  const [bukaArsip, setBukaArsip] = useState(null);   // arsip v1 (tanpa alamat sendiri)
+  const [menuBuat, setMenuBuat] = useState(false);
+  const [berhasil, setBerhasil] = useState(null);
   const urut = useRef(0);
 
   const muat = useCallback(async (f) => {
@@ -42,8 +47,10 @@ export default function BeritaAcara({ api, sesi }) {
     if (g) { setGalat(g); return; }
     const no = ++urut.current;
     setMemuat(true); setGalat('');
+    const pasang = (d) => setHasil({ jumlah: d.jumlah || 0, ringkasan: d.ringkasan || {}, isi: d.isi || [], arsipAda: !!d.arsipAda });
     try {
-      const d = (await api('getDaftarBaGardu', dataDaftarBa(f))).data;
+      // v1.0.36: daftar tersimpan di browser tampil dulu (redup = sedang diperbarui)
+      const d = (await api('getDaftarBaGardu', dataDaftarBa(f), { awal: (j) => { if (no === urut.current) pasang(j.data); } })).data;
       if (no === urut.current) setHasil({ jumlah: d.jumlah || 0, ringkasan: d.ringkasan || {}, isi: d.isi || [], arsipAda: !!d.arsipAda });
     } catch (e) { if (no === urut.current) setGalat(pesan(kodeGalat(e))); }
     if (no === urut.current) setMemuat(false);
@@ -66,48 +73,78 @@ export default function BeritaAcara({ api, sesi }) {
     setTambah(false);
   };
 
-  const ubahFilter = (o) => setFilter((f) => ({ ...f, ...o }));
+  const ubahFilter = (o) => {
+    setFilter((f) => ({ ...f, ...o }));
+    if (o.tahap !== undefined) keRute({ query: { tahap: o.tahap } }, { ganti: true });
+  };
+  // v1.0.36: BA yang dibuka = alamat (/berita-acara/<baId>): refresh / Back / link WA membuka BA yang sama
+  const buka = rute.id ? (hasil?.isi.find((y) => y.baId === rute.id) || { baId: rute.id }) : bukaArsip;
+  const setBuka = (x) => { if (x && x.arsip) setBukaArsip(x); else keRute({ id: x ? x.baId : '' }); };
   const totalTahap = hasil ? TAHAP_BA.reduce((n, t) => n + (hasil.ringkasan[t] || 0), 0) : 0;
   const perbaruiItem = (x) => {
     setHasil((h) => ({ ...h, isi: h.isi.map((y) => (y.baId && y.baId === x.baId ? x : y)) }));
-    setBuka((b) => (b && b.baId === x.baId ? x : b));
   };
-  const adaFilter = filter.jenis || filter.dari || filter.sampai || filter.terlama || filter.cari || filter.sumber !== 'SEMUA';
+  // v1.0.47: form buat / ubah BA (alamat sendiri: refresh tetap di form)
+  const formJenis = rute.id === 'baru' ? rute.query.jenis : rute.query.ubah;
+  if (bolehUbah && JENIS_BA_SIAP.includes(formJenis)) {
+    return (
+      <div className="hlm ba">
+        <BaForm key={rute.id + formJenis} api={api} sesi={sesi} jenis={formJenis} ubahBaId={rute.id === 'baru' ? '' : rute.id}
+          onBatal={() => keRute({ id: rute.id === 'baru' ? '' : rute.id, query: { ubah: '', jenis: '' } })}   // keRute menggabung query: kosongkan eksplisit
+          onSelesai={(baId, p) => { setBerhasil(p); keRute({ id: baId, query: { ubah: '', jenis: '' } }); muat(filter); }} />
+      </div>
+    );
+  }
+  const adaFilter = filter.jenis || filter.dari || filter.sampai || filter.terlama || filter.cari;
 
   return (
     <div className="hlm ba">
       <header className="hlm-header">
         <div className="hlm-judul">
           <h1>Berita Acara</h1>
-          <p>BA gardu: PDF, BA bertanda tangan, kirim EAM, update Master Gardu. Buat / ubah BA dari website menyusul.</p>
+          <p>BA gardu: buat / ubah BA, PDF, BA bertanda tangan, kirim EAM, update Master Gardu.</p>
         </div>
         <div className="hlm-aksi">
+          {bolehUbah && (
+            <div className="baf-buat">
+              <button type="button" className="k-tombol k-tombol--utama" aria-haspopup="menu" aria-expanded={menuBuat} onClick={() => setMenuBuat((v) => !v)}>
+                <Ikon nama="tambah" ukuran={16} />Buat BA
+              </button>
+              {menuBuat && (
+                <div className="baf-buat-menu" role="menu">
+                  {[['Trafo', JENIS_BA.TRAFO], ['Switching', JENIS_BA.SWITCHING]].map(([grup, daftar]) => (
+                    <div key={grup} className="baf-buat-grup" role="group" aria-label={grup}>
+                      <small>{grup}</small>
+                      {daftar.filter((j) => JENIS_BA_SIAP.includes(j)).map((j) => (
+                        <button key={j} type="button" role="menuitem" onClick={() => { setMenuBuat(false); keRute({ id: 'baru', query: { jenis: j } }); }}>{j}</button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <button type="button" className="k-tombol k-tombol--garis" onClick={() => muat(filter)} disabled={memuat}>
             {memuat && hasil ? <SisiLoader ukuran={16} label="Memuat" /> : <Ikon nama="ulang" ukuran={16} />}Muat ulang
           </button>
         </div>
       </header>
 
-      <div className="ba-alat">
-        <div className="k-tab ba-tahap" role="tablist" aria-label="Tahap BA">
-          <button type="button" role="tab" aria-selected={!filter.tahap} className={'k-tab-tombol' + (!filter.tahap ? ' k-tab-tombol--aktif' : '')} onClick={() => ubahFilter({ tahap: '' })}>
-            Semua<span>{totalTahap}</span>
+      <div className="ba-tahap" role="tablist" aria-label="Tahap BA">
+        {[['', 'Semua BA', totalTahap, 'semua'], ...TAHAP_BA.map((t) => [t, LABEL_TAHAP_BA[t], hasil?.ringkasan[t] ?? 0, BADGE_TAHAP_BA[t]])].map(([t, l, n, w]) => (
+          <button key={l} type="button" role="tab" aria-selected={filter.tahap === t} title={ARTI_TAHAP_BA[t] || 'Semua tahap'}
+            className={'ba-tahap-kartu ba-tahap-kartu--' + w + (filter.tahap === t ? ' ba-tahap-kartu--aktif' : '')} onClick={() => ubahFilter({ tahap: t })}>
+            <small>{l}</small><b>{hasil ? n : '–'}</b>
           </button>
-          {TAHAP_BA.map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={filter.tahap === t} className={'k-tab-tombol' + (filter.tahap === t ? ' k-tab-tombol--aktif' : '')}
-              onClick={() => ubahFilter({ tahap: t })} title={ARTI_TAHAP_BA[t]}>
-              {LABEL_TAHAP_BA[t]}<span>{hasil?.ringkasan[t] ?? 0}</span>
-            </button>
-          ))}
-        </div>
-        <div className="ba-saring">
-          <label className="k-cari ba-cari">
-            <Ikon nama="cari" ukuran={16} />
-            <input type="search" value={cariKetik} onChange={(e) => setCariKetik(e.target.value)} placeholder="No gardu, ID / No BA, penyulang" aria-label="Cari BA" />
-          </label>
-          <select className="k-input" value={filter.sumber} onChange={(e) => ubahFilter({ sumber: e.target.value })} aria-label="Sumber BA">
-            {SUMBER_BA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
+        ))}
+      </div>
+
+      <div className="ba-saring">
+        <label className="ba-cari">
+          <Ikon nama="cari" ukuran={18} />
+          <input type="search" value={cariKetik} onChange={(e) => setCariKetik(e.target.value)} placeholder="Cari no gardu, ID / No BA, penyulang" aria-label="Cari BA" />
+        </label>
+        <div className="ba-saring-pilih">
           <select className="k-input" value={filter.jenis} onChange={(e) => ubahFilter({ jenis: e.target.value })} aria-label="Jenis BA">
             <option value="">Semua jenis</option>
             <optgroup label="Trafo">{JENIS_BA.TRAFO.map((j) => <option key={j} value={j}>{j}</option>)}</optgroup>
@@ -125,40 +162,16 @@ export default function BeritaAcara({ api, sesi }) {
       {galat && <p className="k-pesan k-pesan--galat ba-pesan" role="alert">{galat}</p>}
       {!hasil && memuat && <div className="k-tengah"><SisiLoader ukuran={56} label="Memuat BA" /><p>Memuat daftar BA...</p></div>}
       {hasil && (
-        <section className={'hlm-kartu ba-daftar' + (memuat ? ' ba-daftar--muat' : '')} aria-busy={memuat}>
-          <p className="k-catatan ba-jumlah">{hasil.jumlah} BA{filter.tahap ? ' · ' + LABEL_TAHAP_BA[filter.tahap] : ''}{filter.sumber !== 'V2' && !hasil.arsipAda ? ' · arsip v1 belum tersedia di server' : ''}</p>
-          {!hasil.isi.length ? <p className="k-kosong">Tidak ada BA yang cocok.</p> : (
-            <div className="k-tabel-bungkus">
-              <table className="k-tabel ba-tabel">
-                <thead><tr><th>Tanggal BA</th><th>No BA</th><th>Jenis</th><th>Gardu</th><th>Penyulang</th><th>Tahap</th><th>Alur</th></tr></thead>
-                <tbody>
-                  {hasil.isi.map((x, i) => {
-                    const tahap = tahapItemBa(x);
-                    return (
-                      <tr key={(x.baId || x.arsipId) + i} className="ba-baris" onClick={() => setBuka(x)}>
-                        <td className="ba-nowrap">{tglId(x.tanggalBa)}</td>
-                        <td>
-                          <button type="button" className="ba-buka" onClick={(e) => { e.stopPropagation(); setBuka(x); }}>{nomorBa(x)}</button>
-                          {x.arsip && <span className="k-badge k-badge--v1 ba-v1">ARSIP V1</span>}
-                          {x.idBa && x.noBaFull && <small>{x.idBa}</small>}
-                        </td>
-                        <td>{x.jenis}</td>
-                        <td className="ba-nowrap"><b>{x.noGardu || x.nama}</b></td>
-                        <td>{x.penyulang || '-'}</td>
-                        <td><span className={'k-badge k-badge--' + BADGE_TAHAP_BA[tahap]} title={ARTI_TAHAP_BA[tahap]}>{LABEL_TAHAP_BA[tahap] || tahap}</span></td>
-                        <td className="ba-alur-mini">
-                          <i className={x.statusPdf === 'SELESAI' ? 'ya' : ''} title="PDF BA">PDF</i>
-                          <i className={x.statusTtd === 'SUDAH TTD' ? 'ya' : x.statusTtd === 'TTD ULANG' ? 'ulang' : ''} title="BA TTD">TTD</i>
-                          {!x.arsip && <i className={x.eamKali ? 'ya' : ''} title={x.eamKali ? 'Kirim EAM ' + x.eamKali + 'x' : 'Belum kirim EAM'}>EAM</i>}
-                          {!x.arsip && <i className={x.masterTerakhir ? 'ya' : ''} title="Update Master Gardu">MST</i>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <section className={'ba-daftar' + (memuat ? ' ba-daftar--muat' : '')} aria-busy={memuat}>
+          <p className="k-catatan ba-jumlah">{hasil.jumlah} BA{filter.tahap ? ' · ' + LABEL_TAHAP_BA[filter.tahap] : ''}{!hasil.arsipAda ? ' · arsip v1 belum tersedia di server' : ''}</p>
+          {!hasil.isi.length ? <p className="k-kosong hlm-kartu">Tidak ada BA yang cocok.</p> : grupBulan(hasil.isi).map(([bulan, isi]) => (
+            <div key={bulan} className="ba-grup">
+              <h2 className="ba-grup-judul">{bulan}<span>{isi.length}</span></h2>
+              <ul className="ba-list">
+                {isi.map(({ x, i }) => <KartuBa key={(x.baId || x.arsipId) + i} x={x} onBuka={() => setBuka(x)} />)}
+              </ul>
             </div>
-          )}
+          ))}
           {hasil.isi.length < hasil.jumlah && (
             <div className="k-bawah ba-lagi">
               <button type="button" className="k-tombol k-tombol--garis" onClick={muatLagi} disabled={tambah}>
@@ -170,9 +183,55 @@ export default function BeritaAcara({ api, sesi }) {
       )}
 
       {buka && (buka.arsip
-        ? <DetailArsip x={buka} api={api} onTutup={() => setBuka(null)} />
-        : <DetailBa key={buka.baId} item={buka} api={api} bolehUbah={bolehUbah} onItem={perbaruiItem} onTutup={() => setBuka(null)} />)}
+        ? <DetailArsip x={buka} api={api} onTutup={() => setBukaArsip(null)} />
+        : <DetailBa key={buka.baId} item={buka} api={api} bolehUbah={bolehUbah} onItem={perbaruiItem} onTutup={() => setBuka(null)}
+          onEdit={(jenis) => keRute({ id: buka.baId, query: { ubah: jenis } })} />)}
+      <PopupBerhasil p={berhasil} onTutup={() => setBerhasil(null)} />
     </div>
+  );
+}
+
+// ---------------- daftar ----------------
+
+const BULAN_ID = new Intl.DateTimeFormat('id-ID', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+
+/** Urutan server dipertahankan, dipotong per bulan Tanggal BA: [[label, [{x, i}]]]. */
+function grupBulan(isi) {
+  const grup = [];
+  isi.forEach((x, i) => {
+    const m = /^(\d{4})-(\d{2})/.exec(String(x.tanggalBa || ''));
+    const label = m ? BULAN_ID.format(new Date(m[1] + '-' + m[2] + '-01T00:00:00Z')) : 'Tanpa tanggal';
+    const akhir = grup[grup.length - 1];
+    if (akhir && akhir[0] === label) akhir[1].push({ x, i }); else grup.push([label, [{ x, i }]]);
+  });
+  return grup;
+}
+
+/** Satu BA: tanggal, nomor + jenis, gardu / penyulang, tahap, dan alur PDF -> TTD -> EAM -> Master. */
+function KartuBa({ x, onBuka }) {
+  const tahap = tahapItemBa(x);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(x.tanggalBa || ''));
+  const bln = m ? new Intl.DateTimeFormat('id-ID', { timeZone: 'UTC', month: 'short' }).format(new Date(m[0] + 'T00:00:00Z')) : '';
+  const alur = [
+    ['PDF', x.statusPdf === 'SELESAI' ? 'ya' : ''],
+    ['TTD', x.statusTtd === 'SUDAH TTD' ? 'ya' : x.statusTtd === 'TTD ULANG' ? 'ulang' : ''],
+    ...(x.arsip ? [] : [['EAM', x.eamKali ? 'ya' : ''], ['Master', x.masterTerakhir ? 'ya' : '']]),
+  ];
+  return (
+    <li>
+      <button type="button" className={'ba-kartu ba-kartu--' + BADGE_TAHAP_BA[tahap]} onClick={onBuka}>
+        <span className="ba-kartu-tgl"><b>{m ? m[3] : '–'}</b><small>{bln}</small></span>
+        <span className="ba-kartu-isi">
+          <span className="ba-kartu-no">{nomorBa(x)}{x.arsip && <span className="k-badge k-badge--v1">ARSIP V1</span>}</span>
+          <span className="ba-kartu-meta"><em>{x.jenis}</em>{[x.noGardu || x.nama, x.penyulang].filter(Boolean).join(' · ')}</span>
+        </span>
+        <span className="ba-kartu-alur" aria-label="Alur BA">
+          {alur.map(([l, st]) => <i key={l} className={st} title={l + (st === 'ya' ? ' selesai' : st === 'ulang' ? ' perlu ulang' : ' belum')}>{st === 'ya' ? <Ikon nama="centang" ukuran={11} /> : null}{l}</i>)}
+        </span>
+        <span className={'k-badge k-badge--' + BADGE_TAHAP_BA[tahap] + ' ba-kartu-tahap'} title={ARTI_TAHAP_BA[tahap]}>{LABEL_TAHAP_BA[tahap] || tahap}</span>
+        <Ikon nama="kanan" ukuran={16} />
+      </button>
+    </li>
   );
 }
 
@@ -189,7 +248,7 @@ function Rincian({ judul, baris }) {
   );
 }
 
-function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
+function DetailBa({ item, api, bolehUbah, onItem, onTutup, onEdit }) {
   const [d, setD] = useState(null);
   const [galat, setGalat] = useState('');
   const [sibuk, setSibuk] = useState('');   // aksi yang sedang berjalan
@@ -202,11 +261,12 @@ function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
 
   const muat = useCallback(async () => {
     setGalat('');
-    try { setD((await api('getBaGardu', { baId: item.baId })).data); } catch (e) { setGalat(pesan(kodeGalat(e))); }
+    try { setD((await api('getBaGardu', { baId: item.baId }, { awal: (j) => setD(j.data) })).data); } catch (e) { setGalat(pesan(kodeGalat(e))); }
   }, [api, item.baId]);
   useEffect(() => { muat(); }, [muat]);
 
-  const x = d ? { ...item, ...gabungInfoBa(item, d), jenis: d.jenis || item.jenis } : item;
+  // dibuka dari alamat (item = { baId } saja): field lain dari getBaGardu
+  const x = d ? { ...d, ...item, ...gabungInfoBa(item, d), jenis: d.jenis || item.jenis } : item;
   const a = aksiBa(x, bolehUbah), tahap = tahapItemBa(x);
   const terapkan = (j) => { const baru = gabungInfoBa(x, j); onItem(baru); if (d) setD({ ...d, ...baru }); };
   const jalankan = async (nama, fn, teksOk) => {
@@ -258,13 +318,19 @@ function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
 
   const slot = SLOT_FOTO_BA[x.jenis] || [];
   const tr = d && (d.kvaSesudah || d.merkSesudah);
+  const sw = JENIS_BA.SWITCHING.includes(x.jenis);   // v1.0.49
 
   return (
-    <Dialog buka judul={nomorBa(x)} sub={x.jenis + ' · ' + (x.noGardu || '') + (x.idBa ? ' · ' + x.idBa : '')} lebar="min(1060px, calc(100vw - 32px))"
+    <Dialog buka judul={nomorBa(x)} sub={[x.jenis, x.noGardu, x.idBa].filter(Boolean).join(' · ')} lebar="min(1060px, calc(100vw - 32px))"
       kunci={!!sibuk} onTutup={onTutup}>
       <div className="ba-detail-tahap">
         <span className={'k-badge k-badge--' + BADGE_TAHAP_BA[tahap]}>{LABEL_TAHAP_BA[tahap]}</span>
         <span className="k-catatan">{ARTI_TAHAP_BA[tahap]}</span>
+        {bolehUbah && d && x.statusBa !== 'BATAL' && JENIS_BA_SIAP.includes(x.jenis) && (
+          <button type="button" className="k-tombol k-tombol--garis baf-edit" disabled={!!sibuk} onClick={() => onEdit(x.jenis)}>
+            <Ikon nama="edit" ukuran={16} />Edit BA
+          </button>
+        )}
       </div>
       {galat && <p className="k-pesan k-pesan--galat">{galat} <button type="button" className="k-tautan" onClick={muat}>Coba lagi</button></p>}
       <div className="ba-detail">
@@ -276,6 +342,14 @@ function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
                 ['Status BA', d.statusBa]]} />
               <Rincian judul="Lokasi" baris={[['Penyulang', d.penyulang], ['Section', d.section], ['Alamat', d.alamat],
                 ['Koordinat', d.koordinat && <a href={'https://www.google.com/maps?q=' + d.koordinat.replace(/\s/g, '')} target="_blank" rel="noopener noreferrer">{d.koordinat}</a>]]} />
+              {sw ? <>
+                <Rincian judul={d.namaSwitchingSesudah ? 'Switching sebelum' : 'Switching'} baris={[['Jenis switching', d.jenisSwitching], ['Nama switching', d.namaSwitching],
+                  ['Merk', d.merk], ['Tipe', d.tipe], ['No seri', d.seri]]} />
+                {d.namaSwitchingSesudah && <Rincian judul="Switching sesudah" baris={[['Jenis switching', d.jenisSwitchingSesudah], ['Nama switching', d.namaSwitchingSesudah],
+                  ['Penyulang', d.penyulangSesudah], ['Section', d.sectionSesudah], ['Merk', d.merkSesudah], ['Tipe', d.tipeSesudah], ['No seri', d.seriSesudah],
+                  ['Koordinat', d.koordinatSesudah], ['Asal switching', d.asalSwitching]]} />}
+                <Rincian judul="Keterangan" baris={[['Keterangan tambahan', d.catatan], ['Kerusakan / pemeriksaan', d.kerusakan]]} />
+              </> : <>
               <Rincian judul={tr ? 'Trafo sebelum' : 'Trafo'} baris={[['Konstruksi', d.konstruksi], ['Kapasitas', d.kva ? angka(d.kva) + ' kVA' : ''], ['Merk', d.merk], ['No seri', d.seri],
                 ['Tahun', d.tahun || ''], ['Jurusan', d.jurusan || ''], ['Kepemilikan', d.kepemilikan], ['OwnerId', d.ownerId], ['External Reference', d.externalReference],
                 ['Perluasan SUTM', d.perluasanSutm ? angka(d.perluasanSutm, 2) + ' kmS' : '']]} />
@@ -283,8 +357,10 @@ function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
                 ['Tahun', d.tahunSesudah || ''], ['Asal trafo', d.asalTrafo], ['Jurusan', d.jurusanSesudah || '']]} />}
               <Rincian judul="PHB-TR" baris={[['Merk', d.merkPhb], ['No seri', d.seriPhb], ['Tahun', d.tahunPhb || ''],
                 ['Diganti', d.phbDiganti ? [d.merkPhbSesudah, d.seriPhbSesudah, d.tahunPhbSesudah].filter(Boolean).join(' · ') || 'Ya' : '']]} />
+              </>}
               <Rincian judul="Pelaksana" baris={[['Petugas 1', d.petugas1], ['Petugas 2', d.petugas2], ['Mengetahui', d.mengetahui && d.mengetahui + (d.jabatanMengetahui ? ' (' + d.jabatanMengetahui + ')' : '')],
-                ['Vendor', d.vendor], ['Catatan', d.catatan]]} />
+                ...(sw ? [] : [['Vendor', d.vendor], ['Catatan', d.catatan]])]} />
+              {x.jenis === 'Pemeriksaan Trafo' && <Rincian judul="Hasil pemeriksaan" baris={[['Kesimpulan', d.kesimpulan]]} />}
               {slot.length > 0 && (
                 <section className="ba-rincian">
                   <h3>Foto</h3>
@@ -332,24 +408,27 @@ function DetailBa({ item, api, bolehUbah, onItem, onTutup }) {
             {a.uploadTtd && <small className="k-catatan">PDF hasil scan / tanda tangan, maks 10 MB.</small>}
           </Langkah>
 
-          <Langkah no="3" judul="Kirim EAM" selesai={!!x.eamKali} ket={x.eamKali ? x.eamKali + ' kali · terakhir ' + x.eamTerakhir : 'Belum dikirim'}>
-            {bolehUbah && (
-              <button type="button" className="k-tombol k-tombol--utama" disabled={!!sibuk || !a.kirimEam} onClick={kirimEam} title={a.alasanEam || undefined}>
-                {sibuk === 'eam' ? <SisiLoader ukuran={16} warna="#fff" label="Menyiapkan" /> : <Ikon nama="laporan" ukuran={16} />}Buat teks EAM
-              </button>
-            )}
-            {a.alasanEam && <small className="k-catatan">{a.alasanEam}</small>}
-          </Langkah>
+          {/* v1.0.46: Pemeriksaan Trafo tidak mengubah gardu (sama v1: tanpa teks EAM / Update Master) */}
+          {JENIS_BA_MASTER.includes(x.jenis) ? <>
+            <Langkah no="3" judul="Kirim EAM" selesai={!!x.eamKali} ket={x.eamKali ? x.eamKali + ' kali · terakhir ' + x.eamTerakhir : 'Belum dikirim'}>
+              {bolehUbah && (
+                <button type="button" className="k-tombol k-tombol--utama" disabled={!!sibuk || !a.kirimEam} onClick={kirimEam} title={a.alasanEam || undefined}>
+                  {sibuk === 'eam' ? <SisiLoader ukuran={16} warna="#fff" label="Menyiapkan" /> : <Ikon nama="laporan" ukuran={16} />}Buat teks EAM
+                </button>
+              )}
+              {a.alasanEam && <small className="k-catatan">{a.alasanEam}</small>}
+            </Langkah>
 
-          <Langkah no="4" judul="Update Master Gardu" selesai={!!x.masterTerakhir} ket={x.masterTerakhir ? 'Terakhir ' + x.masterTerakhir : 'Belum diterapkan'}>
-            {bolehUbah && (
-              <button type="button" className="k-tombol k-tombol--utama" disabled={!!sibuk || !a.updateMaster} onClick={() => setYakin('master')}
-                title={a.updateMaster ? undefined : a.alasanEam || 'Jenis BA ini belum bisa diterapkan ke master.'}>
-                <Ikon nama="ulang" ukuran={16} />Update Master
-              </button>
-            )}
-            {master && <HasilMaster r={master} />}
-          </Langkah>
+            <Langkah no="4" judul="Update Master Gardu" selesai={!!x.masterTerakhir} ket={x.masterTerakhir ? 'Terakhir ' + x.masterTerakhir : 'Belum diterapkan'}>
+              {bolehUbah && (
+                <button type="button" className="k-tombol k-tombol--utama" disabled={!!sibuk || !a.updateMaster} onClick={() => setYakin('master')}
+                  title={a.updateMaster ? undefined : a.alasanEam || 'Jenis BA ini belum bisa diterapkan ke master.'}>
+                  <Ikon nama="ulang" ukuran={16} />Update Master
+                </button>
+              )}
+              {master && <HasilMaster r={master} />}
+            </Langkah>
+          </> : !x.arsip && <p className="k-catatan">{x.jenis} tidak mengubah Master Gardu: cukup PDF dan BA TTD.</p>}
         </aside>
       </div>
 

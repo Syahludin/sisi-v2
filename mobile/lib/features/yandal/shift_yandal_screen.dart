@@ -10,10 +10,12 @@ import 'arsip_p0_view.dart';
 import 'history_gardu_view.dart';
 import 'p0_model.dart' show kemajuanShift, teksDurasi;
 import 'pekerjaan_shift_view.dart';
+import '../gudang/gudang_repository.dart';
+import '../gudang/stok_yandal_view.dart';
 import 'yandal_login.dart';
 
 /// v0.63.0: kartu shift akun YANDAL (tim, shift, petugas yang dipilih saat login, jam sesi berakhir).
-/// v0.66.6 (permintaan kvlar 9 Okt 2026): desain ulang selaras kartu Rank Yandal: judul + subjudul + chip jam,
+/// v0.66.6 (permintaan Master Guswan 9 Okt 2026): desain ulang selaras kartu Rank Yandal: judul + subjudul + chip jam,
 /// baris petugas ber-inisial (gaya BarisRank), bilah kemajuan shift dengan sisa waktu dan jam sesi berakhir.
 class KartuShiftYandal extends StatelessWidget {
   const KartuShiftYandal({super.key, required this.sesi, this.sekarang});
@@ -152,7 +154,7 @@ class _KemajuanShiftState extends State<_KemajuanShift> {
   }
 }
 
-/// Menu Shift akun YANDAL. v0.63.5 (keputusan kvlar 8 Okt 2026): tab seperti Laporan ROW:
+/// Menu Shift akun YANDAL. v0.63.5 (keputusan Master Guswan 8 Okt 2026): tab seperti Laporan ROW:
 /// "Pekerjaan Shift" (v0.64.0: kartu shift interaktif + P0 shift berjalan, tombol +) | "Arsip P0" | "History Pengukuran Gardu".
 /// v1.0.16: tab penanda "TO P0" dihapus; TO P0 = tab WO tindak lanjut di bottom bar (label "TO P0" untuk Yandal).
 class ShiftYandalScreen extends StatefulWidget {
@@ -173,6 +175,7 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
   final _kunciArsip = GlobalKey<ArsipP0ViewState>();
   final _kunciPekerjaan = GlobalKey<PekerjaanShiftViewState>();
   final _kunciHistoryGardu = GlobalKey<HistoryPengukuranGarduViewState>();
+  final _kunciStok = GlobalKey<StokYandalViewState>(); // v1.0.57: Stok MCB (menu OPS_STOK_MATERIAL)
 
   /// Refresh sesuai tab: Pekerjaan Shift = sinkron + muat ulang P0,
   /// Arsip P0 = download ulang rentang terpilih, History Pengukuran Gardu = perbarui daftar gardu & pengukuran 2 hari terakhir.
@@ -188,6 +191,8 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
           await _kunciPekerjaan.currentState?.muat();
         case 1:
           await _kunciArsip.currentState?.segarkan();
+        case 3:
+          await _kunciStok.currentState?.muat();
         default:
           await _kunciHistoryGardu.currentState?.segarkan();
       }
@@ -248,6 +253,7 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
               _pill('Pekerjaan Shift', Icons.badge_outlined, 0),
               if (widget.denganArsip) _pill('Arsip P0', Icons.inventory_2_outlined, 1),
               _pill('History Pengukuran Gardu', Icons.electrical_services_rounded, 2), // v1.0.19: kalender hanya di Beranda
+              if (GudangRepository.bolehYandal(widget.sesi)) _pill('Stok MCB', Icons.inventory_2_outlined, 3), // v1.0.57
             ]),
           ),
         ),
@@ -261,6 +267,7 @@ class _ShiftYandalScreenState extends State<ShiftYandalScreen> {
               sesi: widget.sesi,
               onMulaiUkur: () => unawaited(_kunciPekerjaan.currentState?.muat()),
             ),
+            if (GudangRepository.bolehYandal(widget.sesi)) StokYandalView(key: _kunciStok, deps: widget.deps, sesi: widget.sesi) else const SizedBox.shrink(),
           ]),
         ),
       ]),

@@ -19,12 +19,22 @@ npm run build     # hasil di web/dist
 
 ## Upload ke Hostinger
 
-1. `npm run build`, lalu kompres **isi** folder `web/dist` (bukan foldernya) menjadi zip.
-   Di Windows: `Compress-Archive -Path web\dist\* -DestinationPath web\sisi-web.zip -Force`.
-2. Hostinger hPanel > **File Manager** > buka `public_html` (domain utama) atau folder subdomain uji.
-3. Upload zip, lalu **Extract** di folder itu. Pastikan `index.html`, `config.js`, `.htaccess`, folder `assets` dan `img`
-   langsung berada di `public_html` (bukan di subfolder `dist`).
-4. Buka domainnya. Kaki panel kanan menulis "Koneksi aman · SiSi v…" kalau backend terhubung.
+Asset website memakai alamat ABSOLUT dari folder hosting (`SISI_BASE` saat build, lihat `vite.config.js`). Zip yang dibuat untuk
+folder lain membuat halaman awal kosong (file JS / CSS 404). Karena itu zip dibuat lewat skrip yang memasang folder yang benar:
+
+| Lingkungan | Perintah | Folder hosting (base) | Berkas zip | `config.js` di zip |
+|---|---|---|---|---|
+| Staging | `npm run zip:staging` | `public_html/sisi-web-staging` (`/sisi-web-staging/`) | `web/sisi-web-staging.zip` | ikut (env staging, backend staging) |
+| Production | `npm run zip:production` | `public_html/sisi` (`/sisi/`) | `web/sisi-web-production.zip` | TIDAK ikut (pakai `config.js` di server) |
+
+1. Jalankan perintah di atas dari folder `web` (build + cek `index.html` memakai base yang benar + zip termasuk `.htaccess`).
+   JANGAN kompres `web/dist` manual dari `npm run build` biasa: base bawaannya `/sisi/` (production).
+2. Hostinger hPanel > **File Manager** > buka folder hosting dari tabel > upload zip > **Extract** (timpa).
+3. Pastikan `index.html`, `.htaccess`, `config.js` (staging), folder `assets` dan `img` langsung berada di folder itu (bukan di subfolder `dist`).
+4. Buka alamatnya, Ctrl+F5. Kaki panel kanan menulis "Koneksi aman · SiSi v…" kalau backend terhubung.
+5. Halaman kosong = cek tab Network (F12): kalau `assets/index-….js` diminta dari folder yang salah, zip dibuat dengan base salah.
+
+Folder lain (mis. domain uji): `SISI_BASE=/folder/ npm run build` (PowerShell: `$env:SISI_BASE='/folder/'`), lalu kompres isi `dist` (termasuk `.htaccess`).
 
 ## Pindah staging / production
 

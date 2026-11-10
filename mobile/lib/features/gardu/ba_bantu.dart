@@ -10,8 +10,14 @@ import '../../theme/app_colors.dart';
 import '../row/watermark.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.72.0 (perbaikan kvlar 9 Okt 2026): bantuan form BA Gardu (kVA dropdown, cek angka, akurasi GPS, watermark,
+/// v0.72.0 (perbaikan Master Guswan 9 Okt 2026): bantuan form BA Gardu (kVA dropdown, cek angka, akurasi GPS, watermark,
 /// dialog progres simpan). Fungsi murni di atas bisa dites tanpa HP.
+
+/// Merk trafo (sama v1 BA_MERK_TRAFO). "Lainnya" = ketik sendiri.
+const merkTrafoBa = <String>[
+  'Alsthom Atlantique', 'Amtra Electric', 'B&D', 'Centrado', 'J&P', 'Lucky Light', 'Mastergreen', 'Maxima', 'Monata', 'Morawa',
+  'Trafindo', 'Trafoindo', 'Triputra Electric Abadi', 'Schneider', 'Shenyang', 'Sintra', 'Starlite', 'Unindo', 'Voltra', 'Weltraf',
+];
 
 /// Kapasitas trafo distribusi umum (kVA). Ditambah nilai yang ada di Master Gardu.
 const kvaStandarBa = <int>[25, 50, 100, 160, 200, 250, 315, 400, 500, 630, 800, 1000];
@@ -83,7 +89,7 @@ String pesanApiBa(ApiException e) {
   return (teks: '$teks · lemah', warna: AppColors.red700, latar: AppColors.red100);
 }
 
-/// Isi watermark foto kamera BA (permintaan kvlar): No Gardu, bagian foto, tanggal-jam, koordinat.
+/// Isi watermark foto kamera BA (permintaan Master Guswan): No Gardu, bagian foto, tanggal-jam, koordinat.
 /// akurasiM ada = koordinat dari GPS (±m), null = koordinat diketik di form ("input").
 DataWatermark watermarkBa({
   required String ulp,

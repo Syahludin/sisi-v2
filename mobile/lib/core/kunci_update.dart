@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// v1.0.22 (permintaan kvlar 23 Okt 2026): aplikasi WAJIB update tetapi petugas menutup kartu update. Halaman tetap
+/// v1.0.22 (permintaan Master Guswan 23 Okt 2026): aplikasi WAJIB update tetapi petugas menutup kartu update. Halaman tetap
 /// bisa dibuka (data di HP + baca dari server), tetapi INPUT (form, lewat [bukaForm]) dan SINKRON (kirim antrean,
 /// SyncController) mati sampai aplikasi terupdate. Panggilan tulis ke server ditolak di ApiClient sebelum dikirim.
 /// Data yang belum terkirim tetap aman di HP dan dikirim setelah update.
@@ -34,8 +34,11 @@ class KunciUpdate {
 /// Halaman di bawahnya tidak lagi menambah jarak status bar (sudah dipakai pita). Susunan widget tetap sama saat pita
 /// muncul / hilang supaya navigator (halaman yang sedang terbuka) tidak dibangun ulang.
 class PitaKunciUpdate extends StatelessWidget {
-  const PitaKunciUpdate({super.key, required this.tampil, required this.child});
+  const PitaKunciUpdate({super.key, required this.tampil, required this.child, this.sudahMasuk = true});
   final bool tampil;
+
+  /// false = halaman login: pita mengajak update sebelum masuk (input / sinkron belum ada yang dimatikan).
+  final bool sudahMasuk;
   final Widget child;
 
   @override
@@ -61,8 +64,8 @@ class PitaKunciUpdate extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.system_update_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('${KunciUpdate.pesan}. Input & sinkron dimatikan.',
+                Expanded(
+                  child: Text(sudahMasuk ? '${KunciUpdate.pesan}. Input & sinkron dimatikan.' : '${KunciUpdate.pesan}. Update sebelum masuk.',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
                 ),
                 Container(

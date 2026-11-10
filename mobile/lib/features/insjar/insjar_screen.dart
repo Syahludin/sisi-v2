@@ -29,12 +29,12 @@ import 'insjar_store.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.0 (permintaan kvlar 19 Okt 2026): Inspeksi Jaringan untuk petugas tim INSPEKSI_JARINGAN (menu OPS_INSJAR_INPUT).
+/// v1.0.0 (permintaan Master Guswan 19 Okt 2026): Inspeksi Jaringan untuk petugas tim INSPEKSI_JARINGAN (menu OPS_INSJAR_INPUT).
 /// Alur sama dengan Hartek dan ROW: Laporan Utama (KM + koordinat) > penyulang utama (penyulang + tier + section +
 /// total tiang) > temuan (section, jenis, tiang, deskripsi, koordinat, foto temuan + foto tiang).
 /// Tampilan memakai pola Hartek: kartu laporan tim navy, kartu putih, form layar penuh. Semua tersimpan di HP dulu,
 /// dikirim otomatis (InsJarStore).
-/// v1.0.5 (permintaan kvlar 20 Okt 2026): satu layar untuk 3 halaman ([HalamanInsJar]):
+/// v1.0.5 (permintaan Master Guswan 20 Okt 2026): satu layar untuk 3 halaman ([HalamanInsJar]):
 ///  - utama: kartu Laporan Utama saja (daftar penyulang utama di halaman utama dihapus).
 ///  - penyulang (ketuk angka Penyulang): rincian semua penyulang utama + temuannya, tombol Tambah penyulang dan
 ///    Tambah temuan di tiap penyulang.

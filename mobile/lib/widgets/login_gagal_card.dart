@@ -15,7 +15,7 @@ JenisLoginGagal? jenisLoginGagal(String kode) => switch (kode) {
     };
 
 /// Percobaan ke berapa kartu menampilkan peringatan 15 menit (server membatasi login setelah 5x salah).
-/// v0.63.2 (keputusan kvlar 8 Okt 2026): baru diberitahu saat sudah 5x, bukan mulai ke-3.
+/// v0.63.2 (keputusan Master Guswan 8 Okt 2026): baru diberitahu saat sudah 5x, bukan mulai ke-3.
 const int batasPeringatanLogin = 5;
 
 /// Kartu login gagal. [percobaan] = jumlah salah berturut-turut di HP ini (hitungan lokal, bukan dari server).
@@ -99,7 +99,7 @@ class KartuLoginGagal extends StatelessWidget {
               decoration: BoxDecoration(color: AppColors.neutral100, borderRadius: BorderRadius.circular(14)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _Baris(label: 'Username', nilai: username.trim().isEmpty ? '-' : username.trim().toLowerCase()),
-                // v0.63.2 (keputusan kvlar 8 Okt 2026): tanpa hitungan salah, cukup 2 poin pengecekan
+                // v0.63.2 (keputusan Master Guswan 8 Okt 2026): tanpa hitungan salah, cukup 2 poin pengecekan
                 if (jenis == JenisLoginGagal.salah) ...[
                   const SizedBox(height: 6),
                   const Text(

@@ -1,0 +1,74 @@
+/* Data Aset (ITB): tab, kartu ringkasan, kartu penyulang bertumpuk, panel segmen. Warna jenis kabel: k1 AAAC, k2 AAACS, k3 N2XSEBY, k4 NA2XSEYBY, k5 lainnya. */
+.das-k1 { background: #3a7f78; } .das-k2 { background: #1d4a45; } .das-k3 { background: #d7ae45; } .das-k4 { background: #bd5550; } .das-k5 { background: #8a9b97; }
+.das-tab { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 5px; border-radius: 14px; background: var(--neutral-150); width: fit-content; max-width: 100%; }
+.das-tab button { padding: 9px 16px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 13.5px; font-weight: 800; color: var(--neutral-700); cursor: pointer; }
+.das-tab button:hover { color: var(--brand-950); }
+.das-tab button.aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(20, 32, 30, .12); }
+.das-ket { margin: 0 0 12px; font-size: 12.5px; color: var(--neutral-500); }
+.das-catatan { margin: 6px 0 0; font-size: 12px; color: var(--neutral-500); }
+.das-kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.das-kpi div { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); border-top: 4px solid var(--brand-600); }
+.das-kpi .das-kpi--kuning { border-top-color: var(--accent-600); } .das-kpi .das-kpi--merah { border-top-color: var(--red-600); }
+.das-kpi small { font-size: 11.5px; font-weight: 800; color: var(--neutral-500); }
+.das-kpi b { font-size: 22px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+.das-kpi i, .das-kartu i { font-style: normal; font-size: 12px; font-weight: 700; color: var(--neutral-500); }
+.das-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+.das-filter > span { font-size: 12px; font-weight: 800; color: var(--neutral-500); margin-right: 4px; }
+.das-pil { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--neutral-200); background: var(--putih); font: inherit; font-size: 12.5px; font-weight: 800; color: var(--neutral-700); cursor: pointer; }
+.das-pil i { width: 9px; height: 9px; border-radius: 2px; }
+.das-pil.aktif { background: var(--pil-aktif); border-color: var(--pil-aktif); color: #fff; }
+.das-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.das-kartu { display: grid; align-content: start; gap: 8px; padding: 12px 14px; text-align: left; font: inherit; border-radius: 14px; border: 1px solid var(--neutral-150); border-top: 4px solid var(--brand-600); background: var(--putih); cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.das-kartu:hover { box-shadow: 0 6px 18px rgba(20, 32, 30, .09); transform: translateY(-1px); }
+.das-kartu-kepala { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.das-kartu-kepala b { font-size: 14px; font-weight: 900; color: var(--brand-950); text-transform: capitalize; }
+.das-kartu-kepala strong { font-size: 20px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+.das-tumpuk { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--neutral-100); }
+.das-tumpuk span { min-width: 2px; }
+.das-legenda { display: grid; gap: 2px; font-size: 12px; color: var(--neutral-500); }
+.das-legenda span { display: flex; align-items: center; gap: 6px; }
+.das-legenda i { width: 9px; height: 9px; border-radius: 2px; }
+.das-legenda b { margin-left: auto; color: var(--neutral-900); font-variant-numeric: tabular-nums; }
+.das-nonaktif { font-size: 11.5px; font-weight: 700; color: var(--red-700); }
+.das-panel { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--neutral-150); background: var(--putih); margin-bottom: 12px; }
+.das-panel summary { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; cursor: pointer; font-size: 13.5px; color: var(--brand-950); }
+.das-panel summary span { font-size: 12px; font-weight: 700; color: var(--neutral-500); }
+.das-panel--kuning { border-left: 4px solid var(--accent-600); } .das-panel--merah { border-left: 4px solid var(--red-600); }
+.das-gulir { overflow-x: auto; margin-top: 8px; }
+.das-gulir--tinggi { max-height: 360px; overflow-y: auto; }
+.das-tabel { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.das-tabel th, .das-tabel td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--neutral-100); white-space: nowrap; }
+.das-tabel thead th { position: sticky; top: 0; background: var(--neutral-50); color: var(--neutral-500); font-size: 11.5px; }
+.das-tabel tbody th { font-weight: 700; color: var(--neutral-900); }
+.das-tabel--angka th:not(:first-child), .das-tabel--angka td:not(:first-child), .das-tabel .das-km { text-align: right; }
+.das-redup { opacity: .55; }
+.das-sub { margin: 14px 0 0; font-size: 13.5px; font-weight: 900; color: var(--brand-950); }
+@media (max-width: 720px) { .das-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); } .das-tab button { padding: 8px 12px; font-size: 12.5px; } }
+
+
+/* dialog rincian penyulang */
+.das-rinc { display: grid; gap: 4px; }
+.das-rinc-kpi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.das-rinc-kpi div { display: grid; gap: 1px; padding: 10px 14px; border-radius: 12px; background: var(--neutral-50); border-left: 4px solid var(--brand-600); }
+.das-rinc-kpi .das-rinc-kpi--merah { border-left-color: var(--red-600); }
+.das-rinc-kpi small { font-size: 11.5px; font-weight: 800; color: var(--neutral-500); }
+.das-rinc-kpi b { font-size: 22px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }
+.das-rinc-kpi i { font-style: normal; font-size: 12px; font-weight: 700; color: var(--neutral-500); }
+.das-rinc-kpi span { font-size: 11.5px; color: var(--neutral-500); }
+.das-sub small { margin-left: 6px; font-size: 12px; font-weight: 700; color: var(--neutral-500); }
+.das-titik { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 2px; vertical-align: baseline; }
+.das-matriks th, .das-matriks td { padding: 8px 10px; font-size: 13px; }
+.das-matriks tbody tr:nth-child(even) { background: var(--neutral-50); }
+.das-matriks .das-total { font-weight: 900; color: var(--brand-950); }
+.das-matriks tfoot th, .das-matriks tfoot td { border-top: 2px solid var(--neutral-200); border-bottom: 0; font-weight: 900; color: var(--brand-950); background: var(--neutral-100); }
+.das-kosong { color: var(--neutral-400); }
+.das-tengah { text-align: center !important; padding: 18px 8px; }
+.das-saring { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.das-saring .das-filter { margin: 0; }
+.das-cari { min-width: 220px; flex: 0 1 260px; }
+.das-daftar tbody tr:nth-child(even) { background: var(--neutral-50); }
+.das-daftar .das-desc { white-space: normal; min-width: 220px; max-width: 360px; }
+.das-lencana { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 800; }
+.das-lencana--ok { background: var(--success-100); color: var(--success-700); }
+.das-lencana--non { background: var(--red-100); color: var(--red-700); }
+@media (max-width: 720px) { .das-rinc-kpi { grid-template-columns: 1fr; } .das-cari { flex-basis: 100%; } }

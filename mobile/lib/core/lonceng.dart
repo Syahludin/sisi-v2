@@ -7,7 +7,7 @@ import '../theme/app_colors.dart';
 import 'api_client.dart';
 import 'sesi.dart';
 
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): lonceng notifikasi di header (bukan notifikasi latar belakang).
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): lonceng notifikasi di header (bukan notifikasi latar belakang).
 /// Admin: P0 masuk (Menunggu approval) + temuan inspeksi baru. Tim: WO yang dikirim admin. Angka = item yang belum
 /// dibuka akun ini (status dilihat disimpan server per akun, sama di semua HP). Dimuat saat app dibuka, kembali dari
 /// latar, dan tiap 3 menit selama app terbuka.
@@ -159,7 +159,7 @@ const _gayaJenis = {
 };
 
 /// Daftar notifikasi. Ketuk item = tandai dilihat + buka layar tujuannya.
-/// v1.0.27 (permintaan kvlar 23 Okt 2026): kartu pop up yang muncul DARI ikon lonceng (di bawahnya, membesar dari titik
+/// v1.0.27 (permintaan Master Guswan 23 Okt 2026): kartu pop up yang muncul DARI ikon lonceng (di bawahnya, membesar dari titik
 /// lonceng, dengan penunjuk segitiga), bukan lembar dari bawah layar. [context] = context tombol lonceng.
 Future<void> bukaDaftarLonceng(BuildContext context) async {
   unawaited(Lonceng.i.segarkan());

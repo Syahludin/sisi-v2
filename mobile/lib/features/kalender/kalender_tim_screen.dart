@@ -237,7 +237,7 @@ class PanelKalenderTimState extends State<PanelKalenderTim> {
   }
 }
 
-/// v1.0.21 (permintaan kvlar 23 Okt 2026): kartu informasi pemadaman Beranda dirombak supaya mudah dibaca.
+/// v1.0.21 (permintaan Master Guswan 23 Okt 2026): kartu informasi pemadaman Beranda dirombak supaya mudah dibaca.
 /// Kiri = blok jam (padam besar, s/d nyala, durasi) berwarna merah (padam) / teal (tanpa padam); kanan = penyulang,
 /// section, lalu baris berikon: daerah padam, pekerjaan, dampak pelanggan / gardu. Tanpa chip.
 class KartuPadamKalender extends StatelessWidget {

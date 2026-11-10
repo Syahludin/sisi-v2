@@ -33,6 +33,7 @@ Sumber: `02_Router.js` (endpoints_), `03_Guard.js`, `10_Auth.js`, plus fungsi pe
 | getFotoArsipRow | menu ROW_LAPORAN | - | - | 40 | timLaporan_ + izin cache per token (6 jam) |
 | getLaporanUp3 | menu OPS_LAP_UP3 | - | - | 20 | bukan PETUGAS |
 | simpanLaporanUp3 | menu OPS_LAP_UP3 | Y | - | 10 | ADMIN/SUPER |
+| getLaporanGangguan | menu OPS_LAP_GANGGUAN | - | - | 20 | bukan PETUGAS; WEB + HP (db_Menu KEDUANYA) |
 | getLaporanUiw | menu OPS_LAP_UIW | - | - | 20 | bukan PETUGAS |
 | simpanLaporanUiw | menu OPS_LAP_UIW | Y | - | 10 | ADMIN/SUPER |
 | getPetugasYandal | menu OPS_PETUGAS_YANDAL | - | - | 20 | bukan PETUGAS |

@@ -104,6 +104,8 @@ class KodeError {
         return 'Terlalu banyak percobaan. Coba lagi 15 menit lagi.';
       case 'TERLALU_SERING':
         return 'Terlalu banyak permintaan dalam 1 menit. Tunggu sebentar lalu coba lagi.';
+      case 'KODE_STG_SALAH':
+        return 'Kode pengaman staging salah. Minta kode ke admin.';
       case 'GPS_PALSU':
         return 'Login ditolak: lokasi palsu (fake GPS) terdeteksi.';
       // v0.67.0: Ganti Password
@@ -313,6 +315,53 @@ class KodeError {
       case 'ROLE_TIDAK_VALID':
       case 'PETUGAS_TANPA_TIM':
         return 'Pengaturan akun kamu berubah. Hubungi admin, lalu login lagi. Data yang belum terkirim tetap aman di HP.';
+      // v1.0.51: absensi safety briefing
+      case 'DIKUNCI_PENGABSEN_LAIN':
+        return 'Staf ini sudah diabsen oleh pengabsen lain, tidak bisa diubah.';
+      case 'HARI_LAMPAU':
+        return 'Absensi hari yang sudah lewat tidak bisa disimpan atau diubah.';
+      case 'HARI_DEPAN':
+        return 'Tanggal absensi belum tiba. Periksa tanggal & waktu HP.';
+      case 'PETUGAS_BUKAN_PESERTA':
+        return 'Petugas ini bukan peserta absensi (nonaktif atau belum punya tim).';
+      // v1.0.57: Gudang Material
+      case 'STOK_TIDAK_CUKUP':
+        return 'Stok tidak cukup untuk jenis MCB ini.';
+      case 'MATERIAL_TIDAK_DIIZINKAN':
+        return 'Material ini tidak diizinkan untuk tim itu. Atur di Izin Material.';
+      case 'KEPERLUAN_TIDAK_VALID':
+        return 'Keperluan tidak ada di master keperluan. Pilih dari daftar, atau minta admin menambahkannya di sheet db_Keperluan_MCB.';
+      case 'MERK_TIDAK_VALID':
+        return 'Merk MCB tidak ada di master merk. Pilih dari daftar, atau minta admin menambahkannya di sheet db_Merk_MCB.';
+      case 'MATERIAL_TIDAK_VALID':
+        return 'Material tidak ada atau nonaktif di master.';
+      case 'PEMERIKSAAN_BELUM_ADA':
+        return 'Lakukan pemeriksaan stok awal shift dulu.';
+      case 'SELISIH_MENUNGGU':
+        return 'Ada selisih stok yang menunggu persetujuan admin. Pemakaian belum bisa dicatat.';
+      case 'FOTO_WAJIB':
+        return 'Foto wajib diambil.';
+      case 'FOTO_HILANG':
+        return 'Foto tidak ditemukan di HP. Ambil ulang fotonya.';
+      case 'SHIFT_BELUM_DIMULAI':
+        return 'Shift tim ini belum dimulai.';
+      case 'SHIFT_SEBELUMNYA_TIDAK_ADA':
+        return 'Shift sebelumnya tidak tercatat, pemakaian susulan tidak bisa dibuat. Biarkan sebagai Tidak diketahui untuk admin.';
+      case 'SELISIH_TIDAK_DITEMUKAN':
+        return 'Selisih tidak ditemukan. Muat ulang.';
+      case 'SELISIH_TIDAK_VALID':
+        return 'Selisih ini tidak bisa diproses dengan cara itu (sudah selesai atau arahnya tidak cocok).';
+      case 'ALASAN_WAJIB':
+        return 'Alasan atau catatan wajib diisi.';
+      case 'PEMAKAIAN_BATAL':
+        return 'Pemakaian ini sudah dibatalkan.';
+      // 1.0.63: Master Switching
+      case 'NAMA_GANDA':
+        return 'Nama switching ini sudah dipakai di penyulang yang sama. Pakai nama lain atau ubah data yang lama.';
+      case 'SECTION_BEDA_PENYULANG':
+        return 'Section yang dipilih bukan milik penyulang ini. Pilih ulang section.';
+      case 'HULU_TIDAK_VALID':
+        return 'Switching hulu tidak valid (diri sendiri atau rantai hulu berputar).';
       default:
         if (sesiHabis.contains(kode)) return 'Sesi berakhir. Silakan login lagi.';
         return 'Terjadi kesalahan ($kode).';

@@ -14,7 +14,7 @@ import 'wo_foto_server.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.16 (permintaan kvlar 22 Okt 2026): menu Verifikasi WO Ganda (OPS_WO_GANDA, admin). WO yang diunggah lebih
+/// v1.0.16 (permintaan Master Guswan 22 Okt 2026): menu Verifikasi WO Ganda (OPS_WO_GANDA, admin). WO yang diunggah lebih
 /// dari satu tim (tim lama tetap mengunggah hasil kerja offline sesudah WO dipindah). Admin membandingkan kiriman tiap
 /// tim (pekerjaan + foto) lalu memilih tim yang sah. Tim terpilih = WO miliknya, HP-nya menyelesaikan WO otomatis;
 /// kiriman tim lain dibatalkan dan HP-nya membuang WO itu.

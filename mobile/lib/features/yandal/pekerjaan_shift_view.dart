@@ -24,7 +24,7 @@ const Color latarProses = AppColors.accent100;
 const Color warnaSelesai = AppColors.success700;
 const Color latarSelesai = AppColors.success100;
 
-/// v0.64.3 (keputusan kvlar 8 Okt 2026): tab "Pekerjaan Shift" hanya berisi KARTU SHIFT. Ketuk kartu = layar
+/// v0.64.3 (keputusan Master Guswan 8 Okt 2026): tab "Pekerjaan Shift" hanya berisi KARTU SHIFT. Ketuk kartu = layar
 /// Detail Shift (ringkasan sedang / sudah, rincian per jenis pekerjaan, kartu P0, tombol + tambah P0).
 class PekerjaanShiftView extends StatefulWidget {
   const PekerjaanShiftView({super.key, required this.deps, required this.sesi});
@@ -105,7 +105,7 @@ class PekerjaanShiftViewState extends State<PekerjaanShiftView> {
   }
 }
 
-/// v1.0.29 (permintaan kvlar 24 Okt 2026): P0 dari WO Tindak Lanjut di shift sesi (dicatat server saat WO Selesai,
+/// v1.0.29 (permintaan Master Guswan 24 Okt 2026): P0 dari WO Tindak Lanjut di shift sesi (dicatat server saat WO Selesai,
 /// tidak ada di P0 HP) supaya ikut terhitung "Sudah dikerjakan" di ringkasan shift.
 Future<List<Map<String, dynamic>>> p0WoShift(Deps deps, Sesi s) async {
   final kode = '${s.yandal?['kodeShift'] ?? ''}'.trim();
@@ -118,7 +118,7 @@ Future<List<Map<String, dynamic>>> p0WoShift(Deps deps, Sesi s) async {
 }
 
 /// v1.0.29: kartu ringkas satu P0 dari WO Tindak Lanjut (kode P0 / menunggu kirim, pekerjaan, kode temuan).
-/// v1.0.31 (permintaan kvlar 24 Okt 2026): bentuk sama dengan kartu P0 lokal; ketuk = detail P0 (data + foto yan_P0).
+/// v1.0.31 (permintaan Master Guswan 24 Okt 2026): bentuk sama dengan kartu P0 lokal; ketuk = detail P0 (data + foto yan_P0).
 class KartuP0Wo extends StatelessWidget {
   const KartuP0Wo({super.key, required this.p, this.onTap});
   final Map<String, dynamic> p;
@@ -309,7 +309,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     await muat();
   }
 
-  /// v1.0.31 (permintaan kvlar 24 Okt 2026): tombol refresh kanan atas = kirim P0 / WO tertunda, tarik WO terbaru (kode P0
+  /// v1.0.31 (permintaan Master Guswan 24 Okt 2026): tombol refresh kanan atas = kirim P0 / WO tertunda, tarik WO terbaru (kode P0
   /// dari server), lalu muat ulang.
   bool _menyegarkan = false;
 

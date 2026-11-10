@@ -22,7 +22,6 @@ import '../row/row_model.dart';
 import '../row/watermark.dart';
 import 'ba_antrean.dart';
 import 'ba_bantu.dart';
-import 'ba_pengoperasian_screen.dart';
 import 'ba_repository.dart';
 import 'gardu_model.dart';
 import '../../widgets/sisi_loader.dart';

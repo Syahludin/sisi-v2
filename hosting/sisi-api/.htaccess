@@ -1,0 +1,5 @@
+# API baca SiSi: hanya titik masuk publik yang bisa dibuka; _lib.php, contoh config, dan file uji ditolak.
+Options -Indexes
+<FilesMatch "^(_lib\.php|config\.example\.php|.*\.md|uji.*)$">
+  Require all denied
+</FilesMatch>

@@ -17,6 +17,7 @@ import '../row/foto_repository.dart' show FotoRepository;
 import '../row/kamera_screen.dart';
 import '../row/row_repository.dart' show RowError;
 import 'gardu_ukur_panel.dart';
+import 'p0_cc.dart';
 import 'p0_model.dart';
 import 'p0_repository.dart';
 import 'pekerjaan_shift_view.dart';
@@ -26,7 +27,7 @@ import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// v0.64.0: detail satu P0. Foto urut Sebelum (mulai) > Pekerjaan (proses) > Sesudah (selesai), kamera SiSi ber-watermark.
-/// v0.64.7 (keputusan kvlar 8 Okt 2026): foto baru = "belum disimpan" (masih boleh diambil ulang); tombol Simpan Foto
+/// v0.64.7 (keputusan Master Guswan 8 Okt 2026): foto baru = "belum disimpan" (masih boleh diambil ulang); tombol Simpan Foto
 /// mengunci foto (verifikasi), baru tahap berikutnya bisa difoto. Info koordinat pekerjaan / closing, jarak, durasi;
 /// tombol Download Foto P0 (+ Download Foto Switching / Pengukuran, v1.0.0) dan Kirim WA. P0 tanpa foto boleh dihapus (salah buat).
 class P0DetailScreen extends StatefulWidget {
@@ -86,7 +87,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
       if (ada != null) await lihatFoto(context, path: ada, slot: slot, keterangan: x.namaTampil);
       return;
     }
-    // v0.65.5 (keputusan kvlar 8 Okt 2026): verifikasi foto langsung di review kamera. Simpan Foto di kamera =
+    // v0.65.5 (keputusan Master Guswan 8 Okt 2026): verifikasi foto langsung di review kamera. Simpan Foto di kamera =
     // foto disimpan + dikunci sekaligus (tidak ada lagi tahap "Belum disimpan" di halaman ini).
     P0Lokal? baru;
     final f = await ambilFotoRow(context,
@@ -224,7 +225,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
     }
   }
 
-  /// v1.0.0 (permintaan kvlar 19 Okt 2026): foto hasil pengecekan anak P0 ke galeri. Pengecekan Switching = foto Arus +
+  /// v1.0.0 (permintaan Master Guswan 19 Okt 2026): foto hasil pengecekan anak P0 ke galeri. Pengecekan Switching = foto Arus +
   /// Arus Gangguan semua switching; Pengecekan Gardu = 10 foto ukur + Kondisi / Temuan. Nama file = kode switching /
   /// pengukuran + slot (kode resmi server kalau sudah terkirim).
   List<({String path, String nama})> _fotoAnak(P0Lokal x) {
@@ -431,9 +432,12 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
             if (x.catatan.isNotEmpty) baris('Catatan', x.catatan),
           ]),
         ),
+        const SizedBox(height: 14),
+        // v1.0.50: Request P0 ke Command Center + status dari Command Center
+        P0CcPanel(key: ValueKey('cc-${x.id}'), api: widget.deps.api, sesi: widget.sesi, p0: x),
         const SizedBox(height: 16),
         const Text('Foto pekerjaan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-        const SizedBox(height: 10), // v0.66.3: keterangan di atas foto dihapus (permintaan kvlar)
+        const SizedBox(height: 10), // v0.66.3: keterangan di atas foto dihapus (permintaan Master Guswan)
         // v0.66.0: card foto; Pengecekan Switching ikut di card yang sama (hanya pekerjaan Pengecekan Switching)
         Container(
           padding: const EdgeInsets.all(12),

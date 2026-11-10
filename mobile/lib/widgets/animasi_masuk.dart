@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// v1.0.27 (permintaan kvlar 23 Okt 2026): animasi masuk halaman.
+/// v1.0.27 (permintaan Master Guswan 23 Okt 2026): animasi masuk halaman.
 
 /// Durasi animasi masuk bersama (Beranda pop up, cincin + angka Pengukuran Gardu).
 const durasiMasukSisi = Duration(milliseconds: 1100);

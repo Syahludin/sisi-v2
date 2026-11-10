@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// v0.64.2 (keputusan kvlar 8 Okt 2026): jam terpercaya untuk semua waktu pekerjaan Yandal.
+/// v0.64.2 (keputusan Master Guswan 8 Okt 2026): jam terpercaya untuk semua waktu pekerjaan Yandal.
 ///
 /// Jam dinding HP bisa diubah petugas. Jam monoton Android (`SystemClock.elapsedRealtime`, ms sejak HP menyala,
 /// termasuk saat layar mati) tidak bisa. Setiap jawaban server membawa `waktu`; HP menyimpan patokan

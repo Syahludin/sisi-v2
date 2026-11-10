@@ -23,7 +23,7 @@ import '../../widgets/refresh_sisi.dart';
 
 /// v1.0.18: daftar dikelompokkan per tanggal (baris ringkas, rincian + aksi di lembar bawah), chip penyulang selalu
 /// terlihat (master + jadwal), kartu Kirim WA rentang tanggal khusus admin, ENS rupiah bulat.
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): Jadwal Padam (menu admin OPS_JADWAL_PADAM), port SiSi_Mobile v1
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): Jadwal Padam (menu admin OPS_JADWAL_PADAM), port SiSi_Mobile v1
 /// (jadwal_padam_screen.dart, kalender_jadwal_editor.dart, jadwal_padam_calendar.dart) ke v2:
 ///  - daftar + kalender bulan, filter penyulang / status jadwal / status pekerjaan, ringkasan periode;
 ///  - jadwal baru / ubah (selama Terjadwal) dengan dampak otomatis dari Master Daerah Padam (gardu, pelanggan, daerah,
@@ -898,7 +898,7 @@ class _FormJadwalPadamState extends State<FormJadwalPadam> {
   }
 }
 
-/// v1.0.20 (permintaan kvlar 23 Okt 2026): pemilih tanggal jadwal padam. Kalender satu bulan, titik merah = tanggal yang
+/// v1.0.20 (permintaan Master Guswan 23 Okt 2026): pemilih tanggal jadwal padam. Kalender satu bulan, titik merah = tanggal yang
 /// sudah punya jadwal padam (data getJadwalPadam bulan itu); ketuk tanggal = rincian jadwal tanggal itu di bawah kalender,
 /// tombol Pilih = pakai tanggal. [kecuali] = jadwal yang sedang diubah (tidak dihitung).
 Future<DateTime?> pilihTanggalJadwalPadam(BuildContext context, Deps deps, Sesi sesi, DateTime awal, {String kecuali = ''}) =>

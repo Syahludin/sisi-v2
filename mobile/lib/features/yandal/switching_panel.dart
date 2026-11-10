@@ -16,10 +16,10 @@ import 'p0_model.dart';
 import 'p0_repository.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.66.3 (keputusan kvlar 9 Okt 2026): Pengecekan Switching langsung di card Foto detail P0, SATU switching per P0.
+/// v0.66.3 (keputusan Master Guswan 9 Okt 2026): Pengecekan Switching langsung di card Foto detail P0, SATU switching per P0.
 /// Nama Switching dari section P0 (LBS / ACR), indikator Remote / Local / Protection / Reclose (Nyala / Padam),
 /// Arus R / S / T, catatan. Sesudah disimpan nama / indikator / catatan terkunci, Arus R/S/T bisa diubah sampai P0 selesai.
-/// v0.75.0 (permintaan kvlar 10 Okt 2026): foto langsung bisa diambil tanpa menunggu Simpan (draf di HP), lalu
+/// v0.75.0 (permintaan Master Guswan 10 Okt 2026): foto langsung bisa diambil tanpa menunggu Simpan (draf di HP), lalu
 /// Simpan Switching menyimpan isian + foto bersamaan (Foto Arus wajib). Indikator tersimpan tetap disorot warnanya.
 class SwitchingPanel extends StatefulWidget {
   const SwitchingPanel({super.key, required this.deps, required this.sesi, required this.p0, required this.onBerubah, this.onUbahLokasi});
@@ -100,7 +100,7 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
     return (r: _angka(_r)!, s: _angka(_s)!, t: _angka(_t)!);
   }
 
-  // v1.0.31 (permintaan kvlar 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
+  // v1.0.31 (permintaan Master Guswan 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
   Map<String, String> _salah = const {};
   final Map<String, GlobalKey> _kunciIsian = {};
   GlobalKey _k(String k) => _kunciIsian.putIfAbsent(k, () => GlobalKey());

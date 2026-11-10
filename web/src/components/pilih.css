@@ -1,0 +1,44 @@
+/* v1.0.48 dropdown bergaya SiSi (components/Pilih.jsx). */
+.pl { position: relative; min-width: 0; }
+.pl-tombol {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 8px 10px 8px 12px;
+  border: 1px solid var(--neutral-200); border-radius: 12px; background: var(--putih); color: var(--brand-950);
+  font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.pl-tombol:hover:not(:disabled) { border-color: var(--brand-500); background: var(--brand-50); }
+.pl-tombol:focus-visible, .pl--buka .pl-tombol { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(29, 106, 115, .16); }
+.pl-tombol:disabled { cursor: not-allowed; background: var(--neutral-50); color: var(--neutral-500); }
+.pl-tombol--kosong .pl-nilai { color: var(--neutral-500); font-weight: 600; }
+.pl-tombol--galat { border-color: var(--red-600); background: var(--red-100); }
+.pl-nilai { flex: 1; min-width: 0; display: grid; overflow: hidden; }
+.pl-nilai, .pl-nilai small { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.pl-nilai small { font-size: 11.5px; font-weight: 600; color: var(--neutral-500); }
+.pl-panah { flex: 0 0 auto; color: var(--neutral-500); transition: transform .18s; }
+.pl--buka .pl-panah { transform: rotate(180deg); color: var(--brand-700); }
+
+.pl-panel {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: max-content; min-width: max(100%, 220px); max-width: min(560px, 92vw); padding: 6px;
+  border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--putih);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .06);
+  animation: pl-masuk .14s ease-out;
+}
+@keyframes pl-masuk { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pl-cari { display: flex; align-items: center; gap: 8px; margin: 2px 2px 6px; padding: 7px 10px; border-radius: 10px; background: var(--neutral-50); color: var(--neutral-500); }
+.pl-cari input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13.5px; color: var(--brand-950); }
+.pl-fokus { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pl-daftar { max-height: 264px; overflow-y: auto; margin: 0; padding: 0; list-style: none; overscroll-behavior: contain; }
+.pl-opsi { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; cursor: pointer; color: var(--brand-950); }
+.pl-opsi > span:not(.pl-kotak) { flex: 1; min-width: 0; display: grid; }
+.pl-opsi b { font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+.pl-opsi small { font-size: 11.5px; color: var(--neutral-500); }
+.pl-opsi--aktif { background: var(--brand-50); }
+.pl-opsi--pilih { color: var(--brand-800); }
+.pl-opsi--pilih b { font-weight: 800; }
+.pl-opsi--baru { color: var(--success-700); border-top: 1px dashed var(--neutral-200); margin-top: 4px; }
+/* v1.0.51 kotak centang pilihan ganda */
+.pl-kotak { flex: 0 0 auto; display: grid; place-items: center; width: 18px; height: 18px; border: 2px solid var(--neutral-300); border-radius: 5px; background: var(--putih); color: #fff; transition: background .12s, border-color .12s; }
+.pl-kotak--on { border-color: var(--brand-600); background: var(--brand-600); }
+.pl-opsi:hover .pl-kotak:not(.pl-kotak--on) { border-color: var(--brand-500); }
+.pl-kosong { padding: 12px 10px; font-size: 13px; color: var(--neutral-500); }
+@media (prefers-reduced-motion: reduce) { .pl-panel { animation: none; } .pl-panah { transition: none; } }

@@ -25,7 +25,7 @@ class ModulOperasi {
   final bool lebar; // tile lebar di atas grup (Laporan per Tim)
 }
 
-/// Daftar modul dari menu Teknik SiSi lama + Pengukuran Gardu (dulu di bottom bar). Keputusan kvlar 4 Okt 2026.
+/// Daftar modul dari menu Teknik SiSi lama + Pengukuran Gardu (dulu di bottom bar). Keputusan Master Guswan 4 Okt 2026.
 class KatalogOperasi {
   KatalogOperasi._();
 
@@ -39,11 +39,14 @@ class KatalogOperasi {
         kode: 'OPS_PETA_TEMUAN', nama: 'Peta Temuan', desc: 'Peta temuan inspeksi dari data aktif dan arsip',
         ikon: Icons.map_outlined, warna: AppColors.success700, grup: 'Monitoring'),
     ModulOperasi(
-        kode: 'OPS_REKAP_GANGGUAN', nama: 'Rekap Gangguan', desc: 'Rekapitulasi padam dan gangguan distribusi',
-        ikon: Icons.electric_bolt_outlined, warna: AppColors.amber700, grup: 'Monitoring'),
+        kode: 'OPS_REKAP_GANGGUAN', nama: 'History Gangguan', desc: 'Top 12 penyulang, grafik PMT | Section, kode FGTM, daftar kejadian',
+        ikon: Icons.electric_bolt_outlined, warna: AppColors.amber700, grup: 'Monitoring', siap: true),
     ModulOperasi(
         kode: 'OPS_LAP_UP3', nama: 'Laporan UP3', desc: 'Laporan harian keandalan distribusi ke UP3 + C4A per penyulang',
         ikon: Icons.assessment_outlined, warna: AppColors.navy700, grup: 'Monitoring', siap: true),
+    ModulOperasi(
+        kode: 'OPS_LAP_GANGGUAN', nama: 'Laporan Gangguan Penyulang', desc: 'Teks WhatsApp gangguan H-1 + rekap bulan berjalan',
+        ikon: Icons.bolt_rounded, warna: AppColors.amber700, grup: 'Monitoring', siap: true), // v1.0.59
     ModulOperasi(
         kode: 'OPS_LAP_UIW', nama: 'Laporan UIW', desc: 'Laporan harian wilayah: cuaca, Care for Asset, realisasi ROW',
         ikon: Icons.apartment_rounded, warna: AppColors.navy700, grup: 'Monitoring', siap: true),
@@ -73,12 +76,20 @@ class KatalogOperasi {
         ikon: Icons.swap_horiz_rounded, warna: AppColors.cyan600, grup: 'Pekerjaan Teknik', siap: true),
     // v0.63.0: susunan petugas tim YANDAL 13-17 (mengikuti SK), ADMIN / SUPER
     ModulOperasi(
-        kode: 'OPS_PETUGAS_YANDAL', nama: 'Pindah Tim Petugas Yandal', desc: 'Atur petugas di tiap tim Yandal sesuai SK',
+        kode: 'OPS_PETUGAS_YANDAL', nama: 'Pindah Tim Petugas', desc: 'Atur petugas di tiap tim (Yandal, ROW, Hartek, Inspeksi) sesuai SK',
         ikon: Icons.manage_accounts_outlined, warna: AppColors.amber700, grup: 'Pekerjaan Teknik', siap: true),
+    // v1.0.51: absensi safety briefing harian, dua pengabsen (ADMIN_ES + ADMIN), teks WhatsApp otomatis
+    ModulOperasi(
+        kode: 'OPS_ABSENSI', nama: 'Absensi Safety Briefing', desc: 'Absen seluruh staf tiap pagi, rekap bulan berjalan, salin teks WhatsApp',
+        ikon: Icons.fact_check_outlined, warna: AppColors.success700, grup: 'Pekerjaan Teknik', siap: true),
     ModulOperasi(
         // v0.75.0: Approval P0 (ADMIN / SUPER): setujui, tolak, koreksi jenis pekerjaan
         kode: 'OPS_VERIFIKASI_P0', nama: 'Approval P0', desc: 'Setujui / tolak P0 Yandal per tanggal, cek foto, koreksi jenis pekerjaan',
         ikon: Icons.verified_outlined, warna: AppColors.navy700, grup: 'Pekerjaan Teknik', siap: true),
+    ModulOperasi(
+        // v1.0.57: Material Gudang (ADMIN / SUPER): stok MCB gudang + tim Yandal, selisih, pemakaian, izin material
+        kode: 'OPS_GUDANG_MATERIAL', nama: 'Material Gudang', desc: 'Stok MCB gudang dan tim Yandal, selisih pemeriksaan awal shift, pemakaian, izin material',
+        ikon: Icons.inventory_2_outlined, warna: AppColors.navy700, grup: 'Pekerjaan Teknik', siap: true),
     ModulOperasi(
         kode: 'OPS_PENGUKURAN_GARDU', nama: 'Pengukuran Gardu', desc: 'Beban gardu distribusi dari Master Gardu: kategori, saringan, detail',
         ikon: Icons.electrical_services_outlined, warna: AppColors.navy700, grup: 'Jaringan & Gardu', siap: true),
@@ -89,5 +100,13 @@ class KatalogOperasi {
     ModulOperasi(
         kode: 'OPS_CHECKPOINT', nama: 'Checkpoint Jaringan', desc: 'Monitoring dan data checkpoint jalur penyulang',
         ikon: Icons.location_on_outlined, warna: AppColors.navy700, grup: 'Jaringan & Gardu'),
+    // Verifikasi Tiang + Master Segmen (ADMIN / SUPER): verifikasi aset tiang berurutan sepanjang jalur
+    ModulOperasi(
+        kode: 'OPS_VERIFIKASI_TIANG', nama: 'Verifikasi Tiang', desc: 'Verifikasi tiang TM di lapangan sepanjang jalur',
+        ikon: Icons.cell_tower_outlined, warna: AppColors.success700, grup: 'Jaringan & Gardu', siap: true),
+    // 1.0.63: Master Switching (ADMIN / SUPER): pendataan + verifikasi switching lapangan di peta OpenStreetMap
+    ModulOperasi(
+        kode: 'OPS_MASTER_SWITCHING', nama: 'Master Jaringan', desc: 'Switching di peta, penyulang + section, dan segmen: tambah, ubah, aktifkan / nonaktifkan',
+        ikon: Icons.electrical_services_rounded, warna: AppColors.brand700, grup: 'Jaringan & Gardu', siap: true),
   ];
 }

@@ -13,7 +13,7 @@ import '../../core/sesi.dart';
 import 'ba_bantu.dart';
 import 'ba_repository.dart';
 
-/// v0.76.0 (permintaan kvlar 10 Okt 2026): simpan BA berjalan di LATAR BELAKANG. Form langsung tertutup sesudah Simpan;
+/// v0.76.0 (permintaan Master Guswan 10 Okt 2026): simpan BA berjalan di LATAR BELAKANG. Form langsung tertutup sesudah Simpan;
 /// kirim foto > simpan / ubah BA > buat PDF dikerjakan antrean ini selama aplikasi terbuka (layar lain tetap bisa dipakai).
 /// Antrean + salinan foto disimpan di HP, jadi aplikasi ditutup / sinyal hilang = dilanjutkan saat Berita Acara dibuka
 /// lagi. Kirim ulang aman: foto yang sudah terkirim dilewati (sha), simpan BA idempoten (baId), PDF boleh dibuat ulang.

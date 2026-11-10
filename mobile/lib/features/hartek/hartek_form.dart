@@ -250,7 +250,7 @@ class _FormHartekPageState extends State<FormHartekPage> {
     }
     final k = widget.fokus;
     if (k != null && k.isNotEmpty) _tunjuk(k);
-    // v1.0.28 (permintaan kvlar 23 Okt 2026): koordinat gpsSaja (WO Yandal) langsung diambil dari GPS HP saat form
+    // v1.0.28 (permintaan Master Guswan 23 Okt 2026): koordinat gpsSaja (WO Yandal) langsung diambil dari GPS HP saat form
     // dibuka, tidak bisa diketik; tombol GPS tetap ada untuk mengulang bila sinyal GPS gagal.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -933,7 +933,7 @@ class _FormHartekPageState extends State<FormHartekPage> {
         ]),
       );
 
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu yang bisa dibuka / ditutup. [sub] = kartu kecil di dalam kartu grup
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): kartu yang bisa dibuka / ditutup. [sub] = kartu kecil di dalam kartu grup
   /// (material, aksen kuning); selain itu kartu grup (pekerjaan, aksen merek). Judul selalu tampil, ketuk = buka / tutup.
   Widget _kartuLipat({required String kunci, required String judul, required List<Widget> isi, required bool sub}) {
     final aksen = sub ? AppColors.accent700 : HartekGaya.merek;

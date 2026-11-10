@@ -30,8 +30,18 @@ async function salinTeks(teks) {
   }
 }
 
-/** Pratinjau teks WA (gelembung hijau) + Salin teks + Buka WhatsApp. tinggiMaks = batas tinggi gelembung (CSS). */
-export default function TeksWa({ teks, tinggiMaks }) {
+/** Gelembung pratinjau teks WA. tinggiMaks = batas tinggi gelembung (CSS). */
+export function GelembungWa({ teks, tinggiMaks }) {
+  return (
+    <div className="k-wa-teks" style={tinggiMaks ? { maxHeight: tinggiMaks } : undefined}>
+      {/* baris kosong = spasi tak-putus supaya tingginya tetap satu baris */}
+      {teks.split('\n').map((b, i) => <div key={i}>{b ? barisWa(b) : ' '}</div>)}
+    </div>
+  );
+}
+
+/** Tombol Salin teks + Buka WhatsApp. kelas = kelas pembungkus (default k-bawah); terang = tombol untuk latar gelap. */
+export function TombolWa({ teks, kelas = 'k-bawah', terang = false }) {
   const [tersalin, setTersalin] = useState('');
   const jam = useRef(0);
   useEffect(() => () => clearTimeout(jam.current), []);
@@ -44,18 +54,23 @@ export default function TeksWa({ teks, tinggiMaks }) {
   };
 
   return (
+    <div className={kelas}>
+      <button type="button" className={'k-tombol ' + (terang ? 'k-tombol--terang' : 'k-tombol--utama')} onClick={salin} aria-live="polite">
+        <Ikon nama={tersalin === 'Tersalin' ? 'centang' : 'salin'} ukuran={16} />{tersalin || 'Salin teks'}
+      </button>
+      <a className={'k-tombol ' + (terang ? 'k-tombol--wa' : 'k-tombol--garis')} href={'https://wa.me/?text=' + encodeURIComponent(teks)} target="_blank" rel="noopener noreferrer">
+        Buka WhatsApp
+      </a>
+    </div>
+  );
+}
+
+/** Pratinjau teks WA (gelembung hijau) + Salin teks + Buka WhatsApp. tinggiMaks = batas tinggi gelembung (CSS). */
+export default function TeksWa({ teks, tinggiMaks }) {
+  return (
     <>
-      <div className="k-wa-teks" style={tinggiMaks ? { maxHeight: tinggiMaks } : undefined}>
-        {teks.split('\n').map((b, i) => <div key={i}>{b ? barisWa(b) : ' '}</div>)}
-      </div>
-      <div className="k-bawah">
-        <button type="button" className="k-tombol k-tombol--utama" onClick={salin}>
-          <Ikon nama={tersalin === 'Tersalin' ? 'centang' : 'salin'} ukuran={16} />{tersalin || 'Salin teks'}
-        </button>
-        <a className="k-tombol k-tombol--garis" href={'https://wa.me/?text=' + encodeURIComponent(teks)} target="_blank" rel="noopener noreferrer">
-          Buka WhatsApp
-        </a>
-      </div>
+      <GelembungWa teks={teks} tinggiMaks={tinggiMaks} />
+      <TombolWa teks={teks} />
     </>
   );
 }

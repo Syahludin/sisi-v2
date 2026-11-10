@@ -8,9 +8,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/inti.test.js test/laporan.test.js test/approvalP0.test.js test/jadwalPadam.test.js test/pengukuranGardu.test.js test/beritaAcara.test.js"
+    "zip:staging": "node scripts/zip.cjs staging",
+    "zip:production": "node scripts/zip.cjs production",
+    "test": "node --test test/inti.test.js test/laporan.test.js test/approvalP0.test.js test/jadwalPadam.test.js test/pengukuranGardu.test.js test/beritaAcara.test.js test/rute.test.js test/gangguan.test.js test/penerusanWo.test.js test/apiBaca.test.js test/gaspol.test.js test/workplan.test.js test/baForm.test.js test/petaTemuan.test.js test/coverGardu.test.js test/checkpoint.test.js test/asetItb.test.js test/gudang.test.js test/selisihWo.test.js test/sinkronWo.test.js test/laporanGangguan.test.js test/masterSwitching.test.js test/tiang.test.js test/jaringan.test.js test/katalog.test.js test/tema.test.js"
   },
   "dependencies": {
+    "leaflet": "1.9.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

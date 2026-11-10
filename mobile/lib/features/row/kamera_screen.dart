@@ -56,7 +56,7 @@ Future<FotoBaru?> ambilFotoRow(BuildContext context,
 /// otomatis tiap foto), watermark tampil di pratinjau sama persis dengan yang dibakar saat disimpan.
 /// Lokasi palsu (mock) ditolak. Hasil: FotoBaru (file + waktu jepret + posisi GPS saat jepret).
 ///
-/// v0.65.3 (P0) / v0.65.4 (ROW juga), keputusan kvlar 8 Okt 2026: shutter TIDAK dikunci GPS. Sesudah jepret tampil
+/// v0.65.3 (P0) / v0.65.4 (ROW juga), keputusan Master Guswan 8 Okt 2026: shutter TIDAK dikunci GPS. Sesudah jepret tampil
 /// REVIEW foto + watermark (proporsi sama dengan hasil akhir). Fix segar saat jepret = koordinat langsung terkunci.
 /// Belum ada = GPS terus dicari selama review maks [GpsSusulan.jendela] sejak jepret, watermark ikut terisi begitu titik
 /// didapat; lewat = tanpa koordinat GPS (bukan titik salah). Gunakan tanpa koordinat = kartu verifikasi dulu
@@ -64,7 +64,7 @@ Future<FotoBaru?> ambilFotoRow(BuildContext context,
 /// `p0`: jam watermark = jam terpercaya pemanggil (pratinjau.waktu) dan watermark menandai "susulan N dtk".
 /// ROW: jam = jam HP saat jepret (FotoBaru.diambil, sama dengan yang dibakar), tanpa GPS = koordinat input pekerjaan.
 ///
-/// v0.65.5 `simpan` (P0; v0.65.6 juga detail eksekusi ROW, keputusan kvlar 8 Okt 2026): verifikasi foto langsung di review kamera. Tombol Simpan Foto
+/// v0.65.5 `simpan` (P0; v0.65.6 juga detail eksekusi ROW, keputusan Master Guswan 8 Okt 2026): verifikasi foto langsung di review kamera. Tombol Simpan Foto
 /// memanggil [simpan] (foto disimpan + dikunci); gagal = pesan, tetap di review (bisa Ambil Ulang). Berhasil = kamera ditutup.
 class KameraRowScreen extends StatefulWidget {
   const KameraRowScreen({super.key, required this.pratinjau, this.p0 = false, this.simpan});

@@ -94,7 +94,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
     ));
   }
 
-  /// v1.0.22 (permintaan kvlar 23 Okt 2026): admin menjalankan ADMIN_lengkapiMaster = revisi master di jawaban server
+  /// v1.0.22 (permintaan Master Guswan 23 Okt 2026): admin menjalankan ADMIN_lengkapiMaster = revisi master di jawaban server
   /// berubah, HP yang login mengunduh ulang Master Data + Master Gardu (+ master Inspeksi Gardu) sekali per revisi.
   /// Gagal (offline) = dicoba lagi pada jawaban server berikutnya.
   String? _revisiMaster;
@@ -141,7 +141,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
 
   /// v0.63.0: akhir shift (07:59 / 15:59 / 23:59 WIB, jam HP, juga offline): tutup semua layar, kartu info.
   /// Form yang belum disimpan ikut tertutup (belum disimpan = belum fix). Outbox TIDAK disentuh (Alur D).
-  /// v0.63.4 (keputusan kvlar 8 Okt 2026): masih ada data tertunda = TIDAK langsung keluar. Dashboard diganti
+  /// v0.63.4 (keputusan Master Guswan 8 Okt 2026): masih ada data tertunda = TIDAK langsung keluar. Dashboard diganti
   /// gerbang sync (tidak bisa input / buat P0), semua data dikirim dulu, baru logout otomatis.
   Future<void> _keluarShift(Sesi s) async {
     if (_sesi?.token != s.token || _syncAkhir) return;
@@ -294,7 +294,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
     return MaterialApp(
       navigatorKey: _navigator,
       scaffoldMessengerKey: _pesan,
-      title: Env.isStaging ? 'SiSi ULP Toboali STG' : 'SiSi ULP Toboali',
+      title: Env.isStaging ? 'SiSi ULP ${Env.ulp} STG' : 'SiSi ULP ${Env.ulp}',
       debugShowCheckedModeBanner: Env.isStaging,
       theme: AppTheme.light,
       locale: const Locale('id', 'ID'),
@@ -305,7 +305,7 @@ class _SisiAppState extends State<SisiApp> with WidgetsBindingObserver {
         GlobalCupertinoLocalizations.delegate,
       ],
       // v1.0.22: wajib update = pita merah di atas semua halaman (input + sinkron mati)
-      builder: (c, child) => PitaKunciUpdate(tampil: _sesi != null, child: child!),
+      builder: (c, child) => PitaKunciUpdate(tampil: _siap, sudahMasuk: _sesi != null, child: child!),   // v1.0.61: pita juga di halaman login
       home: !_siap
           ? const _Splash()
           : _sesi == null

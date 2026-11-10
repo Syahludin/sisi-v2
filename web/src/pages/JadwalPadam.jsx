@@ -10,11 +10,10 @@ import {
   ringkasJadwal, rupiah, saringJadwal, STATUS_JP, STATUS_PEKERJAAN_JP, tandaKalender,
 } from '../jadwalPadam.js';
 import { aksiMenu } from '../katalog.js';
-import { pesan } from '../pesan.js';
+import { kodeGalat, pesan } from '../pesan.js';
 import { hariIniWib } from '../tanggal.js';
 import './jadwalPadam.css';
 
-const kodeGalat = (e) => (e && e.kode) || 'JARINGAN';
 const BATAS_TULIS_MS = 60000;
 const HARI_PENDEK = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 /** Galat yang berarti data di layar sudah basi: daftar dimuat ulang. */
@@ -25,10 +24,11 @@ const BASI = new Set(['KONFLIK_REVISION', 'JADWAL_TERKUNCI', 'DATA_TIDAK_DITEMUK
  * sekali (kalender + ringkasan kiri, tabel per tanggal kanan, saring di browser), jadwal baru / ubah dengan pratinjau
  * dampak dari Master Daerah Padam, tandai Terealisasi / Batal Pemadaman, hapus (hanya Terjadwal), Format WA rentang.
  */
-export default function JadwalPadam({ api, sesi }) {
+export default function JadwalPadam({ api, sesi, rute, keRute }) {
   const bolehUbah = aksiMenu(sesi, MENU_JP) === 'UBAH';
   const hariIni = hariIniWib();
-  const [bulan, setBulan] = useState(bulanDari(hariIni));
+  // v1.0.36: bulan tersimpan di alamat (?bulan=2026-11): refresh / bookmark = bulan sama
+  const [bulan, setBulan] = useState(() => (/^\d{4}-\d{2}$/.test(rute.query.bulan || '') ? rute.query.bulan : bulanDari(hariIni)));
   const [jadwal, setJadwal] = useState(null);
   const [memuat, setMemuat] = useState(true);
   const [galatMuat, setGalatMuat] = useState('');
@@ -50,7 +50,8 @@ export default function JadwalPadam({ api, sesi }) {
     setMemuat(true);
     setGalatMuat('');
     try {
-      const j = await api('getJadwalPadam', rentangBulan(b));
+      const j = await api('getJadwalPadam', rentangBulan(b), {
+        awal: (c) => { if (no === urutMuat.current && Array.isArray(c.data.jadwal)) setJadwal(c.data.jadwal); } });
       if (no === urutMuat.current) setJadwal(Array.isArray(j.data.jadwal) ? j.data.jadwal : []);
     } catch (e) {
       if (no === urutMuat.current) setGalatMuat(pesan(kodeGalat(e)));
@@ -63,7 +64,7 @@ export default function JadwalPadam({ api, sesi }) {
   const muatMaster = useCallback(async () => {
     setGalatMaster('');
     try {
-      const m = await api('getMasterJadwalPadam', {});
+      const m = await api('getMasterJadwalPadam', {}, { awal: (c) => { if (Array.isArray(c.data.daerah)) setMaster(c.data.daerah); } });
       setMaster(Array.isArray(m.data.daerah) ? m.data.daerah : []);
     } catch (e) {
       setGalatMaster(pesan(kodeGalat(e)));
@@ -71,6 +72,7 @@ export default function JadwalPadam({ api, sesi }) {
   }, [api]);
 
   useEffect(() => { muat(bulan); muatMaster(); }, []);
+  useEffect(() => { keRute({ query: { bulan: bulan === bulanDari(hariIni) ? '' : bulan } }, { ganti: true }); }, [bulan]);
 
   const gantiBulan = (b) => {
     setBulan(b);

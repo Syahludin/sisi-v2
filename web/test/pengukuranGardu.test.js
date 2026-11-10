@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { TAB_HI } from '../src/hiGardu.def.js';
 import {
-  bisaUpdateUkur, cariGardu, galatHi, jenisKategori, isianBerubah, nilaiAwalHi, payloadHi, pilihanIsian, ringkasHasilHi, semuaIsianHi, sudahDiMaster,
+  bisaUpdateUkur, cariGardu, galatHi, jenisKategori, isianBerubah, nilaiAwalHi, payloadHi, pilihanIsian, ringkasHasilHi, semuaIsianHi, sudahDiMaster, matriksFasa, jumlahTerisi,
 } from '../src/pengukuranGardu.js';
 
 test('definisi form HI: 7 tab, 182 isian unik berlabel, tanggal/jam sama v1 (peta kolom diatur server)', () => {
@@ -62,4 +62,18 @@ test('riwayat: update ke master hanya Yandal / Inspeksi Gardu dengan ukurId; sud
   assert.equal(sudahDiMaster(g, { periode: 'WBP', kode: 'K-1' }), true);
   assert.equal(sudahDiMaster(g, { periode: 'LWBP', kode: 'K-1' }), false);
   assert.equal(sudahDiMaster({ kodeUkur: 'K-1', lwbp: null }, { periode: 'LWBP', kode: 'K-2' }), false);
+});
+
+test('matriksFasa: isian per fasa jadi tabel, selain itu null', () => {
+  const m = matriksFasa([{ col: 'a', label: 'Jurusan A R' }, { col: 'b', label: 'Jurusan A S' }, { col: 'c', label: 'Jurusan B R' }]);
+  assert.deepEqual(m.kolom, ['R', 'S']);
+  assert.deepEqual(m.baris.map((b) => [b.nama, Object.keys(b.sel)]), [['Jurusan A', ['R', 'S']], ['Jurusan B', ['R']]]);
+  assert.deepEqual(matriksFasa([{ col: 'a', label: 'R' }, { col: 'b', label: 'S' }, { col: 'c', label: 'T' }, { col: 'd', label: 'N' }]).baris[0].nama, '');
+  assert.equal(matriksFasa([{ col: 'a', label: 'R - S' }, { col: 'b', label: 'S' }, { col: 'c', label: 'T' }]), null);
+  // semua seksi definisi tetap utuh (setiap field muncul tepat sekali)
+  TAB_HI.forEach((t) => t.seksi.forEach((s) => {
+    const x = matriksFasa(s.fields);
+    if (x) assert.equal(x.baris.reduce((n, b) => n + Object.keys(b.sel).length, 0), s.fields.length);
+  }));
+  assert.equal(jumlahTerisi([{ col: 'a' }, { col: 'b' }], { a: '1', b: ' ' }), 1);
 });

@@ -17,7 +17,7 @@ import '../yandal/shift_yandal_screen.dart';
 import '../../widgets/refresh_sisi.dart';
 
 /// Beranda: kartu profil, kalender, akses cepat (v1.0.21: kartu status sync dihapus).
-/// v1.0.18 (permintaan kvlar 22 Okt 2026): gaya "Jaringan SiSi" + kalender satu bulan (pekerjaan tim, WO, jadwal padam)
+/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): gaya "Jaringan SiSi" + kalender satu bulan (pekerjaan tim, WO, jadwal padam)
 /// supaya setiap petugas melihat rencana pekerjaan dan jadwal padam hari itu langsung dari Beranda.
 class BerandaScreen extends StatefulWidget {
   const BerandaScreen({super.key, required this.deps, required this.sesi, required this.keLaporan, this.masuk});
@@ -35,7 +35,7 @@ class BerandaScreen extends StatefulWidget {
 class _BerandaScreenState extends State<BerandaScreen> with SingleTickerProviderStateMixin {
   final _kalender = GlobalKey<PanelKalenderTimState>();
 
-  /// v1.0.27 (permintaan kvlar 23 Okt 2026): kartu utama, shift, Rank Yandal, kalender, akses cepat muncul sebagai pop up
+  /// v1.0.27 (permintaan Master Guswan 23 Okt 2026): kartu utama, shift, Rank Yandal, kalender, akses cepat muncul sebagai pop up
   /// bertingkat setiap Beranda dibuka (sesudah kartu Selamat Datang login, dan setiap kembali ke tab Beranda).
   late final AnimationController _masuk = AnimationController(vsync: this, duration: durasiMasukSisi);
 
@@ -69,7 +69,7 @@ class _BerandaScreenState extends State<BerandaScreen> with SingleTickerProvider
       listenable: ctl,
       builder: (context, _) => Scaffold(
         backgroundColor: Colors.transparent, // v1.0.19: latar bg-sisi dari kerangka (seperti Pengaturan)
-        // v1.0.21 (permintaan kvlar 23 Okt 2026): kartu sinkron dihapus. Sinkron + muat ulang kalender = tombol refresh SiSi
+        // v1.0.21 (permintaan Master Guswan 23 Okt 2026): kartu sinkron dihapus. Sinkron + muat ulang kalender = tombol refresh SiSi
         // di app bar atau tarik ke bawah. Sync juga otomatis tiap 5 menit.
         appBar: sisiAppBar('Beranda', online: ctl.online, actions: [TombolSegarkan(sibuk: ctl.sedangSync, onPressed: _segarkan)]),
         body: RefreshSisi(

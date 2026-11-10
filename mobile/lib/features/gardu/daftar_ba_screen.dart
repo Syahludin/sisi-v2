@@ -17,8 +17,6 @@ import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'arsip_ba_lembar.dart';
 import 'ba_antrean.dart';
-import 'ba_penggantian_screen.dart';
-import 'ba_pengoperasian_screen.dart';
 import 'ba_repository.dart';
 import 'berita_acara_screen.dart';
 import 'detail_ba_screen.dart';
@@ -26,7 +24,7 @@ import 'gardu_widgets.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.76.0 (permintaan kvlar 10 Okt 2026): PDF BA TIDAK dibuka lewat Drive. Bytes PDF diambil lewat server
+/// v0.76.0 (permintaan Master Guswan 10 Okt 2026): PDF BA TIDAK dibuka lewat Drive. Bytes PDF diambil lewat server
 /// (getPdfBaGardu), disimpan di HP (per Waktu PDF, jadi buat ulang = unduh baru), ditampilkan di dalam aplikasi.
 Future<String> pdfLokalBa(BaRepository repo, Sesi s, ItemBa b) async {
   final dir = Directory(p.join((await getApplicationDocumentsDirectory()).path, 'ba_pdf'));
@@ -142,9 +140,9 @@ StatusBadge badgeTahapBa(String tahap) {
 String _iso(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// v0.71.0: daftar BA dengan status PDF. v0.76.0: antrean kirim di atas, PDF dilihat / di-download di dalam aplikasi.
-/// v0.78.0 (permintaan kvlar 10 Okt 2026): filter urut / rentang tanggal / jenis BA / status, kartu dipilih = Lihat Detail BA
+/// v0.78.0 (permintaan Master Guswan 10 Okt 2026): filter urut / rentang tanggal / jenis BA / status, kartu dipilih = Lihat Detail BA
 /// atau Download BA; fitur lain (edit, buat ulang, kirim, BA TTD, EAM, Master Gardu) muncul sesudahnya.
-/// v0.86.0 (permintaan kvlar 13 Okt 2026): satu halaman dengan Arsip BA v1 (baca saja), urut tanggal, filter sumber,
+/// v0.86.0 (permintaan Master Guswan 13 Okt 2026): satu halaman dengan Arsip BA v1 (baca saja), urut tanggal, filter sumber,
 /// [cariAwal] = langsung cari (mis. No Gardu dari detail gardu) untuk tracking riwayat BA.
 class DaftarBaScreen extends StatefulWidget {
   const DaftarBaScreen({super.key, required this.deps, required this.sesi, this.cariAwal = ''});
@@ -286,7 +284,7 @@ class _DaftarBaScreenState extends State<DaftarBaScreen> {
     return baru;
   }
 
-  bool _bisaEdit(ItemBa b) => !b.batal && (b.jenis == 'Pengoperasian Trafo' || b.jenis == 'Penggantian Trafo');
+  bool _bisaEdit(ItemBa b) => !b.batal && jenisBaForm.contains(b.jenis);
 
   Future<String?> _ambilPdf(ItemBa b) async {
     setState(() => _unduh = b.baId);
@@ -343,9 +341,7 @@ class _DaftarBaScreenState extends State<DaftarBaScreen> {
       tampilPesan(context, 'BA ini masih diproses di latar belakang. Tunggu selesai dulu.');
       return;
     }
-    final layar = b.jenis == 'Penggantian Trafo'
-        ? BaPenggantianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: b.baId)
-        : BaPengoperasianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: b.baId);
+    final layar = layarFormBa(widget.deps, widget.sesi, b.jenis, ubahBaId: b.baId);
     final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
     if (ok == true && mounted) await _segarkan();
   }

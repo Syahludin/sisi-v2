@@ -18,15 +18,16 @@ import '../../widgets/foto_slot.dart';
 import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'ba_antrean.dart';
-import 'ba_penggantian_screen.dart';
-import 'ba_pengoperasian_screen.dart';
+import 'ba_pemeriksaan_screen.dart';
 import 'ba_repository.dart';
+import 'ba_switching_screen.dart';
+import 'berita_acara_screen.dart';
 import 'daftar_ba_screen.dart';
 import 'gardu_widgets.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.78.0 (permintaan kvlar 10 Okt 2026): Detail BA. Semua fitur satu BA per langkah alur:
+/// v0.78.0 (permintaan Master Guswan 10 Okt 2026): Detail BA. Semua fitur satu BA per langkah alur:
 /// 1 Dokumen BA (PDF: lihat, download, kirim, buat ulang, edit) > 2 BA TTD (upload / upload ulang, lihat, download)
 /// > 3 Kirim EAM (teks format v1 + file TTD terlampir) > 4 Update Master Gardu. Langkah terkunci sampai syaratnya terpenuhi.
 class DetailBaScreen extends StatefulWidget {
@@ -89,8 +90,13 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
 
   List<(String, String)> _daftarSlotFoto(Map<String, dynamic> d) {
     final ada = (d['foto'] as List<dynamic>? ?? const <dynamic>[]).map((e) => '$e').toSet();
-    final dasar = _b.jenis == 'Penggantian Trafo' ? _slotBaGanti : _slotBa;
-    return [for (final s in dasar) if (ada.isEmpty && _b.jenis != 'Penggantian Trafo' ? true : ada.contains(s.$1)) s];
+    final dasar = switch (_b.jenis) {
+      'Penggantian Trafo' => _slotBaGanti,
+      'Pemeriksaan Trafo' => slotFotoPemeriksaan,
+      _ when jenisBaSwitching.contains(_b.jenis) => [for (final s in slotFotoSwitching(_b.jenis)) (s.$1, s.$2)],
+      _ => _slotBa,
+    };
+    return [for (final s in dasar) if (ada.isEmpty && _b.jenis == 'Pengoperasian Trafo' ? true : ada.contains(s.$1)) s];
   }
 
   Future<Uint8List> _ambilFotoKecil(String slot) =>
@@ -180,9 +186,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
       tampilPesan(context, 'BA ini masih diproses di latar belakang. Tunggu selesai dulu.');
       return;
     }
-    final layar = _b.jenis == 'Penggantian Trafo'
-        ? BaPenggantianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: _b.baId)
-        : BaPengoperasianScreen(deps: widget.deps, sesi: widget.sesi, ubahBaId: _b.baId);
+    final layar = layarFormBa(widget.deps, widget.sesi, _b.jenis, ubahBaId: _b.baId);
     final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
     if (ok == true && mounted) {
       setState(() => _berubah = true);
@@ -490,7 +494,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FC),
         appBar: sisiAppBar('Detail BA', subjudul: b.noGardu, actions: [
-          if (!b.batal && (b.jenis == 'Pengoperasian Trafo' || b.jenis == 'Penggantian Trafo'))
+          if (!b.batal && jenisBaForm.contains(b.jenis))
             IconButton(tooltip: 'Edit BA', onPressed: bisa ? () => unawaited(_edit()) : null, icon: const Icon(Icons.edit_note_rounded)),
         ]),
         body: Column(children: [
@@ -607,40 +611,43 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
                       ],
                     ],
                   ),
-                  _langkah(
-                    no: 3,
-                    judul: 'Kirim ke EAM',
-                    ket: !ttdOk
-                        ? 'Terbuka sesudah BA TTD diupload'
-                        : (b.eamKali > 0 ? 'Terakhir dikirim ${b.eamTerakhir} WIB (${b.eamKali}x)' : 'Pesan WhatsApp format v1 + file BA TTD'),
-                    selesai: b.eamKali > 0 && ttdOk,
-                    kunci: !ttdOk,
-                    isi: [
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46), backgroundColor: const Color(0xFF1FA855)),
-                        onPressed: bisa && ttdOk ? () => unawaited(_kirimEam()) : null,
-                        icon: const Icon(Icons.forum_rounded),
-                        label: Text(b.eamKali > 0 ? 'Kirim EAM Lagi' : 'Kirim EAM'),
-                      ),
-                    ],
-                  ),
-                  _langkah(
-                    no: 4,
-                    judul: 'Update Master Gardu',
-                    ket: !ttdOk
-                        ? 'Terbuka sesudah BA TTD diupload'
-                        : (b.masterTerakhir.isNotEmpty ? 'Terakhir diperbarui ${b.masterTerakhir} WIB' : 'Terapkan data BA ke Master Gardu'),
-                    selesai: b.masterTerakhir.isNotEmpty && ttdOk,
-                    kunci: !ttdOk,
-                    isi: [
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46), backgroundColor: AppColors.success700),
-                        onPressed: bisa && ttdOk ? () => unawaited(_updateMaster()) : null,
-                        icon: const Icon(Icons.sync_alt_rounded),
-                        label: const Text('Update Master Gardu'),
-                      ),
-                    ],
-                  ),
+                  // v1.0.46: Pemeriksaan Trafo tidak mengubah gardu (sama v1: tanpa teks EAM / Update Master)
+                  if (jenisBaMaster(b.jenis)) ...[
+                    _langkah(
+                      no: 3,
+                      judul: 'Kirim ke EAM',
+                      ket: !ttdOk
+                          ? 'Terbuka sesudah BA TTD diupload'
+                          : (b.eamKali > 0 ? 'Terakhir dikirim ${b.eamTerakhir} WIB (${b.eamKali}x)' : 'Pesan WhatsApp format v1 + file BA TTD'),
+                      selesai: b.eamKali > 0 && ttdOk,
+                      kunci: !ttdOk,
+                      isi: [
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46), backgroundColor: const Color(0xFF1FA855)),
+                          onPressed: bisa && ttdOk ? () => unawaited(_kirimEam()) : null,
+                          icon: const Icon(Icons.forum_rounded),
+                          label: Text(b.eamKali > 0 ? 'Kirim EAM Lagi' : 'Kirim EAM'),
+                        ),
+                      ],
+                    ),
+                    _langkah(
+                      no: 4,
+                      judul: 'Update Master Gardu',
+                      ket: !ttdOk
+                          ? 'Terbuka sesudah BA TTD diupload'
+                          : (b.masterTerakhir.isNotEmpty ? 'Terakhir diperbarui ${b.masterTerakhir} WIB' : 'Terapkan data BA ke Master Gardu'),
+                      selesai: b.masterTerakhir.isNotEmpty && ttdOk,
+                      kunci: !ttdOk,
+                      isi: [
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46), backgroundColor: AppColors.success700),
+                          onPressed: bisa && ttdOk ? () => unawaited(_updateMaster()) : null,
+                          icon: const Icon(Icons.sync_alt_rounded),
+                          label: const Text('Update Master Gardu'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
                 if (d != null)
                   SectionCard(judul: 'Data BA', ikon: Icons.article_outlined, children: [
@@ -660,6 +667,30 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
                       _baris('Asal Trafo', t('asalTrafo')),
                       _baris('PHB-TR Sesudah',
                           '${t('merkPhbSesudah').isEmpty ? t('merkPhb') : t('merkPhbSesudah')} / ${t('seriPhbSesudah').isEmpty ? t('seriPhb') : t('seriPhbSesudah')} / ${t('tahunPhbSesudah').isEmpty ? t('tahunPhb') : t('tahunPhbSesudah')} · ${t('jurusanSesudah').isEmpty ? t('jurusan') : t('jurusanSesudah')} jur'),
+                    ] else if (jenisBaSwitching.contains(b.jenis)) ...[
+                      _baris('Jenis Switching', t('jenisSwitching')),
+                      _baris('Nama Switching', t('namaSwitching')),
+                      _baris('Merk / Tipe', '${t('merk')} / ${t('tipe')}'),
+                      _baris('Nomor Seri', t('seri')),
+                      if (t('namaSwitchingSesudah').isNotEmpty) ...[
+                        const Divider(),
+                        _baris('Sesudah', '${t('jenisSwitchingSesudah')} · ${t('namaSwitchingSesudah')}'),
+                        _baris('Lokasi Sesudah', '${t('penyulangSesudah')} · ${t('sectionSesudah')}'),
+                        _baris('Merk / Tipe', '${t('merkSesudah')} / ${t('tipeSesudah')}'),
+                        _baris('Nomor Seri', t('seriSesudah')),
+                        _baris('Koordinat', t('koordinatSesudah')),
+                        _baris('Asal Switching', t('asalSwitching')),
+                      ],
+                      const Divider(),
+                      _baris('Keterangan', t('catatan')),
+                      if (t('kerusakan').isNotEmpty) _baris('Kerusakan', t('kerusakan')),
+                    ] else if (b.jenis == 'Pemeriksaan Trafo') ...[
+                      _baris('Trafo', '${t('kva')} kVA · ${t('merk')} · SN ${t('seri')} (${t('tahun')})'),
+                      _baris('Konstruksi', t('konstruksi')),
+                      _baris('PHB-TR', '${t('merkPhb')} / ${t('seriPhb')} / ${t('tahunPhb')} · ${t('jurusan')} jur'),
+                      const Divider(),
+                      _baris('Kesimpulan', t('kesimpulan')),
+                      _baris('Catatan', t('catatan')),
                     ] else ...[
                       _baris('Kapasitas', '${t('kva')} kVA'),
                       _baris('Merk / Seri', '${t('merk')} / ${t('seri')}'),

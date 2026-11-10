@@ -9,11 +9,10 @@ import {
   kmsTeks, MAKS_C4A, payloadSimpan, PRESET_CUACA, simpanPulih, TANGGAL_AWAL,
 } from '../laporan.js';
 import { muatMaster } from '../master.js';
-import { pesan } from '../pesan.js';
+import { kodeGalat, pesan } from '../pesan.js';
 import { hariIniWib } from '../tanggal.js';
 import './laporan.css';
 
-const kodeGalat = (e) => (e && e.kode) || 'JARINGAN';
 
 /**
  * Laporan UP3 / UIW (bagian = 'UP3' | 'UIW'), mirror layar HP laporan_up3_screen.dart dengan tata letak layar lebar:
@@ -21,10 +20,11 @@ const kodeGalat = (e) => (e && e.kode) || 'JARINGAN';
  * UP3: C4A per penyulang (kmS langsung). UIW: Cuaca + C4A per section (Panjang kmS = tiang x 0,05).
  * Input hanya ADMIN / SUPER untuk hari ini (bisaUbah dari server); Admin ES dan tanggal lewat = hanya lihat.
  */
-export default function LaporanUp3Uiw({ sesi, api, penjaga, bagian }) {
+export default function LaporanUp3Uiw({ sesi, api, penjaga, bagian, rute, keRute }) {
   const isUp3 = bagian === 'UP3';
   const hariIni = hariIniWib();
-  const [tanggal, setTanggal] = useState(hariIni);
+  // v1.0.36: tanggal tersimpan di alamat (?tanggal=): refresh / bookmark = laporan tanggal yang sama
+  const [tanggal, setTanggal] = useState(() => (/^\d{4}-\d{2}-\d{2}$/.test(rute.query.tanggal || '') && rute.query.tanggal <= hariIni ? rute.query.tanggal : hariIni));
   const [data, setData] = useState(null);
   const [daftar, setDaftar] = useState([]);
   const [cuaca, setCuaca] = useState('');
@@ -37,6 +37,8 @@ export default function LaporanUp3Uiw({ sesi, api, penjaga, bagian }) {
   const [jaringan, setJaringan] = useState(null);
   const [galatMaster, setGalatMaster] = useState('');
   const urutMuat = useRef(0);
+  const kotorRef = useRef(false);
+  useEffect(() => { kotorRef.current = kotor; }, [kotor]);
 
   const kirim = useCallback((action, d) => api(action, d, { batasMs: BATAS_LAPORAN_MS }), [api]);
 
@@ -53,16 +55,19 @@ export default function LaporanUp3Uiw({ sesi, api, penjaga, bagian }) {
     setMemuat(true);
     setGalatMuat('');
     try {
-      const j = await kirim(endpointMuat(bagian), { tanggal: tgl });
-      if (no === urutMuat.current) terapkan(j.data);
+      // v1.0.36: laporan tersimpan di browser tampil dulu; jawaban server tidak menimpa C4A yang sedang diisi
+      const j = await api(endpointMuat(bagian), { tanggal: tgl }, {
+        batasMs: BATAS_LAPORAN_MS, awal: (c) => { if (no === urutMuat.current && !kotorRef.current) { terapkan(c.data); setMemuat(false); } } });
+      if (no === urutMuat.current && !kotorRef.current) terapkan(j.data);
     } catch (e) {
       if (no === urutMuat.current) setGalatMuat(pesan(kodeGalat(e)));
     } finally {
       if (no === urutMuat.current) setMemuat(false);
     }
-  }, [kirim, bagian, terapkan]);
+  }, [api, bagian, terapkan]);
 
   useEffect(() => { muat(tanggal); }, []);
+  useEffect(() => { keRute({ query: { tanggal: tanggal === hariIni ? '' : tanggal } }, { ganti: true }); }, [tanggal]);
 
   const bisaUbah = data?.bisaUbah === true;
   const ubah = bisaUbah && !menyimpan;
@@ -162,8 +167,6 @@ export default function LaporanUp3Uiw({ sesi, api, penjaga, bagian }) {
       <header className="hlm-header">
         <div className="hlm-judul">
           <h1>Laporan {bagian}</h1>
-          <p>{isUp3 ? 'Laporan harian keandalan distribusi ke UP3 + C4A per penyulang'
-            : 'Laporan harian wilayah: cuaca, Care for Asset per section, realisasi ROW'}</p>
         </div>
         <div className="hlm-aksi">
           <NavTanggal tanggal={tanggal} min={TANGGAL_AWAL} max={hariIni} disabled={memuat} onGanti={gantiTanggal} />

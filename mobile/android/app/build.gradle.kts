@@ -33,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        // v0.58.3 (kvlar): ID app = id.co.pln.toboali.sisi_new (staging + ".staging"). Jangan diganti lagi setelah production rilis.
+        // v0.58.3 (Master Guswan): ID app = id.co.pln.toboali.sisi_new (staging + ".staging"). Jangan diganti lagi setelah production rilis.
         // namespace tetap sisi_row (paket kode Kotlin, tidak terlihat user).
         applicationId = "id.co.pln.toboali.sisi_new"
         minSdk = flutter.minSdkVersion
@@ -55,6 +55,13 @@ android {
         create("production") {
             dimension = "env"
             resValue("string", "app_name", "SiSi ULP Toboali")
+        }
+        // v1.0.50 unit lain: backend Apps Script sendiri (env/ulpmentok.json, SISI_ENV production), paket beda = bisa
+        // terpasang berdampingan dengan APK Toboali. Firebase: google-services.json wajib punya klien paket ".mentok".
+        create("ulpmentok") {
+            dimension = "env"
+            applicationIdSuffix = ".mentok"
+            resValue("string", "app_name", "SiSi ULP Mentok")
         }
     }
 

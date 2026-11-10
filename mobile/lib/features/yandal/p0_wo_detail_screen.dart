@@ -25,7 +25,7 @@ import 'approval_p0_repository.dart' show ItemApprovalP0, labelStatusApproval;
 import 'p0_model.dart';
 import 'pekerjaan_shift_view.dart' show warnaSelesai, latarSelesai;
 
-/// v1.0.31 (permintaan kvlar 24 Okt 2026): detail P0 dari WO Tindak Lanjut, tampilan sama dengan P0 lokal (status +
+/// v1.0.31 (permintaan Master Guswan 24 Okt 2026): detail P0 dari WO Tindak Lanjut, tampilan sama dengan P0 lokal (status +
 /// durasi, Data P0, foto Sebelum / Pekerjaan / Sesudah, Download Foto P0, Kirim WA). Data dan foto dari yan_P0
 /// (getP0WoYandal / getFotoP0WoYandal); foto yang masih ada di HP dipakai langsung. Belum tercatat server / tanpa
 /// sinyal = data WO di HP. Hanya baca: P0 ini dibuat server saat WO Selesai.

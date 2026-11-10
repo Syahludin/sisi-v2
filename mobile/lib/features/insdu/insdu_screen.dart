@@ -32,13 +32,13 @@ import 'insdu_store.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v1.0.11 (permintaan kvlar 21 Okt 2026): Inspeksi Gardu petugas INSPEKSI_GARDU (menu OPS_INSDU_INPUT).
+/// v1.0.11 (permintaan Master Guswan 21 Okt 2026): Inspeksi Gardu petugas INSPEKSI_GARDU (menu OPS_INSDU_INPUT).
 /// Alur: Laporan Utama > gardu (db_Gardu + tier) > pengukuran LWBP + cover (gardu masuk laporan) > WBP > temuan.
 /// Laporan baru diblokir selama WBP laporan sebelumnya belum lengkap (tunggakan): gardu tunggakan tampil dengan tombol
 /// Isi WBP. Temuan lama gardu yang belum diperbaiki tampil sebagai "temuan tertinggal" (dibaca dari riwayat server).
 /// v1.0.12: OFFLINE seperti Inspeksi Jaringan: semua isian disimpan di HP (InsDuStore) lalu dikirim otomatis di latar
 /// (SyncController + layanan sinkron latar). Data yang ditolak server ditandai dengan alasan + Coba lagi / Buang.
-/// v1.0.14 (kvlar 21 Okt 2026): tampilan sama dengan Inspeksi Jaringan / Hartek. Halaman di dalam tab (footer tetap):
+/// v1.0.14 (Master Guswan 21 Okt 2026): tampilan sama dengan Inspeksi Jaringan / Hartek. Halaman di dalam tab (footer tetap):
 /// utama (kartu Laporan Utama + WA + tombol +), rincian gardu (ketuk angka Gardu), temuan per jenis (ketuk angka Temuan).
 enum HalamanInsDu { utama, gardu, temuan }
 
@@ -294,7 +294,7 @@ class _InsDuScreenState extends State<InsDuScreen> {
                 return {
                   'penyulang': g?.penyulang ?? '',
                   'section': g?.section ?? '',
-                  'kapasitas': g?.kapasitasKva == null ? '' : '${angkaInsDuTampil(g!.kapasitasKva)} kVA',
+                  'kapasitas': g?.kapasitasKva == null ? '' : angkaInsDuTampil(g!.kapasitasKva),
                   'merk': g?.merk ?? '',
                 };
               },
@@ -302,23 +302,34 @@ class _InsDuScreenState extends State<InsDuScreen> {
               bantuan: 'Gardu AKTIF di Master Gardu. Ketik nomor atau alamat untuk mencari.'),
         const IsianHartek('penyulang', 'Penyulang', bacaSaja: true, baris: 'lokasi'),
         const IsianHartek('section', 'Section', bacaSaja: true, baris: 'lokasi'),
-        const IsianHartek('kapasitas', 'Kapasitas', bacaSaja: true, baris: 'trafo'),
-        const IsianHartek('merk', 'Merk trafo', bacaSaja: true, baris: 'trafo'),
+        // v1.0.38: kapasitas + merk trafo bisa dikoreksi petugas (kondisi lapangan), ikut memperbarui Master Gardu
+        IsianHartek('kapasitas', 'Kapasitas (kVA)', baris: 'trafo', pilihanDari: (n) => pilihanKvaInsDu(m, n['kapasitas'])),
+        IsianHartek('merk', 'Merk trafo', baris: 'trafo', pilihanDari: (n) => pilihanMerkInsDu(m, n['merk'])),
         // v1.0.15: checklist Tier 1 / Tier 2 (centang keduanya = 'Tier 1 & Tier 2'), tanpa keterangan "Pilih"
         IsianHartek('tier', 'Tier inspeksi',
             wajib: true, grup: 'Inspeksi', segmen: true, pilihBanyak: true, pilihan: [for (final t in m.tierGardu) if (!t.contains('&')) t]),
       ];
 
-  Map<String, String> _awalGardu(MasterInsDu m, String garduId, String tier) {
+  /// [r] = realisasi yang diubah: kapasitas / merk dari laporan itu (bisa sudah dikoreksi petugas), selain itu dari master.
+  Map<String, String> _awalGardu(MasterInsDu m, String garduId, String tier, {Map<String, dynamic>? r}) {
     final g = m.garduDari(garduId);
+    final kap = r != null && r['kapasitasKva'] != null ? angkaInsDu(r['kapasitasKva']) : g?.kapasitasKva;
     return {
       'garduId': garduId,
       'tier': tier,
       'penyulang': g?.penyulang ?? '',
       'section': g?.section ?? '',
-      'kapasitas': g?.kapasitasKva == null ? '' : '${angkaInsDuTampil(g!.kapasitasKva)} kVA',
-      'merk': g?.merk ?? '',
+      'kapasitas': kap == null ? '' : angkaInsDuTampil(kap),
+      'merk': r != null && teksInsDu(r['merkTrafo']).isNotEmpty ? teksInsDu(r['merkTrafo']) : (g?.merk ?? ''),
     };
+  }
+
+  /// v1.0.38: kapasitas / merk dikirim ke server HANYA bila petugas mengubahnya dari [awalKap] / [awalMerk] (nilai master
+  /// di HP bisa basi; mengirim ulang nilai lama akan menimpa Master Gardu yang lebih baru).
+  ({num? kap, String? merk}) _trafoBerubah(Map<String, String> n, num? awalKap, String awalMerk) {
+    final kap = angkaInsDu(n['kapasitas']);
+    final merk = (n['merk'] ?? '').trim();
+    return (kap: kap != null && kap != awalKap ? kap : null, merk: merk.isNotEmpty && merk != awalMerk.trim() ? merk : null);
   }
 
   Future<void> _tambahGardu() => _form(() async {
@@ -340,7 +351,8 @@ class _InsDuScreenState extends State<InsDuScreen> {
           simpan: (n) async {
             final g = m.garduDari((n['garduId'] ?? '').trim());
             if (g == null) throw ApiException('GARDU_TIDAK_DIKENAL', kolom: 'garduId');
-            await _store.tambahGardu(_sesi, g.garduId, (n['tier'] ?? '').trim(), tampilGarduInsDu(g));
+            final t = _trafoBerubah(n, g.kapasitasKva, g.merk);
+            await _store.tambahGardu(_sesi, g.garduId, (n['tier'] ?? '').trim(), tampilGarduInsDu(g), kapasitasKva: t.kap, merkTrafo: t.merk);
             return const {'lokal': true};
           },
         );
@@ -364,11 +376,16 @@ class _InsDuScreenState extends State<InsDuScreen> {
           judul: 'Ubah gardu ${teksInsDu(r['noGardu'])}',
           keterangan: teksInsDu(r['kodeRealisasi']).isEmpty ? 'Menunggu kirim' : teksInsDu(r['kodeRealisasi']),
           tombol: 'Simpan perubahan',
-          awal: {..._awalGardu(m, garduId, teksInsDu(r['tier'])), 'garduLabel': label[garduId] ?? teksInsDu(r['noGardu'])},
+          awal: {..._awalGardu(m, garduId, teksInsDu(r['tier']), r: r), 'garduLabel': label[garduId] ?? teksInsDu(r['noGardu'])},
           daftar: (_) => _isianGardu(m, label, garduTetap: tetap),
           simpan: (n) async {
             final g = tetap ? null : m.garduDari((n['garduId'] ?? '').trim());
-            await _store.ubahGardu(_sesi, id, (n['tier'] ?? '').trim(), g: g);
+            final ganti = g != null && g.garduId != garduId;
+            // pembanding: gardu baru = nilai master gardu itu, gardu sama = nilai di laporan ini
+            final t = ganti
+                ? _trafoBerubah(n, g.kapasitasKva, g.merk)
+                : _trafoBerubah(n, angkaInsDu(r['kapasitasKva']), teksInsDu(r['merkTrafo']));
+            await _store.ubahGardu(_sesi, id, (n['tier'] ?? '').trim(), g: g, kapasitasKva: t.kap, merkTrafo: t.merk);
             return const {'lokal': true};
           },
         );

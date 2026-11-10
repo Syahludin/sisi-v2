@@ -27,12 +27,19 @@ Link PRD: <!-- tempel link Doc "PRD SiSi v2" di sini -->
 4. Deploy staging, jalankan uji sesuai 7. Staging.
 5. Catat di 10. Riwayat Perubahan.
 
-## Aturan nomor versi (keputusan kvlar 19 Okt 2026, diperbarui v1.0.1)
+## Aturan nomor versi (keputusan Master Guswan 19 Okt 2026, diperbarui v1.0.1)
 
 - Format `MAJOR.MINOR.PATCH`. Tiap bagian maksimal 99.
 - **Setiap perubahan (rilis) = PATCH + 1** (naik 0.0.1). Contoh: 1.0.0 lalu 1.0.1, 1.0.2, dst.
 - PATCH sudah 99: MINOR + 1, PATCH = 0 (contoh 1.0.99 lalu 1.1.0).
 - MINOR sudah 99 lalu naik lagi: MAJOR + 1, MINOR dan PATCH kembali 0 (contoh 1.99.99 lalu 2.0.0; 0.99.x lalu 1.0.0, bukan 0.100.0).
 - Nomor build pubspec (`+N`) selalu naik 1 tiap rilis.
-- Versi saat ini: **1.0.34** (`VERSI_BACKEND_` di 09_Versi.js, `versiApp` di versi.dart, `version: 1.0.34+208` di pubspec).
+- Versi saat ini: **1.0.70** (`VERSI_BACKEND_` di 09_Versi.js, `versiApp` di versi.dart, `version: 1.0.70+244` di pubspec).
 - Salin bagian ini ke PRD SiSi v2 di ClickUp (bagian versi / rilis).
+
+## Rilis website (zip) per lingkungan
+
+- Asset website memakai alamat absolut dari folder hosting. Zip WAJIB dibuat dengan `npm run zip:staging` (folder `/sisi-web-staging/`)
+  atau `npm run zip:production` (folder `/sisi/`) dari folder `web`; zip dari build biasa (base `/sisi/`) membuat staging kosong.
+  Langkah lengkap + pemecahan halaman kosong: `web/README.md` bagian "Upload ke Hostinger".
+- Salin aturan ini ke PRD SiSi v2 di ClickUp (7. Staging, aturan rilis) dan catat v1.0.51 di 10. Riwayat Perubahan.

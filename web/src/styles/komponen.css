@@ -18,22 +18,29 @@
 }
 .k-tombol:disabled { opacity: .5; cursor: default; }
 .k-tombol--utama { border: 0; background: var(--brand-700); color: #fff; }
-.k-tombol--utama:hover:not(:disabled) { background: var(--brand-800); }
+.k-tombol--utama:hover:not(:disabled) { background: var(--utama-hover); }
 .k-tombol--setuju { border: 0; background: var(--success-700); color: #fff; }
 .k-tombol--setuju:hover:not(:disabled) { background: var(--success-600); }
 .k-tombol--bahaya { border: 0; background: var(--red-700); color: #fff; }
 .k-tombol--bahaya:hover:not(:disabled) { background: var(--red-600); }
-.k-tombol--tolak { border: 1px solid var(--red-600); background: #fff; color: var(--red-700); }
+.k-tombol--tolak { border: 1px solid var(--red-600); background: var(--putih); color: var(--red-700); }
 .k-tombol--tolak:hover:not(:disabled) { background: var(--red-100); }
-.k-tombol--garis { border: 1px solid var(--neutral-200); background: #fff; color: var(--brand-800); }
+.k-tombol--garis { border: 1px solid var(--neutral-200); background: var(--putih); color: var(--brand-800); }
 .k-tombol--garis:hover:not(:disabled) { background: var(--brand-50); border-color: var(--brand-100); }
 .k-tombol--teks { border: 0; background: transparent; color: var(--neutral-700); }
 .k-tombol--teks:hover:not(:disabled) { color: var(--red-700); }
+/* tombol di atas latar gradien SiSi (hero): putih, dan hijau WhatsApp */
+.k-tombol--terang { border: 0; background: var(--putih); color: var(--brand-900); }
+.k-tombol--terang:hover:not(:disabled) { background: var(--brand-50); }
+.k-tombol--wa { border: 0; background: #1fa855; color: #fff; }
+.k-tombol--wa:hover:not(:disabled) { background: #168f47; }
+.k-tombol--kaca { border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); color: #fff; }
+.k-tombol--kaca:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
 
 .k-ikon-tombol {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; padding: 0; border-radius: 10px;
-  border: 1px solid var(--neutral-200); background: #fff; color: var(--brand-800);
+  border: 1px solid var(--neutral-200); background: var(--putih); color: var(--brand-800);
 }
 .k-ikon-tombol:hover:not(:disabled) { background: var(--brand-50); }
 .k-ikon-tombol:disabled { opacity: .4; cursor: default; }
@@ -48,7 +55,7 @@
 .k-tgl {
   position: relative; display: inline-flex; align-items: center; gap: 8px;
   height: 36px; padding: 0 12px; border-radius: 10px;
-  background: #fff; border: 1px solid var(--neutral-200); color: var(--brand-900);
+  background: var(--putih); border: 1px solid var(--neutral-200); color: var(--brand-900);
   font-size: 13px; font-weight: 800; cursor: pointer;
 }
 .k-tgl:focus-within { outline: 3px solid var(--accent-400); outline-offset: 2px; }
@@ -60,7 +67,7 @@
 .k-tengah {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 70px 20px; text-align: center; color: var(--neutral-500);
-  background: #fff; border-radius: 14px; border: 1px solid var(--neutral-150);
+  background: var(--putih); border-radius: 14px; border: 1px solid var(--neutral-150);
 }
 .k-tengah p { margin: 0; font-size: 13.5px; }
 .k-tengah--galat { color: var(--red-700); }
@@ -85,19 +92,19 @@
 .k-nilai { margin: 0; font-size: 14px; font-weight: 700; color: var(--brand-950); }
 .k-input {
   width: 100%; min-width: 0; height: 34px; padding: 0 9px; border-radius: 8px;
-  border: 1px solid var(--neutral-200); background: #fff; color: var(--neutral-900); font-size: 13px;
+  border: 1px solid var(--neutral-200); background: var(--putih); color: var(--neutral-900); font-size: 13px;
 }
 select.k-input { padding-right: 4px; min-width: 130px; }
 textarea.k-input { height: auto; padding: 8px 9px; resize: vertical; line-height: 1.45; font-family: inherit; }
-.k-input:focus { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(20, 166, 199, .18); }
+.k-input:focus { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(79, 154, 146, .18); }
 .k-input--angka { text-align: right; font-variant-numeric: tabular-nums; }
-.k-input--galat { border-color: var(--red-600); background: #fffafa; }
+.k-input--galat { border-color: var(--red-600); background: var(--red-100); }
 .k-input--galat:focus { border-color: var(--red-600); box-shadow: 0 0 0 3px rgba(209, 59, 70, .18); }
 .k-galat { display: block; margin-top: 3px; font-size: 11px; font-weight: 700; color: var(--red-700); white-space: normal; }
 .k-chip-baris { display: flex; flex-wrap: wrap; gap: 6px; }
 .k-chip {
   height: 28px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--neutral-200);
-  background: #fff; color: var(--neutral-700); font-size: 12px; font-weight: 700;
+  background: var(--putih); color: var(--neutral-700); font-size: 12px; font-weight: 700;
 }
 .k-chip:hover { border-color: var(--brand-500); }
 .k-chip--aktif { background: var(--brand-100); border-color: var(--brand-500); color: var(--brand-800); }
@@ -122,14 +129,14 @@ textarea.k-input { height: auto; padding: 8px 9px; resize: vertical; line-height
   display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border: 0; border-radius: 9px;
   background: transparent; color: var(--neutral-700); font-size: 13px; font-weight: 800;
 }
-.k-tab-tombol span { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #fff; font-size: 11.5px; text-align: center; }
-.k-tab-tombol--aktif { background: #fff; color: var(--brand-950); box-shadow: 0 1px 4px rgba(16, 37, 46, .12); }
+.k-tab-tombol span { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--putih); font-size: 11.5px; text-align: center; }
+.k-tab-tombol--aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(20, 32, 30, .12); }
 .k-tab-tombol--aktif span { background: var(--neutral-100); }
 .k-cari {
   display: flex; align-items: center; gap: 8px; flex: 0 1 380px; height: 36px; padding: 0 12px; border-radius: 10px;
-  background: #fff; border: 1px solid var(--neutral-200); color: var(--neutral-500);
+  background: var(--putih); border: 1px solid var(--neutral-200); color: var(--neutral-500);
 }
-.k-cari:focus-within { border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(20, 166, 199, .18); }
+.k-cari:focus-within { border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(79, 154, 146, .18); }
 .k-cari input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 13px; color: var(--neutral-900); }
 .k-rincian { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px 18px; margin: 16px 0 0; }
 .k-rincian div { min-width: 0; }
@@ -153,9 +160,9 @@ textarea.k-input { height: auto; padding: 8px 9px; resize: vertical; line-height
 /* --- Dialog (elemen <dialog> bawaan: fokus terkunci, Esc menutup) --- */
 .k-dialog {
   width: min(480px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 18px;
-  background: #fff; color: var(--neutral-900); box-shadow: 0 24px 60px rgba(16, 37, 46, .35);
+  background: var(--putih); color: var(--neutral-900); box-shadow: 0 24px 60px rgba(20, 32, 30, .35);
 }
-.k-dialog::backdrop { background: rgba(16, 37, 46, .55); }
+.k-dialog::backdrop { background: rgba(20, 32, 30, .55); }
 .k-dialog-isi { display: grid; gap: 12px; padding: 20px 22px; }
 .k-dialog-judul { margin: 0; font-size: 17px; font-weight: 900; color: var(--brand-950); }
 .k-dialog-sub { margin: -8px 0 0; font-size: 12px; color: var(--neutral-500); }
@@ -165,4 +172,13 @@ textarea.k-input { height: auto; padding: 8px 9px; resize: vertical; line-height
 
 @media (max-width: 640px) {
   .k-tgl-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* v1.0.50 dialog di layar kecil: hampir selebar layar, isi bisa digulir */
+.k-dialog { max-height: calc(100dvh - 24px); overflow-y: auto; }
+@media (max-width: 640px) {
+  .k-dialog { width: calc(100vw - 16px) !important; max-width: none; border-radius: 14px; }
+  .k-dialog-isi { padding: 16px 14px; }
+  .k-dialog-aksi { flex-wrap: wrap; }
+  .k-dialog-aksi .k-tombol { flex: 1 1 auto; justify-content: center; }
 }

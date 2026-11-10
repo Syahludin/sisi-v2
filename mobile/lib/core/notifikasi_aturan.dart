@@ -1,9 +1,9 @@
 import 'sesi.dart';
 
 /// v0.83.0: aturan pendaftaran notifikasi push (murni, dites tanpa Firebase).
-/// Penerima: akun tim YANDAL (pengingat login shift), ADMIN / SUPER (belum login, ringkasan temuan / P0), dan v1.0.29
-/// tim tindak lanjut (menu OPS_WO_TIM: WO baru). Sama dengan penerimaNotif_ server.
-bool perluNotifikasi(Sesi s) => s.petugasYandal || s.role == 'ADMIN' || s.role == 'SUPER' || s.petugasWo;
+/// v1.0.45: penerima hanya ADMIN / SUPER (tim Yandal belum login, sekali per shift). HP petugas tidak didaftarkan.
+/// Sama dengan penerimaNotif_ server.
+bool perluNotifikasi(Sesi s) => s.role == 'ADMIN' || s.role == 'SUPER';
 
 /// v1.0.29: data notifikasi push yang diketuk -> item lonceng (layar tujuan sama dengan item lonceng). null = jenis tanpa
 /// layar tujuan (mis. pengingat login).

@@ -287,7 +287,7 @@ class FotoRepository {
     _disiapkan.addAll([p.basename(path), p.basename(pathAsli)]);
     final Uint8List akhir;
     if (!kamera) {
-      // v0.44 (revisi kvlar 4 Okt 2026): foto GALERI tanpa watermark, hanya diperkecil (1600 px) supaya muat
+      // v0.44 (revisi Master Guswan 4 Okt 2026): foto GALERI tanpa watermark, hanya diperkecil (1600 px) supaya muat
       // batas server. Tanpa file asli & tanda watermark: tidak pernah dirender ulang / dibuatkan pengganti.
       try {
         akhir = await Watermark.perkecil(bytes);
@@ -649,7 +649,7 @@ class FotoRepository {
     return (unduh: n, galeri: keGaleriOk);
   }
 
-  /// v1.0.33 (permintaan kvlar 24 Okt 2026): semua foto eksekusi-eksekusi ini ke galeri (album SiSi ROW, nama
+  /// v1.0.33 (permintaan Master Guswan 24 Okt 2026): semua foto eksekusi-eksekusi ini ke galeri (album SiSi ROW, nama
   /// Kode Eksekusi_SLOT), dipakai Download Foto Full satu penyulang dan download per eksekusi. Foto di HP disalin
   /// langsung (eksekusi belum terkirim tetap bisa); eksekusi yang fotonya belum lengkap di HP diunduh dulu dari server
   /// (unduhUlang). Tanpa sinyal = foto yang ada di HP saja. `progres(selesai, total eksekusi)`.

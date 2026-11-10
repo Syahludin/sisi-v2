@@ -87,7 +87,7 @@ class FotoServerWo {
   static bool _membuka = false;
 
   /// Unduh foto penuh lalu buka penampil foto. Galat = pesan di snackbar.
-  /// v1.0.28 (permintaan kvlar 23 Okt 2026): sekali buka; ketukan lain selama unduh / tampil diabaikan.
+  /// v1.0.28 (permintaan Master Guswan 23 Okt 2026): sekali buka; ketukan lain selama unduh / tampil diabaikan.
   static Future<void> lihat(BuildContext context, MuatFotoWo muat, Map<String, dynamic> data, String label) async {
     if (_membuka) return;
     _membuka = true;

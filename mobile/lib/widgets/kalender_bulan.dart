@@ -27,7 +27,7 @@ String isoHari(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-$
 
 String labelBulan(DateTime bulan) => '${_namaBulan[bulan.month - 1]} ${bulan.year}';
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): kalender satu bulan (Senin di kiri), dipakai Jadwal Padam (admin) dan
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): kalender satu bulan (Senin di kiri), dipakai Jadwal Padam (admin) dan
 /// Kalender tim. Tiap hari menampilkan titik berwarna per jenis kegiatan (maks 3) + jumlah; hari terpilih berlatar biru,
 /// hari ini bercincin. Ketuk hari = [onPilih]; panah = ganti bulan ([onGantiBulan]).
 class KalenderBulan extends StatelessWidget {

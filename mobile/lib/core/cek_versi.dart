@@ -10,13 +10,13 @@ import 'env.dart';
 import 'kunci_update.dart';
 import 'versi.dart';
 
-/// v0.81.0 (permintaan kvlar 10 Okt 2026): notifikasi update app saat dibuka / kembali dari latar belakang / backend
+/// v0.81.0 (permintaan Master Guswan 10 Okt 2026): notifikasi update app saat dibuka / kembali dari latar belakang / backend
 /// baru di-deploy (jawaban server membawa versi). Versi app dan backend wajib sama:
 ///  - WAJIB update (app < minimum, default = versi server): dialog tidak bisa ditutup, tombol Download + Cek Lagi.
 ///  - Update tersedia (minimum <= app < server): dialog, boleh Nanti (muncul lagi saat app dibuka berikutnya).
 ///  - Server lebih lama dari app: info sekali (fitur baru mungkin belum jalan sampai backend di-deploy).
 /// Offline / ping gagal = diam (app offline-first tetap bisa dipakai).
-/// v1.0.22 (permintaan kvlar 23 Okt 2026): kartu WAJIB update bisa ditutup (Tutup). Selama wajib update, input + sinkron
+/// v1.0.22 (permintaan Master Guswan 23 Okt 2026): kartu WAJIB update bisa ditutup (Tutup). Selama wajib update, input + sinkron
 /// mati ([KunciUpdate]); halaman tetap bisa dibuka. Pita merah di atas halaman membuka kartu ini lagi.
 class PemeriksaVersi {
   PemeriksaVersi(this._api, this._konteks);
@@ -139,12 +139,13 @@ class DialogUpdateVersi extends StatelessWidget {
   final bool wajib;
   final Future<void> Function() onCekLagi;
 
-  /// v1.0.19: sudah login = unduh + pasang APK langsung dari app (folder Drive). Belum login = link lama (browser).
-  bool get _langsung => PemeriksaVersi.tokenSesi?.call() != null && PemeriksaVersi.aktif != null;
+  /// v1.0.19: unduh + pasang APK langsung dari app (folder Drive). v1.0.61: juga SEBELUM login (halaman login memakai
+  /// getUpdateAppPublik), jadi skemanya sama; link browser hanya dipakai bila pemeriksa belum terpasang.
+  bool get _langsung => PemeriksaVersi.aktif != null;
 
   Future<void> _download(BuildContext context) async {
     final token = PemeriksaVersi.tokenSesi?.call(), api = PemeriksaVersi.aktif?.api;
-    if (token != null && api != null) {
+    if (api != null) {
       await PembaruApk.jalankan(context, api, token);
       return;
     }
@@ -155,7 +156,7 @@ class DialogUpdateVersi extends StatelessWidget {
     }
   }
 
-  /// v1.0.26 (permintaan kvlar 23 Okt 2026): kartu sendiri (bukan AlertDialog, yang menumpuk tombol jadi satu kolom
+  /// v1.0.26 (permintaan Master Guswan 23 Okt 2026): kartu sendiri (bukan AlertDialog, yang menumpuk tombol jadi satu kolom
   /// kalau tidak muat): X di kanan atas, Cek Lagi + Update Sekarang SELALU satu baris di bawah.
   @override
   Widget build(BuildContext context) {
@@ -256,7 +257,7 @@ class _Versi extends StatelessWidget {
       ]);
 }
 
-/// v0.81.1 (permintaan kvlar): kartu Versi Aplikasi di Pengaturan.
+/// v0.81.1 (permintaan Master Guswan): kartu Versi Aplikasi di Pengaturan.
 /// v1.0.16: tampilan ringan (kartu putih seperti baris Pengaturan lain, bukan sorotan): versi app + lingkungan, tanpa
 /// chip status server. Keterangan hanya muncul kalau ada update untuk aplikasi; ketuk = cek pembaruan.
 class KartuVersiAplikasi extends StatelessWidget {
@@ -306,6 +307,55 @@ class KartuVersiAplikasi extends StatelessWidget {
                   ),
                   const Text('v$versiApp', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.neutral700)),
                 ]),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+/// v1.0.61 (permintaan Master Guswan 5 Nov 2026): pemberitahuan update di halaman LOGIN, supaya petugas bisa memperbarui aplikasi
+/// sebelum masuk (dulu hanya terlihat sesudah login). Muncul bila ada update (tersedia / wajib); ketuk = kartu update yang sama
+/// (Cek Lagi + Update Sekarang). Tidak menghalangi login.
+class BannerUpdateLogin extends StatelessWidget {
+  const BannerUpdateLogin({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<InfoVersi?>(
+        valueListenable: PemeriksaVersi.terakhir,
+        builder: (context, info, _) {
+          final st = info?.statusUntuk(versiApp);
+          if (info == null || (st != StatusVersi.updateTersedia && st != StatusVersi.wajibUpdate)) return const SizedBox.shrink();
+          final wajib = st == StatusVersi.wajibUpdate;
+          return Padding(
+            padding: const EdgeInsets.only(top: 22),
+            child: Material(
+              color: wajib ? AppColors.red700 : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                key: const Key('banner-update-login'),
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => unawaited(PemeriksaVersi.aktif?.tampilkan() ?? Future<void>.value()),
+                child: Container(
+                  width: 300,
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  child: Row(children: [
+                    Icon(wajib ? Icons.system_update_rounded : Icons.new_releases_rounded, color: wajib ? Colors.white : AppColors.brand700, size: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(wajib ? 'Wajib update aplikasi' : 'Update tersedia',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: wajib ? Colors.white : AppColors.navy900)),
+                        Text('v$versiApp  >  v${info.server}', style: TextStyle(fontSize: 12, color: wajib ? Colors.white70 : AppColors.neutral700)),
+                      ]),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(color: wajib ? Colors.white : AppColors.brand700, borderRadius: BorderRadius.circular(999)),
+                      child: Text('Update', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: wajib ? AppColors.red700 : Colors.white)),
+                    ),
+                  ]),
+                ),
               ),
             ),
           );

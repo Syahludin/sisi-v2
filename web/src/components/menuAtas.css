@@ -1,0 +1,160 @@
+/* Menu atas website admin SiSi gaya busbar: tombol Semua Menu, rel menu yang sudah dibuka, blok cari/akun, dan panel Feeder. */
+/* Garis cabang tepat di tengah label FEEDER NN: lebar label dikunci 76 px, tengahnya 38 px (garis batang 2 px di 37 px). */
+
+.ma-semua {
+  position: relative; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 34px; margin: 7px 6px 0 8px; padding: 0 13px;
+  border: 2px solid var(--brand-700); border-radius: 6px; background: var(--putih); color: var(--brand-950);
+  font-size: 12.5px; font-weight: 800; white-space: nowrap;
+}
+.ma-semua:hover { background: var(--brand-50); }
+.ma-semua[aria-expanded="true"] { background: var(--brand-700); color: #f8faf9; }
+.ma-semua-panah { display: inline-flex; transition: transform .15s; transform: rotate(90deg); }
+.ma-semua-panah--buka { transform: rotate(-90deg); }
+
+/* rel: pemutus = menu yang sudah dibuka; emas = aktif, teal penuh = sudah dibuka */
+.ma-rel { position: relative; z-index: 1; display: flex; align-items: flex-start; flex: 1; min-width: 0; padding-left: 4px; }
+.ma-grup { position: relative; flex: 0 0 auto; display: flex; align-items: flex-start; }
+.ma-grup:first-child .ma-iso, .ma-grup--sembunyi { display: none; }
+.ma-grup--sembunyi + .ma-grup:not(.ma-grup--sembunyi) .ma-iso { display: block; }
+.ma-iso { flex: 0 0 26px; width: 26px; height: 8px; margin-top: 20px; overflow: visible; background: var(--putih); color: var(--brand-700); }
+.ma-nod { position: relative; }
+.ma-f { position: absolute; left: 10px; top: 4px; font: 500 9.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing: .12em; color: var(--neutral-500); white-space: nowrap; pointer-events: none; }
+.ma-pm {
+  position: relative; display: block; height: 76px; padding: 38px 16px 0; border: 0; background: none;
+  color: var(--neutral-700); font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.ma-pm::before { content: ""; position: absolute; left: 50%; top: 26px; width: 3px; height: 10px; margin-left: -1.5px; background: var(--brand-700); }
+.ma-pm::after {
+  content: ""; position: absolute; left: 50%; top: 35px; width: 15px; height: 15px; margin-left: -7.5px; box-sizing: border-box;
+  border: 3px solid var(--brand-700); border-radius: 2px; background: var(--putih); transition: background .15s;
+}
+.ma-pm:hover { color: var(--brand-950); }
+.ma-pm--buka::after { background: var(--brand-700); }
+.ma-pm--buka:hover::after { background: var(--brand-600); }
+.ma-pm--aktif { color: var(--brand-950); font-weight: 900; }
+.ma-pm--aktif::after { background: var(--accent-600); border-color: var(--brand-950); box-shadow: 0 0 0 3px rgba(215, 174, 69, .3); }
+.ma-pm--lagi { color: var(--neutral-700); padding-inline: 16px; }
+.ma-pm--lagi::after { border-style: dashed; }
+.ma-pm--lagi[aria-expanded="true"] { color: var(--brand-950); }
+.ma-lagi {
+  position: absolute; z-index: 45; left: 50%; top: 66px; transform: translateX(-50%); min-width: 230px; max-width: min(320px, 90vw); margin: 0; padding: 6px; list-style: none;
+  border: 1px solid var(--neutral-200); border-radius: 10px; background: var(--putih); box-shadow: 0 14px 30px rgba(20, 32, 30, .22);
+}
+.ma-lagi li { display: flex; align-items: center; border-radius: 6px; }
+.ma-lagi li:hover { background: var(--brand-50); }
+.ma-lagi-buka { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 7px 8px; border: 0; background: none; color: var(--brand-950); font-size: 13px; font-weight: 700; text-align: left; }
+.ma-lagi-buka code { flex: none; padding: 1px 5px; border: 1px solid var(--brand-700); border-radius: 3px; color: var(--brand-700); font: 600 9.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing: .06em; }
+.ma-lagi-buka span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ma-lagi-x { flex: none; width: 24px; height: 24px; margin-right: 4px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--neutral-500); font-size: 15px; }
+.ma-lagi-x:hover { background: var(--red-600); color: #fff; }
+.ma-pm--tambah { color: var(--neutral-500); padding-inline: 18px; }
+.ma-pm--tambah::after { border-style: dashed; }
+.ma-pm--tambah:hover::after { background: var(--brand-100); }
+.ma-x {
+  position: absolute; right: 2px; top: 29px; z-index: 4; width: 15px; height: 15px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--latar-dasar); color: #fff; font-size: 12px; line-height: 14px; text-align: center; opacity: 0; transition: opacity .12s;
+}
+.ma-nod:hover .ma-x, .ma-x:focus-visible { opacity: 1; }
+.ma-x:hover { background: var(--red-600); }
+.ma-tip {
+  position: absolute; z-index: 40; left: 50%; top: 70px; transform: translateX(-50%); width: max-content; max-width: 240px;
+  padding: 9px 12px; border-radius: 8px; background: var(--latar-dasar); color: #eef3f1; font-size: 12px; font-weight: 400; line-height: 1.45;
+  white-space: normal; text-align: left; box-shadow: 0 10px 24px rgba(20, 32, 30, .28); pointer-events: none; opacity: 0; transition: opacity .12s;
+}
+.ma-tip b { display: block; margin-bottom: 2px; font-size: 12.5px; font-weight: 800; }
+.ma-pm:hover .ma-tip, .ma-pm:focus-visible .ma-tip { opacity: 1; }
+
+/* blok kanan: cari + tema + akun, menempel di ujung rel */
+.ma-beban {
+  position: relative; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; gap: 9px; height: 38px; margin: 5px 12px 0 auto; padding: 0 6px 0 12px;
+  border: 2px solid var(--brand-700); border-radius: 8px; background: var(--putih);
+}
+.ma-cari { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--neutral-500); font-size: 12.5px; }
+.ma-cari:hover { color: var(--brand-950); }
+.ma-cari kbd, .ma-kaki kbd {
+  margin-left: 4px; padding: 0 5px; border: 1px solid var(--neutral-200); border-radius: 4px; background: var(--putih);
+  font: 11px ui-monospace, Consolas, monospace; color: var(--neutral-500);
+}
+.ma-kaki kbd { margin-left: 0; }
+
+/* panel */
+.ma-latar { position: fixed; inset: 76px 0 0; z-index: 30; border: 0; padding: 0; background: rgba(20, 32, 30, .35); cursor: default; }
+.ma-panel {
+  position: fixed; left: 0; right: 0; top: 76px; z-index: 31; display: flex; flex-direction: column;
+  max-height: calc(100dvh - 76px - 16px); background: var(--putih); color: var(--neutral-900);
+  border-bottom: 1px solid var(--neutral-200); box-shadow: 0 16px 40px rgba(20, 32, 30, .22);
+}
+.ma-cariin { display: flex; align-items: center; gap: 10px; padding: 12px 24px; border-bottom: 1px solid var(--neutral-150); color: var(--neutral-500); }
+.ma-cariin input { flex: 1; min-width: 0; border: 0; background: none; color: var(--neutral-900); font-size: 15px; outline: none; }
+.ma-cariin span { font-size: 12px; white-space: nowrap; }
+.ma-kolom {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr)); gap: 20px 32px;
+  padding: 18px 24px 22px; overflow-y: auto; align-content: start;
+}
+.ma-kosong { grid-column: 1 / -1; margin: 0; padding: 14px 0; color: var(--neutral-500); }
+
+/* feeder (grup) */
+.ma-fd { min-width: 0; }
+.ma-fd-judul {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 4px 6px; margin-inline: -6px; width: calc(100% + 12px);
+  border: 0; border-radius: 6px; background: none; color: var(--brand-950); font-size: 13px; font-weight: 700; text-align: left;
+}
+.ma-fd-judul:hover { background: var(--brand-50); }
+.ma-fd-judul code {
+  flex: none; width: 76px; padding: 1px 0; border: 1px solid var(--brand-700); border-radius: 3px; text-align: center; color: var(--brand-700);
+  font: 600 10.5px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing: .08em;
+}
+.ma-fd-nama { white-space: nowrap; }
+.ma-fd-titik { flex: none; width: 7px; height: 7px; border-radius: 2px; background: var(--accent-600); }
+.ma-fd-bus { flex: 1; height: 4px; border-radius: 2px; background: var(--brand-700); }
+.ma-fd-judul em { font: 500 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-style: normal; color: var(--neutral-500); }
+.ma-fd-panah { display: inline-flex; color: var(--neutral-500); transition: transform .15s; transform: rotate(90deg); }
+.ma-fd--tutup .ma-fd-panah { transform: rotate(0); }
+
+.ma-fd-daftar { list-style: none; margin: 0; padding: 0; }
+.ma-mi { position: relative; display: flex; align-items: flex-start; gap: 4px; padding: 0 4px 0 72px; border-radius: 6px; }
+.ma-mi::before { content: ""; position: absolute; left: 37px; top: 0; bottom: 0; width: 2px; background: var(--brand-700); opacity: .55; }
+.ma-mi:last-child::before { bottom: auto; height: 19px; }
+.ma-fd-daftar > .ma-mi:first-child::before { top: -4px; }
+.ma-fd-daftar > .ma-mi:first-child:last-child::before { height: 23px; }
+.ma-br { position: absolute; left: 37px; top: 18px; width: 14px; height: 2px; background: color-mix(in srgb, var(--brand-700) 55%, transparent); }
+.ma-br::after {
+  content: ""; position: absolute; left: 14px; top: -5px; width: 10px; height: 10px; border: 2px solid var(--brand-700);
+  border-radius: 2px; background: var(--putih); opacity: 1;
+}
+.ma-mi:hover { background: var(--brand-50); }
+.ma-mi:hover .ma-br::after { background: var(--brand-100); }
+.ma-mi--aktif { background: var(--brand-100); }
+.ma-mi--aktif .ma-br::after { background: var(--accent-600); border-color: var(--accent-600); }
+.ma-mi-buka {
+  flex: 1; min-width: 0; padding: 7px 4px 8px 0; border: 0; background: none; color: inherit; text-align: left;
+}
+.ma-mi-buka b { display: block; font-size: 13.5px; font-weight: 700; color: var(--brand-950); }
+.ma-mi-buka small { display: block; margin-top: 1px; font-size: 12px; line-height: 1.35; color: var(--neutral-500); }
+.ma-mi--buka .ma-br::after { background: var(--brand-700); }
+
+.ma-kaki { display: flex; align-items: center; gap: 16px; padding: 8px 24px; border-top: 1px solid var(--neutral-150); background: var(--brand-50); color: var(--neutral-500); font-size: 12px; flex-wrap: wrap; }
+.ma-kaki-kanan { margin-left: auto; }
+.ma-mini { padding: 1px 10px; border: 1px solid var(--neutral-200); border-radius: 5px; background: var(--putih); color: var(--neutral-700); font-size: 12px; font-weight: 700; }
+.ma-mini:hover { border-color: var(--brand-600); }
+
+.ma-legenda { display: inline-flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; }
+.ma-lg { display: inline-block; width: 11px; height: 11px; box-sizing: border-box; border: 3px solid var(--brand-700); border-radius: 2px; background: var(--putih); margin-left: 8px; }
+.ma-lg:first-child { margin-left: 0; }
+.ma-lg--aktif { background: var(--accent-600); border-color: var(--brand-950); }
+.ma-lg--buka { background: var(--brand-700); }
+
+/* menyempit */
+@media (max-width: 1320px) { .ma-cari-teks, .ma-cari kbd, .db-nama { display: none; } }
+@media (max-width: 1100px) { .ma-semua-teks, .db-stg { display: none; } .ma-pm { padding-inline: 12px; } .ma-pm--tambah { padding-inline: 14px; } }
+@media (max-width: 900px) {
+  .ma-f, .ma-kaki-kanan, .ma-cariin span { display: none; }
+  .ma-kolom { padding: 14px 14px 18px; }
+  .ma-cariin, .ma-kaki { padding-inline: 14px; }
+}
+@media (max-width: 520px) {
+  .ma-grup--tambah, .ma-cari, .db-avatar { display: none; }
+  .ma-semua { padding: 0 9px; }
+  .ma-beban { margin-right: 8px; padding-left: 8px; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .ma-semua-panah, .ma-fd-panah, .ma-pm::after, .ma-x, .ma-tip { transition: none; } }

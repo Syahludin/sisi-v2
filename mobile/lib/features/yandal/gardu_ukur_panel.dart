@@ -19,7 +19,7 @@ import 'p0_model.dart';
 import 'p0_repository.dart';
 import '../../widgets/sisi_loader.dart';
 
-/// v0.74.0 (draf disetujui kvlar 9 Okt 2026): Pengecekan Gardu di card Foto detail P0, SATU gardu per P0.
+/// v0.74.0 (draf disetujui Master Guswan 9 Okt 2026): Pengecekan Gardu di card Foto detail P0, SATU gardu per P0.
 /// Alur: pilih gardu (Master Gardu, AKTIF, penyulang P0, bisa dicari) > isi 10 angka ukur > Simpan Pengukuran >
 /// foto tiap nilai (tombol kamera di samping angkanya, Beban R dulu) > Foto Kondisi / Temuan (opsional).
 /// Pratinjau hasil (kVA, %, kategori, ketidakseimbangan) dihitung langsung di HP, angka resmi dari server.
@@ -163,7 +163,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
   List<Gardu> get _diPenyulang =>
       [for (final g in _master) if (g.aktif && _kunciPny(g.penyulang) == _kunciPny(_x.penyulang)) g];
 
-  /// v0.75.1 (permintaan kvlar 10 Okt 2026): hanya gardu di SECTION P0 (section_id, cadangan nama Section / PTS-LBS).
+  /// v0.75.1 (permintaan Master Guswan 10 Okt 2026): hanya gardu di SECTION P0 (section_id, cadangan nama Section / PTS-LBS).
   /// P0 tanpa section, atau petugas memilih "Tampilkan semua", = semua gardu penyulang.
   bool get _saringSection => !_semuaPenyulang && (_x.sectionId.isNotEmpty || _x.section.trim().isNotEmpty);
 
@@ -288,7 +288,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
     }
   }
 
-  // v1.0.31 (permintaan kvlar 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
+  // v1.0.31 (permintaan Master Guswan 24 Okt 2026): isian wajib yang belum benar = merah + digulir ke sana (bukan hanya pesan).
   Map<String, String> _salah = const {};
   final Map<String, GlobalKey> _kunciIsian = {};
   GlobalKey _k(String k) => _kunciIsian.putIfAbsent(k, () => GlobalKey());

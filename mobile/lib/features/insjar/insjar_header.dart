@@ -8,7 +8,7 @@ import '../../widgets/sisi_motif.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../hartek/hartek_gaya.dart';
 
-/// v1.0.5 (permintaan kvlar 20 Okt 2026): header halaman Inspeksi Jaringan dan Input Temuan Inspeksi, satu gaya untuk
+/// v1.0.5 (permintaan Master Guswan 20 Okt 2026): header halaman Inspeksi Jaringan dan Input Temuan Inspeksi, satu gaya untuk
 /// semua layar. [aksi] = tombol di kanan atas (Segarkan di halaman utama, Kembali di halaman rincian).
 /// v1.0.18: gaya "Jaringan SiSi" (gradien teal + motif tiang & kawat, percik kuning di kicker), dipakai semua modul.
 class HeaderInsJar extends StatelessWidget {
@@ -82,7 +82,7 @@ class HeaderInsJar extends StatelessWidget {
   }
 }
 
-/// v1.0.28 (permintaan kvlar 23 Okt 2026): kartu header tetap di atas layar (tidak ikut tergulir); hanya [isi]
+/// v1.0.28 (permintaan Master Guswan 23 Okt 2026): kartu header tetap di atas layar (tidak ikut tergulir); hanya [isi]
 /// (biasanya RefreshSisi + ListView) yang bergulir di bawahnya. [lebarMaks] = batas lebar header, samakan dengan isi.
 class HalamanHeaderTetap extends StatelessWidget {
   const HalamanHeaderTetap({

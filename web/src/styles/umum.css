@@ -12,5 +12,5 @@
   display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px;
   border-radius: 13px; font-weight: 900; font-size: 14px;
 }
-.tombol-kuning { border: 0; background: var(--accent-400); color: var(--brand-950); }
+.tombol-kuning { border: 0; background: var(--accent-400); color: #14201e; }
 .tombol-garis { border: 1px solid rgba(255, 255, 255, .35); background: transparent; color: #fff; }

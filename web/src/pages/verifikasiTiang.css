@@ -1,0 +1,33 @@
+/* Verifikasi Tiang: tab jalur (progres) + tab segmen (daftar + form). Prefix vt-. */
+.vt-tab { margin-bottom: 14px; }
+.vt-total { display: flex; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 14px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); }
+.vt-total > b { font-size: 34px; font-weight: 900; color: var(--success-700); font-variant-numeric: tabular-nums; }
+.vt-total > div { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.vt-total span { font-size: 13.5px; font-weight: 700; color: var(--neutral-700); }
+.vt-total small { font-size: 12px; color: var(--neutral-500); }
+.vt-bar { display: block; height: 8px; border-radius: 4px; background: var(--neutral-100); overflow: hidden; font-style: normal; }
+.vt-bar > i { display: block; height: 100%; background: var(--success-600); }
+.vt-progres { display: flex; align-items: center; gap: 10px; min-width: 160px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.vt-progres .vt-bar { flex: 1; }
+.vt-tabel th, .vt-tabel td { padding: 10px 12px; }
+.vt-tabel tbody tr:nth-child(even) td { background: var(--neutral-50); }
+.vt-merah { color: var(--red-700); }
+.vt-redup td { opacity: .55; }
+.vt-sub { display: block; font-size: 11.5px; color: var(--neutral-500); }
+.vt-saring { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.vt-saring select { width: auto; min-width: 200px; }
+.vt-cek { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--neutral-700); cursor: pointer; }
+.vt-cek input { width: 16px; height: 16px; accent-color: var(--brand-700); }
+.vt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.vt-isian { display: grid; gap: 5px; min-width: 0; }
+.vt-sub-judul { margin: 8px 0 0; font-size: 13.5px; font-weight: 900; color: var(--brand-950); }
+@media (max-width: 720px) {
+  .vt-grid { grid-template-columns: 1fr; }
+  .vt-total { flex-direction: column; align-items: flex-start; }
+}
+
+/* kartu penyulang (tab Jaringan Master Jaringan) */
+.vt-kartu { margin-bottom: 14px; padding: 12px 16px 6px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); }
+.vt-kartu > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 4px; }
+.vt-kartu > header b { font-size: 16px; font-weight: 900; color: var(--brand-950); }
+.vt-kartu > header small { color: var(--neutral-500); }

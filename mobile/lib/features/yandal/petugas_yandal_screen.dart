@@ -12,8 +12,8 @@ import 'petugas_yandal_repository.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/refresh_sisi.dart';
 
-/// v0.63.0 Operasi > Pindah Tim Petugas Yandal (ADMIN / SUPER; keputusan kvlar 7 Okt 2026).
-/// v0.63.2 (keputusan kvlar 8 Okt 2026): layar 1 = kartu per tim Yandal, ketuk kartu = daftar petugas tim itu,
+/// v0.63.0 Operasi > Pindah Tim Petugas Yandal (ADMIN / SUPER; keputusan Master Guswan 7 Okt 2026).
+/// v0.63.2 (keputusan Master Guswan 8 Okt 2026): layar 1 = kartu per tim Yandal, ketuk kartu = daftar petugas tim itu,
 /// ketuk petugas = pindah / nonaktifkan. Perubahan dari semua tim dikumpulkan lalu disimpan sekaligus (format tetap).
 /// Berlaku untuk login berikutnya; shift yang sedang berjalan tidak berubah.
 class PetugasYandalScreen extends StatefulWidget {
@@ -112,8 +112,10 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
     final pilihan = await showModalBottomSheet<String>(
       context: ctx,
       showDragHandle: true,
+      isScrollControlled: true, // 12 tim + aksi tidak muat satu layar: daftar digulir
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(p.nama, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
@@ -133,7 +135,8 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
             ),
           if (d.berubah(p.petugasId))
             ListTile(leading: const Icon(Icons.undo_rounded), title: const Text('Batalkan perubahan'), onTap: () => Navigator.pop(c, 'batal')),
-        ]),
+          ]),
+        ),
       ),
     );
     if (pilihan == null) return;
@@ -200,7 +203,7 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FC),
-        appBar: sisiAppBar('Pindah Tim Petugas Yandal', actions: [
+        appBar: sisiAppBar('Pindah Tim Petugas', actions: [
           TombolSegarkan(
             sibuk: _memuat,
             onPressed: () async {
@@ -232,8 +235,8 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
         _KartuTim(
           nama: t.nama,
           jumlah: jumlah[t.timId] ?? 0,
-          min: d.data.min,
-          maks: d.data.maks,
+          min: t.yandal ? d.data.min : null,
+          maks: t.yandal ? d.data.maks : null,
           perubahan: _perubahanTim(d, t.timId),
           bertugas: _anggota(d, t.timId).where((p) => p.bertugas).length,
           onTap: () => unawaited(_bukaTim(ctx, t.timId)),
@@ -249,7 +252,7 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
     ]);
   }
 
-  /// Anggota tim setelah draft (timId null = petugas nonaktif / di luar tim YANDAL).
+  /// Anggota tim setelah draft (timId null = petugas nonaktif / tanpa tim).
   List<PetugasYandal> _anggota(DraftPetugasYandal d, String? timId) {
     final tim = {for (final t in d.data.tim) t.timId};
     return [

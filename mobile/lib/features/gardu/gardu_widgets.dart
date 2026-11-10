@@ -9,7 +9,7 @@ import '../../widgets/animasi_masuk.dart';
 import 'gardu_model.dart';
 
 /// Cincin persentase beban (warna kategori). Lebih dari 100% = cincin penuh.
-/// v1.0.27 (permintaan kvlar 23 Okt 2026): saat tampil busur bergerak melingkar dari 0 ke persentase, angka ikut naik.
+/// v1.0.27 (permintaan Master Guswan 23 Okt 2026): saat tampil busur bergerak melingkar dari 0 ke persentase, angka ikut naik.
 class CincinBeban extends StatelessWidget {
   const CincinBeban({super.key, required this.persen, this.ukuran = 52, this.tebal = 6});
   final double? persen;
@@ -184,7 +184,7 @@ String tanggalPendek(String iso) {
 
 const _bulanPanjang = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-/// v1.0.23 (permintaan kvlar 23 Okt 2026): tanggal pengukuran gardu DD MMMM YYYY, '2026-10-06' -> '06 Oktober 2026'.
+/// v1.0.23 (permintaan Master Guswan 23 Okt 2026): tanggal pengukuran gardu DD MMMM YYYY, '2026-10-06' -> '06 Oktober 2026'.
 /// Format lain = apa adanya.
 String tanggalPanjang(String iso) {
   final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso);
@@ -316,7 +316,7 @@ class _KepalaDetail extends StatelessWidget {
       );
 }
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): kolom Arus (R / S / T / N) dan Tegangan pengukuran terakhir, dulu tidak
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): kolom Arus (R / S / T / N) dan Tegangan pengukuran terakhir, dulu tidak
 /// tampil di rincian Pengukuran Gardu.
 class BagianArusTegangan extends StatelessWidget {
   const BagianArusTegangan(this.g, {super.key});
@@ -410,7 +410,7 @@ class _AksiKoordinat extends StatelessWidget {
       ]);
 }
 
-/// v1.0.20 (permintaan kvlar 23 Okt 2026): penanda periode pengukuran. WBP = Waktu Beban Puncak (17:00-21:59, ikon
+/// v1.0.20 (permintaan Master Guswan 23 Okt 2026): penanda periode pengukuran. WBP = Waktu Beban Puncak (17:00-21:59, ikon
 /// malam, oranye), LWBP = Luar Waktu Beban Puncak (ikon matahari, teal). Kosong = tidak tampil.
 class BadgePeriodeBeban extends StatelessWidget {
   const BadgePeriodeBeban(this.periode, {super.key, this.lengkap = false});

@@ -1,4 +1,4 @@
-/// v1.0.11 (permintaan kvlar 21 Okt 2026): bantuan murni (tanpa Flutter) untuk WO tindak lanjut temuan:
+/// v1.0.11 (permintaan Master Guswan 21 Okt 2026): bantuan murni (tanpa Flutter) untuk WO tindak lanjut temuan:
 /// label status, jenis ROW dari diameter, jenis lokasi Hartek, kelengkapan foto, ringkasan daftar.
 library;
 
@@ -154,7 +154,7 @@ Uri? uriNavigasiWo(String koordinat) {
 }
 
 /// v1.0.16: rincian WO Hartek dari isian form bertingkat: pekerjaan_1..N (jenisId) + jumlah_1..N,
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): material MENEMPEL ke pekerjaan yang memakainya, isian per pekerjaan ke-i:
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): material MENEMPEL ke pekerjaan yang memakainya, isian per pekerjaan ke-i:
 /// material_i_1..M (materialId) + jumlahMaterial_i_1..M + kepemilikan_i_1..M (kepemilikan dari db_Kepemilikan_Material).
 /// Baris kosong dilewati. [idBaru] membuat id baris (uuid) untuk pekerjaan ke-2 dst. dan material. Hasil
 /// {pekerjaan: [{id?, jenisId, jumlah, material: [...]}]} siap di-jsonEncode untuk simpanPekerjaanWo.rincian.
@@ -203,7 +203,7 @@ List<List<Map<String, dynamic>>> materialPerPekerjaanWo(Map<String, dynamic> rin
 }
 
 /// v1.0.16: jumlah baris isian bertingkat yang tampil: baris terisi + satu baris kosong berikutnya (maks [maks]).
-/// v1.0.23 (permintaan kvlar 23 Okt 2026): jumlah baris [awalan]_i yang tampil = baris terakhir yang terisi, minimal
+/// v1.0.23 (permintaan Master Guswan 23 Okt 2026): jumlah baris [awalan]_i yang tampil = baris terakhir yang terisi, minimal
 /// [awal] + berapa kali tombol tambah [kunciTambah] diketuk (baris baru TIDAK muncul sendiri), maks [maks].
 int barisDitambahWo(Map<String, String> n, String awalan, int maks, {required String kunciTambah, int awal = 0}) {
   var akhir = 0;
@@ -358,4 +358,32 @@ String pesanWo(String kode) {
     default:
       return KodeError.pesan(kode);
   }
+}
+
+/// v1.0.47: waktu simpanan offline -> 'pukul 08.15' (hari ini) / 'kemarin pukul 08.15' / '27/10 pukul 08.15'. Murni.
+String waktuSimpanWo(DateTime w, DateTime sekarang) {
+  String d2(int n) => n.toString().padLeft(2, '0');
+  final jam = 'pukul ${d2(w.hour)}.${d2(w.minute)}';
+  final hari = DateTime(sekarang.year, sekarang.month, sekarang.day).difference(DateTime(w.year, w.month, w.day)).inDays;
+  if (hari <= 0) return jam;
+  if (hari == 1) return 'kemarin $jam';
+  return '${d2(w.day)}/${d2(w.month)} $jam';
+}
+
+/// v1.0.48 (permintaan Master Guswan 29 Okt 2026): teks WA temuan, format v1 (SIE-Teknik _stShareWaTemuan). [fotoTerlampir] =
+/// foto temuan ikut dibagikan sebagai gambar (foto v2 di Drive privat, link tidak bisa dibuka penerima); selain itu link.
+String teksWaTemuanWo(Map<String, dynamic> t, {bool fotoTerlampir = false}) {
+  String v(Object? x) => teksWo(x).isEmpty ? '-' : teksWo(x);
+  final ko = teksWo(t['koordinat']);
+  final lokasi = ko.isEmpty ? '-' : 'https://www.google.com/maps?q=${ko.replaceAll(RegExp(r'\s+'), '')}';
+  final foto = fotoTerlampir ? 'terlampir' : v(petaWo(t['foto'])['TEMUAN']);
+  return '*Temuan Inspeksi*\n\n'
+      'Kode Temuan : *${v(t['kodeTemuan'])}*\n'
+      'Penyulang : ${v(t['penyulang'])}\n'
+      'Section : ${v(t['section'])}\n'
+      'Segmen : ${v(t['segmen'])}\n'
+      'Temuan : ${v(t['jenisTemuan'])}\n\n'
+      'Lokasi : $lokasi\n\n'
+      'Foto Temuan : $foto\n\n'
+      '*Segera Tindak Lanjut🔥🔥🔥*';
 }

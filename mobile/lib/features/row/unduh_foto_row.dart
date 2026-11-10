@@ -9,7 +9,7 @@ import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'foto_repository.dart';
 
-/// v1.0.33 (permintaan kvlar 24 Okt 2026): tombol download foto ROW ke galeri, sekali ketuk untuk satu penyulang penuh
+/// v1.0.33 (permintaan Master Guswan 24 Okt 2026): tombol download foto ROW ke galeri, sekali ketuk untuk satu penyulang penuh
 /// (kartu penyulang di Detail Laporan) atau satu eksekusi (kartu di rincian penyulang). [eksekusi] dibaca saat ditekan.
 class TombolUnduhFotoRow extends StatefulWidget {
   const TombolUnduhFotoRow({super.key, required this.deps, required this.sesi, required this.label, required this.eksekusi, this.padat = false});

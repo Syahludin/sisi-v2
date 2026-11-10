@@ -12,6 +12,17 @@ Future<void> kirimWa(BuildContext context, String teks) async {
   if (!ok && context.mounted) tampilPesan(context, 'WhatsApp tidak bisa dibuka. Teks sudah bisa disalin.');
 }
 
+/// Buka app WhatsApp langsung lewat skema whatsapp:// (tanpa singgah di browser / api.whatsapp.com yang lambat).
+/// Skema tidak ditangani (WA belum terpasang) = jalur biasa [kirimWa].
+Future<void> kirimWaLangsung(BuildContext context, String teks) async {
+  try {
+    if (await launchUrl(Uri.parse('whatsapp://send?text=${Uri.encodeComponent(teks)}'), mode: LaunchMode.externalApplication)) return;
+  } catch (_) {
+    // lanjut ke jalur biasa
+  }
+  if (context.mounted) await kirimWa(context, teks);
+}
+
 Future<void> salinWa(BuildContext context, String teks) async {
   await Clipboard.setData(ClipboardData(text: teks));
   if (context.mounted) tampilPesan(context, 'Teks WA disalin.');
@@ -217,10 +228,13 @@ Future<void> tampilkanWaBelumSiap(
 /// [siap] = hijau penuh (laporan siap kirim); false = redup, tetapi tetap menangkap ketukan ([onTap]) untuk
 /// menampilkan kartu pemberitahuan data yang perlu dilengkapi (tidak meneruskan ketukan ke kartu di belakangnya).
 class TombolWaBulat extends StatelessWidget {
-  const TombolWaBulat({super.key, this.onTap, this.siap = true, this.tooltip = 'Kirim WA'});
+  const TombolWaBulat({super.key, this.onTap, this.siap = true, this.tooltip = 'Kirim WA', this.tooltipMati = 'Lengkapi koordinat, KM, dan pekerjaan untuk kirim WA'});
   final VoidCallback? onTap;
   final bool siap;
   final String tooltip;
+
+  /// Petunjuk saat tombol redup (mis. absensi: menunggu data tersinkron).
+  final String tooltipMati;
 
   static const _hijauWa = Color(0xFF25D366);
 
@@ -228,7 +242,7 @@ class TombolWaBulat extends StatelessWidget {
   Widget build(BuildContext context) {
     final hijau = siap && onTap != null;
     return Tooltip(
-      message: hijau ? tooltip : 'Lengkapi koordinat, KM, dan pekerjaan untuk kirim WA',
+      message: hijau ? tooltip : tooltipMati,
       child: SizedBox(
         width: 46,
         height: 46,

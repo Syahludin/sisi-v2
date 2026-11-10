@@ -1,7 +1,7 @@
 /**
  * Form Update Data Gardu v1 (HI), dibangkitkan dari SiSi_BackEnd/Inspeksi_Gardu/Tek-PengukuranGardu.html (#hiBody, 182 isian,
  * urutan + label + pilihan sama v1). col = kunci isian v1 (data-col) = kunci yang dikirim ke getHiGardu / updateHiGardu.
- * Kolom db_Gardu + posisi kolom 3 file sheet lama per isian diatur server (backend/src/modules/60_Gardu.js HI_GARDU_KATALOG_TEKS_).
+ * Kolom db_Gardu + posisi kolom 3 file sheet lama per isian diatur server (backend/src/modules/30_Gardu.js HI_GARDU_KATALOG_TEKS_).
  * tipe: text (bawaan) | number | date | time | select; mati = tidak bisa diubah (Nomor Gardu, ULP).
  */
 export const TAB_HI = [

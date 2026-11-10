@@ -6,9 +6,25 @@ import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/sisi_widgets.dart';
 import 'arsip_ba_lembar.dart';
+import 'ba_pemeriksaan_screen.dart';
 import 'ba_penggantian_screen.dart';
+import 'ba_switching_screen.dart';
 import 'ba_pengoperasian_screen.dart';
 import 'daftar_ba_screen.dart';
+
+/// Jenis BA yang punya form di HP (BA_JENIS_SIAP_ server).
+const jenisBaForm = {'Pengoperasian Trafo', 'Penggantian Trafo', 'Pemeriksaan Trafo', ...jenisBaSwitching};   // v1.0.49 + switching
+
+/// v1.0.46: jenis BA yang mengubah Master Gardu + punya teks EAM v1 (BA_JENIS_MASTER_ server). Pemeriksaan tidak.
+bool jenisBaMaster(String jenis) => jenis == 'Pengoperasian Trafo' || jenis == 'Penggantian Trafo';
+
+/// Layar form BA baru / edit ([ubahBaId]) untuk [jenis] (harus anggota [jenisBaForm]).
+Widget layarFormBa(Deps deps, Sesi sesi, String jenis, {String? ubahBaId}) => switch (jenis) {
+      'Penggantian Trafo' => BaPenggantianScreen(deps: deps, sesi: sesi, ubahBaId: ubahBaId),
+      'Pemeriksaan Trafo' => BaPemeriksaanScreen(deps: deps, sesi: sesi, ubahBaId: ubahBaId),
+      _ when jenisBaSwitching.contains(jenis) => BaSwitchingScreen(deps: deps, sesi: sesi, jenis: jenis, ubahBaId: ubahBaId),
+      _ => BaPengoperasianScreen(deps: deps, sesi: sesi, ubahBaId: ubahBaId),
+    };
 
 /// Perubahan status gardu oleh satu jenis BA: (dari, ke). dari kosong = gardu baru.
 typedef AlurStatus = (String dari, String ke);
@@ -43,7 +59,7 @@ class JenisBa {
   final bool siap;
 }
 
-/// Katalog BA. Trafo: 5 jenis sesuai v1. Switching menunggu db_Switching.
+/// Katalog BA. Trafo + Switching: 5 jenis masing-masing sesuai v1. v1.0.49: switching siap (nama diketik).
 class KatalogBa {
   KatalogBa._();
 
@@ -80,7 +96,8 @@ class KatalogBa {
       alur: [],
       sumber: 'Pilih gardu dari Master Gardu',
       kartu: ['Identitas BA', 'Data Trafo', 'Lampiran Pemeriksaan 1-6', 'Kesimpulan & Catatan', 'Pemeriksa & Mengetahui'],
-      foto: ['Lampiran 1 s.d. 6'],
+      foto: ['Lampiran 1 s.d. 6 (opsional)'],
+      siap: true,
     ),
     JenisBa(
       nama: 'Pembongkaran Sementara Trafo',
@@ -104,12 +121,65 @@ class KatalogBa {
     ),
   ];
 
-  static const switching = <String>[
-    'Pengoperasian Switching',
-    'Penggantian Switching',
-    'Relokasi Switching',
-    'Pemeriksaan Switching',
-    'Kerusakan Switching',
+  static const _kartuSw = ['Identitas BA', 'Data Switching (jenis, nama, penyulang / section, merk, tipe, seri, koordinat)'];
+  static const _fotoSw = ['Konstruksi Switching (wajib)', 'SLD Sebelum & SLD Sesudah (wajib)', 'Nameplate Switching (opsional)'];
+
+  static const switching = <JenisBa>[
+    JenisBa(
+      nama: 'Pengoperasian Switching',
+      ikon: Icons.toggle_on_outlined,
+      warna: AppColors.success700,
+      kapan: 'Switching BARU dipasang dan dioperasikan.',
+      alur: [],
+      sumber: 'Isi baru (nama switching diketik)',
+      kartu: [..._kartuSw, 'Keterangan Tambahan', 'Pemeriksa & Mengetahui'],
+      foto: _fotoSw,
+      siap: true,
+    ),
+    JenisBa(
+      nama: 'Penggantian Switching',
+      ikon: Icons.swap_horiz_rounded,
+      warna: AppColors.navy700,
+      kapan: 'Switching lama DIGANTI switching lain.',
+      alur: [],
+      sumber: 'Isi data sebelum + sesudah',
+      kartu: [..._kartuSw, 'Data Switching Sesudah (+ asal switching)', 'Keterangan Tambahan', 'Pemeriksa & Mengetahui'],
+      foto: [..._fotoSw, 'Konstruksi Switching Sesudah (wajib)', 'Nameplate Switching Sesudah (opsional)'],
+      siap: true,
+    ),
+    JenisBa(
+      nama: 'Relokasi Switching',
+      ikon: Icons.moving_rounded,
+      warna: AppColors.brand700,
+      kapan: 'Switching DIPINDAH ke lokasi / section lain.',
+      alur: [],
+      sumber: 'Isi data sebelum + sesudah',
+      kartu: [..._kartuSw, 'Data Switching Sesudah (lokasi baru)', 'Keterangan Tambahan', 'Pemeriksa & Mengetahui'],
+      foto: [..._fotoSw, 'Konstruksi Switching Sesudah (wajib)', 'Nameplate Switching Sesudah (opsional)'],
+      siap: true,
+    ),
+    JenisBa(
+      nama: 'Pemeriksaan Switching',
+      ikon: Icons.fact_check_outlined,
+      warna: AppColors.cyan600,
+      kapan: 'Switching DIPERIKSA / diuji.',
+      alur: [],
+      sumber: 'Isi baru (nama switching diketik)',
+      kartu: [..._kartuSw, 'Keterangan Tambahan + Kerusakan / Pemeriksaan', 'Pemeriksa & Mengetahui'],
+      foto: _fotoSw,
+      siap: true,
+    ),
+    JenisBa(
+      nama: 'Kerusakan Switching',
+      ikon: Icons.report_problem_outlined,
+      warna: AppColors.red700,
+      kapan: 'Switching RUSAK, dicatat kerusakannya.',
+      alur: [],
+      sumber: 'Isi baru (nama switching diketik)',
+      kartu: [..._kartuSw, 'Keterangan Tambahan + Kerusakan / Pemeriksaan', 'Pemeriksa & Mengetahui'],
+      foto: _fotoSw,
+      siap: true,
+    ),
   ];
 }
 
@@ -121,7 +191,7 @@ class KatalogBa {
       _ => (AppColors.navy700, AppColors.brand100),
     };
 
-/// v0.69.0 menu Berita Acara Gardu (OPS_BA_GARDU, khusus admin). v0.72.0 (perbaikan kvlar 9 Okt 2026): tampilan dibuat
+/// v0.69.0 menu Berita Acara Gardu (OPS_BA_GARDU, khusus admin). v0.72.0 (perbaikan Master Guswan 9 Okt 2026): tampilan dibuat
 /// mudah dipahami tanpa menelaah: panduan 3 langkah, aksi Daftar BA & PDF terpisah dari jenis BA, tiap jenis punya
 /// kalimat "dipakai kalau" + chip perubahan status gardu, jenis yang belum ada digabung di bawah.
 class BeritaAcaraScreen extends StatelessWidget {
@@ -136,12 +206,12 @@ class BeritaAcaraScreen extends StatelessWidget {
       tampilPesan(context, 'Akses Berita Acara khusus ADMIN / SUPER.');
       return;
     }
-    if (j.siap && (j.nama == 'Pengoperasian Trafo' || j.nama == 'Penggantian Trafo')) {
+    if (j.siap && jenisBaForm.contains(j.nama)) {
       if (!_bolehBuat) {
         tampilPesan(context, 'Akun ini hanya memiliki akses baca Berita Acara.');
         return;
       }
-      final layar = j.nama == 'Penggantian Trafo' ? BaPenggantianScreen(deps: deps, sesi: sesi) : BaPengoperasianScreen(deps: deps, sesi: sesi);
+      final layar = layarFormBa(deps, sesi, j.nama);
       final ok = await bukaForm(context, MaterialPageRoute<bool>(builder: (_) => layar));
       // v0.76.0: BA dikirim di latar belakang: langsung tampilkan Daftar BA (progres + PDF)
       if (ok == true && context.mounted) {
@@ -179,7 +249,7 @@ class BeritaAcaraScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppColors.accent100, borderRadius: BorderRadius.circular(12)),
-              child: const Text('Form jenis BA ini sedang disiapkan. Untuk sekarang yang sudah bisa: Pengoperasian Trafo & Penggantian Trafo.',
+              child: const Text('Form jenis BA ini sedang disiapkan. Untuk sekarang yang sudah bisa: Pengoperasian, Penggantian, Pemeriksaan Trafo, dan semua BA Switching.',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent700)),
             ),
             const SizedBox(height: 12),
@@ -208,7 +278,10 @@ class BeritaAcaraScreen extends StatelessWidget {
         const _Judul('Buat BA baru · pilih sesuai pekerjaan', Icons.add_task_rounded),
         for (final j in siap) _KartuJenis(jenis: j, onTap: () => _buka(context, j)),
         const SizedBox(height: 10),
-        _Judul('Segera hadir (${segera.length + KatalogBa.switching.length})', Icons.hourglass_top_rounded),
+        const _Judul('BA Switching', Icons.toggle_on_outlined),
+        for (final j in KatalogBa.switching) _KartuJenis(jenis: j, onTap: () => _buka(context, j)),
+        const SizedBox(height: 10),
+        _Judul('Segera hadir (${segera.length})', Icons.hourglass_top_rounded),
         Container(
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.neutral200)),
           child: Theme(
@@ -222,16 +295,6 @@ class BeritaAcaraScreen extends StatelessWidget {
                 subtitle: const Text('Ketuk jenis untuk lihat isi form-nya', style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
                 childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                 children: [for (final j in segera) _KartuJenis(jenis: j, onTap: () => _buka(context, j), ringkas: true)],
-              ),
-              const Divider(height: 1, color: AppColors.neutral100),
-              ExpansionTile(
-                shape: const Border(),
-                leading: const Icon(Icons.toggle_on_outlined, color: AppColors.neutral500),
-                title: Text('BA Switching (${KatalogBa.switching.length})',
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-                subtitle: const Text('Menunggu data switching (db_Switching)', style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                children: [for (final s in KatalogBa.switching) _Butir(s, ikon: Icons.toggle_off_outlined)],
               ),
             ]),
           ),

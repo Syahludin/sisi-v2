@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../hartek/hartek_lokal.dart';
 
-/// v1.0.0 (permintaan kvlar 19 Okt 2026): Inspeksi Jaringan lokal + kirim otomatis (pola sama dengan HartekLokal).
+/// v1.0.0 (permintaan Master Guswan 19 Okt 2026): Inspeksi Jaringan lokal + kirim otomatis (pola sama dengan HartekLokal).
 ///
 /// Logika murni dokumen laporan harian di HP (tanpa sqflite / jaringan, diuji di insjar_lokal_test.dart).
 /// Bentuk dokumen = jawaban getInsJarHarian: `{tanggal, header, realisasi: [penyulang utama {temuan: [...]}]}`.
@@ -420,7 +420,7 @@ class InsJarLokal {
   }
 }
 
-/// v1.0.6 (kvlar 20 Okt 2026): teks WA Inspeksi Jaringan per tier. Penyulang yang sama digabung (1 blok), di dalamnya
+/// v1.0.6 (Master Guswan 20 Okt 2026): teks WA Inspeksi Jaringan per tier. Penyulang yang sama digabung (1 blok), di dalamnya
 /// tiap section: Section, Temuan (per jenis, jumlah titik), dan Jumlah Tiang. Di akhir tiap penyulang: total tiang tier.
 String waTeksInsJar({required String tanggalTampil, required Map<String, dynamic> header, required List<Map<String, dynamic>> realisasi}) {
   String t(Object? v) => v?.toString().trim() ?? '';

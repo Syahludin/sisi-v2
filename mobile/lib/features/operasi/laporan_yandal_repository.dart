@@ -1,7 +1,7 @@
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
 
-/// v0.99.0 (permintaan kvlar 18 Okt 2026): Operasi > Laporan per Tim untuk tim YANDAL (admin).
+/// v0.99.0 (permintaan Master Guswan 18 Okt 2026): Operasi > Laporan per Tim untuk tim YANDAL (admin).
 /// Satu tanggal operasional: tiap tim 3 shift, status login, crew, check-in, HP yang masih login, rekap + daftar P0.
 /// Hanya baca (endpoint getLaporanTimYandal, menu ROW_LAPORAN, bukan PETUGAS).
 class LaporanYandalRepository {

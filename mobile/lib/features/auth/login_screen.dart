@@ -6,6 +6,7 @@ import '../../core/api_client.dart';
 import '../../core/cek_lokasi.dart';
 import '../../core/deps.dart';
 import '../../core/env.dart';
+import '../../core/cek_versi.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
@@ -19,7 +20,7 @@ import 'auth_repository.dart';
 import '../../widgets/sisi_loader.dart';
 
 /// Login: halaman brand + tombol Login, form di bottom sheet.
-/// v1.0.19 (permintaan kvlar 23 Okt 2026): desain ulang Jaringan SiSi (latar gradien + motif tiang & kawat, logo bercahaya,
+/// v1.0.19 (permintaan Master Guswan 23 Okt 2026): desain ulang Jaringan SiSi (latar gradien + motif tiang & kawat, logo bercahaya,
 /// tombol kuning PLN), alur tetap sama.
 /// PRD Alur B: login -> getMaster -> getKodeRow -> dashboard.
 class LoginScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-/// v1.0.28 (permintaan kvlar 23 Okt 2026): animasi pembuka. Siluet jaringan (tiang lalu kawat) tergambar lebih dulu,
+/// v1.0.28 (permintaan Master Guswan 23 Okt 2026): animasi pembuka. Siluet jaringan (tiang lalu kawat) tergambar lebih dulu,
 /// disusul logo SiSi + judul, lalu tombol Login. Form username / password muncul pelan saat Login diketuk.
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))..forward();
@@ -167,11 +168,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(color: Colors.black.withValues(alpha: .16), borderRadius: BorderRadius.circular(100)),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.location_on, size: 13, color: AppColors.accent400),
-                        SizedBox(width: 4),
-                        Text('PLN ULP TOBOALI',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .6, color: Colors.white)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.location_on, size: 13, color: AppColors.accent400),
+                        const SizedBox(width: 4),
+                        Text('PLN ULP ${Env.ulp.toUpperCase()}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .6, color: Colors.white)),
                       ]),
                     ),
                     ])),
@@ -195,6 +196,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                     const SizedBox(height: 12),
                     const Text('Masuk dengan akun tim / admin ULP', style: TextStyle(fontSize: 12, color: Color(0xB3FFFFFF))),
+                    const BannerUpdateLogin(), // v1.0.61: update aplikasi bisa dilakukan sebelum login
                     ])),
                   ]),
                 ),
@@ -203,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 left: 0,
                 right: 0,
                 bottom: 14,
-                child: Text('Sistem Integrasi © 2026 · PLN ULP Toboali',
+                child: Text('Sistem Integrasi © 2026 · PLN ULP ${Env.ulp}',
                     textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Color(0x99FFFFFF))),
               ),
             ]),
@@ -225,7 +227,8 @@ class _FormLogin extends StatefulWidget {
 class _FormLoginState extends State<_FormLogin> {
   final _username = TextEditingController();
   final _password = TextEditingController();
-  final _fokusUser = FocusNode(), _fokusSandi = FocusNode(); // v1.0.20: sorot kartu kredensial
+  final _kodeStg = TextEditingController(); // v1.0.61: kode pengaman, kolom hanya tampil di APK staging
+  final _fokusUser = FocusNode(), _fokusSandi = FocusNode(), _fokusKode = FocusNode(); // v1.0.20: sorot kartu kredensial
   bool _proses = false;
   bool _lihat = false;
   String? _pesan;
@@ -235,8 +238,10 @@ class _FormLoginState extends State<_FormLogin> {
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _kodeStg.dispose();
     _fokusUser.dispose();
     _fokusSandi.dispose();
+    _fokusKode.dispose();
     super.dispose();
   }
 
@@ -260,7 +265,7 @@ class _FormLoginState extends State<_FormLogin> {
         if (mounted) setState(() => _pesan = CekLokasi.pesan(lokasi));
         return;
       }
-      final hasil = await widget.deps.auth.login(_username.text, _password.text);
+      final hasil = await widget.deps.auth.login(_username.text, _password.text, kodeStg: Env.isStaging ? _kodeStg.text : null);
       final Sesi s;
       switch (hasil) {
         case LoginPilihPetugas(:final tiket):
@@ -284,7 +289,7 @@ class _FormLoginState extends State<_FormLogin> {
         _salah++;
         _password.clear(); // kata sandi diketik ulang, username tetap
       }
-      // v0.63.2 (keputusan kvlar 8 Okt 2026): ada kartu = pesan merah di atas kolom tidak ditampilkan (tidak dobel)
+      // v0.63.2 (keputusan Master Guswan 8 Okt 2026): ada kartu = pesan merah di atas kolom tidak ditampilkan (tidak dobel)
       setState(() => _pesan = kartu == null ? KodeError.pesan(e.kode) : null);
       if (kartu != null) await tampilkanLoginGagal(context, kode: e.kode, username: _username.text, percobaan: _salah);
     } catch (_) {
@@ -303,7 +308,7 @@ class _FormLoginState extends State<_FormLogin> {
         clipBehavior: Clip.antiAlias,
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // v1.0.19: strip Jaringan SiSi di atas form
-          // v1.0.21 (permintaan kvlar 23 Okt 2026): warna sama dengan header / latar aplikasi (tanpa ujung kuning)
+          // v1.0.21 (permintaan Master Guswan 23 Okt 2026): warna sama dengan header / latar aplikasi (tanpa ujung kuning)
           Container(
             height: 10,
             decoration: const BoxDecoration(
@@ -353,11 +358,11 @@ class _FormLoginState extends State<_FormLogin> {
                 ),
                 const SizedBox(height: 12),
               ],
-              // v1.0.20 (permintaan kvlar 23 Okt 2026): satu kartu kredensial (username + kata sandi) bergaya SiSi
+              // v1.0.20 (permintaan Master Guswan 23 Okt 2026): satu kartu kredensial (username + kata sandi) bergaya SiSi
               ListenableBuilder(
-                listenable: Listenable.merge([_fokusUser, _fokusSandi]),
+                listenable: Listenable.merge([_fokusUser, _fokusSandi, _fokusKode]),
                 builder: (context, _) {
-                  final fokus = _fokusUser.hasFocus || _fokusSandi.hasFocus;
+                  final fokus = _fokusUser.hasFocus || _fokusSandi.hasFocus || _fokusKode.hasFocus;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     decoration: BoxDecoration(
@@ -404,6 +409,22 @@ class _FormLoginState extends State<_FormLogin> {
                           onPressed: () => setState(() => _lihat = !_lihat),
                         ),
                       ),
+                      if (Env.isStaging) ...[
+                        const Divider(height: 1, indent: 70, endIndent: 16),
+                        _KolomKredensial(
+                          controller: _kodeStg,
+                          fokus: _fokusKode,
+                          aktif: !_proses,
+                          label: 'KODE PENGAMAN STAGING',
+                          hint: 'Hanya admin yang tahu',
+                          ikon: Icons.shield_rounded,
+                          latarIkon: const LinearGradient(colors: [AppColors.accent400, AppColors.accent600]),
+                          warnaIkon: AppColors.brand950,
+                          rahasia: true,
+                          aksiKeyboard: TextInputAction.done,
+                          onSubmitted: (_) => _proses ? null : _masuk(),
+                        ),
+                      ],
                     ]),
                   );
                 },

@@ -1,0 +1,33 @@
+/* v1.0.51 menu Checkpoint Jaringan: filter (panel), sub-tab (gaya History Gangguan), matriks Har. */
+.cp-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 220px)) auto; align-items: end; gap: 12px; margin-bottom: 12px; }
+.cp-filter label { display: grid; gap: 4px; min-width: 0; }
+.cp-filter label span { font-size: 11.5px; font-weight: 800; color: var(--neutral-500); }
+.cp-filter .k-input { width: 100%; min-height: 42px; }
+.cp-filter > .k-tombol { justify-self: start; }
+.cp-muat { min-height: 240px; }
+.cp-ringkas { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* matriks Har: kolom Grup + Kriteria tetap di kiri, header bulan + minggu tetap di atas, bulan berselang warna */
+.cp-har { overflow: auto; max-height: 70vh; border: 1px solid var(--neutral-150); border-radius: 14px; }
+.cp-har-tabel { border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; width: max-content; min-width: 100%; }
+.cp-har-tabel th, .cp-har-tabel td { padding: 7px 8px; border-bottom: 1px solid var(--neutral-100); border-right: 1px solid var(--neutral-100); text-align: center; white-space: nowrap; background: var(--putih); }
+.cp-har-tabel thead th { position: sticky; top: 0; z-index: 2; background: var(--neutral-50); font-size: 11px; font-weight: 800; color: var(--neutral-500); text-transform: uppercase; }
+.cp-har-tabel thead .cp-har-sub th { top: 33px; font-size: 10.5px; }
+.cp-har-tabel .cp-har-alt { background: var(--neutral-50); }
+.cp-har-tabel thead .cp-har-alt { background: var(--brand-50); color: var(--brand-700); }
+.cp-har-grup { position: sticky; left: 0; z-index: 1; width: 110px; min-width: 110px; text-align: left !important; font-weight: 900; color: var(--brand-800); background: var(--brand-50) !important; }
+.cp-har-krit { position: sticky; left: 110px; z-index: 1; min-width: 190px; text-align: left !important; font-weight: 700; color: var(--brand-950); box-shadow: 1px 0 0 var(--neutral-200); }
+.cp-har-tabel thead .cp-har-grup, .cp-har-tabel thead .cp-har-krit { z-index: 4; }
+.cp-har-total { position: sticky; right: 0; z-index: 1; background: var(--brand-50) !important; font-weight: 900; box-shadow: -1px 0 0 var(--neutral-200); }
+.cp-har-tabel thead .cp-har-total { z-index: 4; color: var(--brand-800); }
+.cp-har-awal th, .cp-har-awal td { border-top: 2px solid var(--neutral-200); }
+.cp-har-tabel tbody tr:hover td:not(.cp-har-total), .cp-har-tabel tbody tr:hover .cp-har-krit { background: var(--brand-50); }
+.cp-har-n { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 999px; background: var(--success-100); color: var(--success-700); font-weight: 900; }
+.cp-har-total .cp-har-n { background: var(--brand-600); color: #fff; }
+.cp-har-0 { color: var(--neutral-300); }
+
+@media (max-width: 760px) {
+  .cp-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cp-har-grup { display: none; }
+  .cp-har-krit { left: 0; }
+}

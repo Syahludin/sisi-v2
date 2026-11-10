@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import '../../core/api_client.dart';
 import '../../core/sesi.dart';
 
-/// v0.86.0 (keputusan kvlar 13 Okt 2026): Arsip BA v1, BACA SAJA, untuk tracking BA lama (Rekap Gardu + Rekap Switching v1).
+/// v0.86.0 (keputusan Master Guswan 13 Okt 2026): Arsip BA v1, BACA SAJA, untuk tracking BA lama (Rekap Gardu + Rekap Switching v1).
 /// Data dari sheet arsip_BA_V1 (ADMIN_migrasiArsipBa), tampil satu halaman dengan BA v2 di Lihat BA & PDF.
 /// Tidak ada edit, buat ulang PDF, kirim EAM.
 

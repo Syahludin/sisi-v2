@@ -320,7 +320,7 @@ typedef SampelSusulan = ({SampelGps s, DateTime t});
 /// Hasil titik susulan: detik = jarak waktu sampel terpilih sesudah jepret.
 typedef TitikSusulan = ({double lat, double lng, double akurasi, int detik});
 
-/// v0.65.2 (keputusan kvlar 8 Okt 2026): koordinat foto P0 boleh MENYUSUL bila saat jepret belum ada fix segar,
+/// v0.65.2 (keputusan Master Guswan 8 Okt 2026): koordinat foto P0 boleh MENYUSUL bila saat jepret belum ada fix segar,
 /// tapi hanya [jendela] sesudah jepret (petugas bisa sudah bergerak; lewat dari itu dibiarkan kosong, bukan titik salah).
 /// Dipilih sampel PERTAMA yang cukup akurat (<= [Gps.sedang]) supaya sedekat mungkin dengan saat jepret;
 /// tidak ada yang cukup akurat = sampel terbaik di jendela. Server menolak susulan > 30 detik (YAN_P0_SUSULAN_MAKS_DETIK_).

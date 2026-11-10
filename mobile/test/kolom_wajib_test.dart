@@ -6,7 +6,7 @@ import 'package:sisi_row/theme/app_colors.dart';
 import 'package:sisi_row/widgets/sisi_loader.dart';
 import 'package:sisi_row/widgets/sisi_widgets.dart';
 
-/// v1.0.31 (permintaan kvlar 24 Okt 2026): kolom wajib kosong = tidak tersimpan, kolom merah, layar digulir ke sana;
+/// v1.0.31 (permintaan Master Guswan 24 Okt 2026): kolom wajib kosong = tidak tersimpan, kolom merah, layar digulir ke sana;
 /// loader S utuh; teks WA P0 dari WO.
 void main() {
   test('loader: S utuh, ruas terakhir naik ke kiri atas (ekor bawah = cermin ekor atas)', () {

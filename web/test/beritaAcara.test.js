@@ -31,6 +31,9 @@ test('aksi per tahap: PDF -> TTD -> EAM / master; TTD ulang mengunci EAM; batal 
   const ulang = aksiBa(BA({ statusTtd: 'TTD ULANG', adaTtd: true, tahap: 'TTD_ULANG' }), true);
   assert.deepEqual([ulang.kirimEam, ulang.uploadTtd, /TTD baru/.test(ulang.alasanEam)], [false, true, true]);
   assert.equal(aksiBa(BA({ statusTtd: 'SUDAH TTD', adaTtd: true, jenis: 'Pemeriksaan Trafo', pdfBisa: false }), true).updateMaster, false);
+  // v1.0.46: Pemeriksaan Trafo = PDF + TTD, tanpa Kirim EAM / Update Master (gardu tidak berubah)
+  const prk = aksiBa(BA({ statusTtd: 'SUDAH TTD', adaTtd: true, jenis: 'Pemeriksaan Trafo', pdfBisa: true }), true);
+  assert.deepEqual([prk.buatPdf, prk.uploadTtd, prk.kirimEam, prk.updateMaster], [true, true, false, false]);
   for (const x of [aksiBa(BA({ statusBa: 'BATAL' }), true), aksiBa(BA(), false)]) assert.deepEqual([x.buatPdf, x.uploadTtd, x.kirimEam], [false, false, false]);
   const arsip = aksiBa({ arsip: true, statusPdf: 'SELESAI', adaPdf: true, adaTtd: true, statusTtd: 'SUDAH TTD', jenis: 'Pengoperasian Trafo' }, true);
   assert.deepEqual([arsip.unduhPdf, arsip.unduhTtd, arsip.buatPdf, arsip.kirimEam], [true, true, false, false]);

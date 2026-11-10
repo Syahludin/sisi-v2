@@ -9,7 +9,7 @@ import '../hartek/hartek_store.dart' show GudangHartek;
 import '../insdu/insdu_bantu.dart' show waTeksInsDu;
 import '../insjar/insjar_lokal.dart' show waTeksInsJar;
 
-/// v1.0.17 (permintaan kvlar 22 Okt 2026): Arsip Laporan modul Hartek, Inspeksi Jaringan, Inspeksi Gardu, meniru tab
+/// v1.0.17 (permintaan Master Guswan 22 Okt 2026): Arsip Laporan modul Hartek, Inspeksi Jaringan, Inspeksi Gardu, meniru tab
 /// Arsip ROW: unduh per bulan (server maks 31 hari, sampai kemarin), simpan di HP, tampil tahun > bulan > hari.
 /// Logika murni + simpanan di sini, tampilan di arsip_tim_view.dart.
 

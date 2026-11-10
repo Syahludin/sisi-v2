@@ -2,7 +2,10 @@
 //   env 'staging'    = website uji (badge STAGING tampil), apiUrl = URL /exec deployment staging
 //   env 'production' = website admin sehari-hari, apiUrl = URL /exec deployment production
 // Hanya alamat https://script.google.com/macros/s/<ID>/exec yang diterima.
+// apiBacaUrl (opsional, v1.0.38): API baca MySQL Hostinger (/sisi-api-staging atau /sisi-api). Kosong / dihapus = semua
+// data dibaca lewat Apps Script (cara mematikan tanpa build ulang).
 window.SISI_CONFIG = {
   env: 'staging',
   apiUrl: 'https://script.google.com/macros/s/ISI_ID_DEPLOYMENT/exec',
+  apiBacaUrl: '',
 };

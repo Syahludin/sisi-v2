@@ -1,0 +1,106 @@
+/* Laporan Gangguan Penyulang (v1.0.59; desain ulang review 8 Nov 2026, sama dengan HP). Semua kelas berawalan .lgp (unik). */
+.lgp { --lgp-pmt: #1d6a73; --lgp-sukses: var(--success-600); --lgp-lockout: #b5651d; }
+
+/* --- hero: tanggal laporan + tiga angka + kirim --- */
+.lgp-hero {
+  position: relative; overflow: hidden; display: grid; gap: 16px; padding: 20px 22px 18px; border-radius: 18px;
+  background: var(--gradien-sisi); color: #fff; box-shadow: 0 10px 22px rgba(20, 32, 30, .22);
+}
+.lgp-hero--kosong { min-height: 180px; align-content: start; }
+.lgp-hero-atas { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lgp-hero-teks { display: grid; gap: 6px; min-width: 0; }
+.lgp-judul { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: rgba(255, 255, 255, .78); }
+.lgp-tanggal { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.2; }
+.lgp-h1 {
+  padding: 3px 9px; border-radius: 999px; background: var(--accent-400); color: #14201e;
+  font-size: 12px; font-weight: 900; letter-spacing: .04em;
+}
+.lgp-segar { flex: 0 0 auto; }
+
+.lgp-kpi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.lgp-kpi li {
+  display: grid; gap: 2px; min-width: 0; padding: 12px 14px 11px; border-radius: 14px;
+  background: rgba(255, 255, 255, .09); border: 1px solid rgba(255, 255, 255, .16); border-top: 3px solid var(--lgp-warna);
+}
+.lgp-kpi b { font-size: 32px; font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.lgp-kpi span { font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .82); }
+.lgp-kpi--pmt { --lgp-warna: #5fb3f0; }
+.lgp-kpi--sukses { --lgp-warna: #5bd69a; }
+.lgp-kpi--lockout { --lgp-warna: #e0a85c; }
+.lgp-kirim { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.lgp-muat { display: grid; justify-items: center; gap: 10px; padding: 28px 0 8px; color: rgba(255, 255, 255, .86); text-align: center; }
+.lgp-muat p { margin: 0; font-size: 13.5px; font-weight: 700; }
+
+/* --- status: hanya bila perlu --- */
+.lgp-status:empty { display: none; }
+.lgp-status .k-pesan { margin: 12px 0 0; }
+.lgp-banner { margin: 12px 0 0; flex-wrap: wrap; }
+.lgp-banner span { flex: 1 1 260px; }
+
+/* --- isi --- */
+.lgp-isi { display: grid; gap: 16px; margin-top: 16px; align-items: start; }
+.lgp-isi--dua { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); }
+.lgp-utama { display: grid; gap: 12px; min-width: 0; }
+.lgp-utama > .k-tab { justify-self: start; max-width: 100%; overflow-x: auto; }
+.lgp-panel { min-width: 0; }
+.lgp-wa { position: sticky; top: 12px; display: grid; gap: 8px; min-width: 0; }
+.lgp-wa h2 { margin: 0; font-size: 13px; font-weight: 800; color: var(--neutral-700); }
+
+.lgp-kat-daftar { display: grid; gap: 12px; }
+.lgp-kat {
+  padding: 14px 16px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150);
+  border-left: 4px solid var(--lgp-warna, var(--neutral-300));
+}
+.lgp-kat--pmt { --lgp-warna: var(--lgp-pmt); }
+.lgp-kat--sukses { --lgp-warna: var(--lgp-sukses); }
+.lgp-kat--lockout { --lgp-warna: var(--lgp-lockout); }
+.lgp-kat--tertinggi { --lgp-warna: var(--accent-600); background: linear-gradient(180deg, var(--accent-100), #fff 70%); }
+.lgp-kat header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lgp-kat h3 { margin: 0; font-size: 15px; font-weight: 900; color: var(--brand-950); }
+.lgp-jumlah { font-size: 13px; font-weight: 900; color: var(--lgp-warna); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lgp-nihil {
+  padding: 2px 9px; border-radius: 999px; background: var(--neutral-100); color: var(--neutral-500);
+  font-size: 11.5px; font-weight: 900; letter-spacing: .06em;
+}
+
+.lgp-kejadian { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: lgp; }
+.lgp-kejadian li {
+  position: relative; display: grid; gap: 1px; padding: 8px 10px 8px 38px; border-radius: 10px; background: var(--neutral-50);
+  counter-increment: lgp;
+}
+.lgp-kejadian li::before {
+  content: counter(lgp); position: absolute; left: 10px; top: 9px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--lgp-warna); color: #fff; font-size: 11px; font-weight: 900; line-height: 20px; text-align: center;
+}
+.lgp-kejadian b { font-size: 14px; color: var(--neutral-900); }
+.lgp-kejadian span { font-size: 12.5px; color: var(--neutral-500); }
+
+.lgp-tertinggi { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.lgp-tertinggi li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lgp-tertinggi b { font-size: 15px; color: var(--brand-950); }
+.lgp-tertinggi span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--neutral-700); font-variant-numeric: tabular-nums; }
+.lgp-titik { display: inline-block; width: 9px; height: 9px; margin-left: 4px; border-radius: 3px; }
+.lgp-titik--pmt { background: var(--lgp-pmt); }
+.lgp-titik--lockout { background: var(--lgp-lockout); }
+
+.lgp-batang { display: grid; gap: 7px; margin: 10px 0 0; padding: 0; list-style: none; }
+.lgp-batang li { display: grid; grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) 28px; align-items: center; gap: 10px; }
+.lgp-batang-nama { overflow: hidden; font-size: 13px; font-weight: 700; color: var(--neutral-900); text-overflow: ellipsis; white-space: nowrap; }
+.lgp-batang-jalur { height: 10px; border-radius: 999px; background: var(--neutral-100); overflow: hidden; }
+.lgp-batang-jalur i { display: block; height: 100%; min-width: 6px; border-radius: 999px; background: var(--lgp-warna); }
+.lgp-batang b { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: var(--neutral-900); }
+
+@media (max-width: 640px) {
+  .lgp-hero { padding: 16px 16px 14px; border-radius: 16px; }
+  .lgp-tanggal { font-size: 19px; }
+  .lgp-kpi { gap: 6px; }
+  .lgp-kpi li { padding: 9px 10px; }
+  .lgp-kpi b { font-size: 26px; }
+  .lgp-kpi span { font-size: 11.5px; }
+  .lgp-kirim .k-tombol { flex: 1 1 0; }
+  .lgp-segar { width: 100%; }
+  .lgp-utama > .k-tab { justify-self: stretch; }
+  .lgp-utama > .k-tab .k-tab-tombol { flex: 1 1 0; justify-content: center; white-space: nowrap; }
+  .lgp-batang li { grid-template-columns: minmax(80px, 120px) minmax(0, 1fr) 24px; }
+}

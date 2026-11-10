@@ -13,7 +13,7 @@ import '../hartek/foto_lapangan.dart';
 import '../hartek/hartek_store.dart' show GudangHartek, OpHartek, PanggilHartek, HasilKirimHartek, HartekStore;
 import 'insjar_lokal.dart';
 
-/// v1.0.0 (permintaan kvlar 19 Okt 2026): Inspeksi Jaringan lokal dulu, kirim ke server otomatis (pola HartekStore).
+/// v1.0.0 (permintaan Master Guswan 19 Okt 2026): Inspeksi Jaringan lokal dulu, kirim ke server otomatis (pola HartekStore).
 ///
 /// Penyimpanan memakai tabel yang sama dengan Hartek (hartek_lokal / hartek_antre, kunci user_id): akun tim
 /// INSPEKSI_JARINGAN tidak pernah memakai Hartek, jadi data tidak tercampur. Master dropdown: master_cache 'insjar_master'.

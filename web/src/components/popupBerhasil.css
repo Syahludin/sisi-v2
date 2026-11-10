@@ -1,0 +1,49 @@
+/* Kartu berhasil (sama dengan HP popup_berhasil.dart): pembagian waktu sama, 0..1 = --pb-lama. */
+.pb-latar {
+  position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; cursor: pointer;
+  background: rgba(20, 32, 30, .18); animation: pb-latar var(--pb-lama, 2600ms) linear forwards;
+}
+.pb-kartu {
+  width: 272px; padding: 28px 24px 24px; border-radius: 28px; background: var(--putih); text-align: center;
+  box-shadow: 0 14px 32px rgba(20, 32, 30, .18); animation: pb-kartu var(--pb-lama, 2600ms) linear forwards;
+}
+.pb-kartu b { display: block; margin-top: 16px; font-size: 18px; font-weight: 800; line-height: 1.25; color: var(--neutral-950, #14201e); }
+.pb-kartu p { margin: 6px 0 0; font-size: 14px; line-height: 1.35; color: var(--neutral-700); }
+.pb-ikon { position: relative; width: 104px; height: 104px; margin: 0 auto; display: grid; place-items: center; }
+.pb-ikon > span { position: absolute; border-radius: 50%; }
+.pb-dasar { width: 80px; height: 80px; background: var(--success-100); }
+.pb-cincin { width: 64px; height: 64px; border: 3px solid var(--success-600, #4d8a2c); opacity: 0; animation: pb-cincin var(--pb-lama, 2600ms) linear forwards; }
+.pb-centang {
+  width: 60px; height: 60px; display: grid; place-items: center; color: #fff; background: var(--success-600, #4d8a2c);
+  box-shadow: 0 5px 14px rgba(77, 138, 44, .35); opacity: 0; animation: pb-centang var(--pb-lama, 2600ms) linear forwards;
+}
+.pb-centang svg { stroke-width: 3; }
+
+/* tembus: halaman di belakang tetap bisa diklik (mis. Approval P0 lanjut ke P0 berikutnya) */
+.pb-latar--tembus { pointer-events: none; }
+@keyframes pb-latar { 0% { opacity: 0; } 8% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes pb-kartu {
+  0% { opacity: 0; transform: scale(.82); } 8% { opacity: 1; } 12% { transform: scale(1.02); } 16% { transform: scale(1); }
+  88% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.94); }
+}
+/* centang: muncul, hilang, muncul, hilang, muncul + meletup (clink), lalu menetap */
+@keyframes pb-centang {
+  0%, 10% { opacity: 0; transform: scale(.6); }
+  17% { opacity: 1; transform: scale(1.15); }
+  26% { opacity: 0; transform: scale(.8); }
+  33% { opacity: 1; transform: scale(1.15); }
+  42% { opacity: 0; transform: scale(.8); }
+  52% { opacity: 1; transform: scale(1.18); }
+  60%, 100% { opacity: 1; transform: scale(1); }
+}
+/* cincin: membesar dan memudar tiap centang muncul */
+@keyframes pb-cincin {
+  0%, 10% { opacity: 0; width: 64px; height: 64px; }
+  11% { opacity: .55; width: 64px; height: 64px; } 26% { opacity: 0; width: 104px; height: 104px; }
+  27% { opacity: .55; width: 64px; height: 64px; } 42% { opacity: 0; width: 104px; height: 104px; }
+  43% { opacity: .55; width: 64px; height: 64px; } 60%, 100% { opacity: 0; width: 104px; height: 104px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb-latar, .pb-kartu, .pb-centang, .pb-cincin { animation: none; opacity: 1; }
+  .pb-cincin { opacity: 0; }
+}
