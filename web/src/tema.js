@@ -14,7 +14,7 @@ const sistemGelap = () => !!globalThis.matchMedia?.('(prefers-color-scheme: dark
 
 function pasang(tema) {
   document.documentElement.setAttribute('data-tema', tema);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'gelap' ? '#0C1614' : '#0F2A27');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'gelap' ? '#0b1510' : '#153f2c');
 }
 
 export function useTema() {

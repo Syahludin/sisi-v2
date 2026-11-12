@@ -29,8 +29,9 @@ test('tiang: skema tanpa kolom ganda, kunci ada, terdaftar di skemaHeader_', () 
   for (const [nama, header] of Object.entries({ ...g.TIANG_HEADER_, ...g.TIANG_MASTER_HEADER_ })) {
     assert.strictEqual(new Set(header).size, header.length, nama + ' punya kolom ganda');
     // db_Tiang_Sirkuit: kolom konfirmasi induk ditambah di belakang kolom audit (tab lama cukup diperpanjang)
+    // db_Tiang: sisi_jalan (10 Nov 2026); db_Tiang_Sirkuit: + konstruksi_id (10 Nov 2026)
     // db_Segmen: kolom segmen kabel tanah (10 Nov 2026) juga di belakang kolom audit
-    const tanpaTambahan = nama === 'db_Tiang_Sirkuit' ? header.slice(0, -3) : nama === 'db_Segmen' ? header.slice(0, -6) : header;
+    const tanpaTambahan = nama === 'db_Tiang_Sirkuit' ? header.slice(0, -4) : nama === 'db_Tiang' ? header.slice(0, -1) : nama === 'db_Segmen' ? header.slice(0, -6) : header;
     assert.strictEqual(tanpaTambahan.slice(-1)[0], 'diubah_oleh', nama + ' berakhir dengan kolom audit');
     assert.strictEqual(header[0], 'No', nama + ' berkolom pertama No');
   }

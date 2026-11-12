@@ -144,7 +144,7 @@ class _FormP0ScreenState extends State<FormP0Screen> {
     final lain = _nama == pekerjaanLainLain;
     final hanyaLain = _pekerjaan.length <= 1;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Tambah P0', subjudul: widget.sesi.timNama),
       body: !_siap
           ? const SisiLoading(pesan: 'Menyiapkan form...', ukuran: 60)

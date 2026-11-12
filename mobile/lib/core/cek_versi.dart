@@ -62,7 +62,7 @@ class PemeriksaVersi {
       if (manual) _pesan(c, 'Tidak bisa cek pembaruan. Cek sinyal lalu coba lagi.');
       return null;
     }
-    switch (info.statusUntuk(versiApp)) {
+    switch (info.statusUntuk(versiApp, abaikanSenyap: manual)) {
       case StatusVersi.wajibUpdate:
         await _dialog(c, info, wajib: true);
       case StatusVersi.updateTersedia:

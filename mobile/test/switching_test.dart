@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sisi_row/features/tiang/tiang_api.dart';
+import 'package:sisi_row/features/tiang/tiket_tiang.dart';
 import 'package:sisi_row/core/api_client.dart';
 import 'package:sisi_row/core/sesi.dart';
 import 'package:sisi_row/features/switching/switching_form_screen.dart';
@@ -149,7 +151,8 @@ void _uiTests() {
     t.view.physicalSize = const Size(1080, 2400);
     t.view.devicePixelRatio = 2.75;
     addTearDown(t.view.reset);
-    final repo = SwitchingRepository(ApiClient());
+    final api = TiangApi(alamat: () => '', tiket: TiketTiang((s) async => throw ApiException('X')), lama: ApiClient());
+    final repo = SwitchingRepository(ApiClient(), api);
     await t.pumpWidget(MaterialApp(home: SwitchingFormScreen(sesi: _sesi(), repo: repo, data: _data, penyulangAwal: 'Payung')));
     await t.pumpAndSettle();
     expect(find.text('Tambah Switching'), findsOneWidget);

@@ -57,7 +57,7 @@ class _PetaWoScreenState extends State<PetaWoScreen> {
             onTap: (_, __) => setState(() => _pilih = null),
           ),
           children: [
-            TileLayer(urlTemplate: _satelit ? _esri : _osm, userAgentPackageName: 'id.co.pln.toboali.sisi_row', maxNativeZoom: 19),
+            TileLayer(urlTemplate: _satelit ? _esri : _osm, userAgentPackageName: 'id.co.pln.toboali.sisi_row', maxNativeZoom: _satelit ? 17 : 19),
             MarkerLayer(markers: [
               for (final t in daftar)
                 Marker(

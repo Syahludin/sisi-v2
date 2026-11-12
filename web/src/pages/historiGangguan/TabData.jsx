@@ -3,19 +3,21 @@ import { useEffect, useMemo, useState } from 'react';
 import Ikon from '../../components/Ikon.jsx';
 import SisiLoader from '../../components/SisiLoader.jsx';
 import {
-  GRUP_FGTM, grupBulanGgn, JENIS_GGN, jenisGgn, KODE_FGTM, perBulanRentang, perTahunGgn, pieFgtm, ringkasGgn, samaPenyulang, saringFilter, tigaTahun,
+  GRUP_FGTM, grupBulanGgn, JENIS_GGN, jenisGgn, jenisUntukSumber, KODE_FGTM, perBulanRentang, perTahunGgn, pieFgtm, ringkasGgn, samaPenyulang, saringFilter, tigaTahun,
 } from '../../gangguan.js';
 import { angka, TAB_PIE, TAMPIL_AWAL, teksPeriode } from './bantu.js';
 import { GrafikBulan, GrafikTahun, KartuGrafik, LegendaAlat, Pie } from './Grafik.jsx';
 import { KartuKejadian, RingkasPadam } from './Kejadian.jsx';
+import { LegendaSumber, PerbandinganSumber, PilihSumber } from './Sumber.jsx';
 
 /**
  * Tab "Data Gangguan": filter (penyulang, Kode FGTM, rentang tanggal; di alamat), grafik per bulan, perbandingan 3 tahun
  * (tahun "sampai" dan 2 tahun sebelumnya), pie Kode FGTM, dan daftar kejadian per jenis. Semua mengikuti filter.
  */
-export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBanding, tahunKini, daftarNama, onBuka }) {
+export function TabData({ sumber, data, memuat, q, ubah, ubahTanggal, banding, tahunBanding, tahunKini, daftarNama, onBuka }) {
   const dari = q.dari, sampai = q.sampai, penyulang = q.penyulang, fgtm = q.fgtm;
-  const jenis = jenisGgn(q.jenis).kode;
+  const jenisAda = jenisUntukSumber(sumber);
+  const jenis = (jenisAda.find((j) => j.kode === q.jenis) || jenisAda[0]).kode;
   const tabPie = TAB_PIE.some(([k]) => k === q.pie) ? q.pie : 'SEMUA';
   const [sumberPie, setSumberPie] = useState('penyulang');
   const [cari, setCari] = useState('');
@@ -32,6 +34,7 @@ export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBand
   return (
     <section className={'ggn-panel ggn-tab-isi' + (memuat ? ' ggn-badan--muat' : '')} aria-label="Data gangguan">
       <div className="ggn-filter" aria-label="Filter">
+        <PilihSumber sumber={sumber} ubah={ubah} />
         <label><span>Penyulang</span>
           <select className="k-input" value={daftarNama.find((n) => samaPenyulang(n, penyulang)) || penyulang} onChange={(e) => ubah({ penyulang: e.target.value })}>
             <option value="">Semua penyulang</option>
@@ -56,14 +59,26 @@ export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBand
           <Ikon nama="tutup" ukuran={15} />Reset
         </button>
         {fgtm && <p className="ggn-catatan">Pick up tidak memiliki Kode FGTM, jadi tidak ikut tersaring kode.</p>}
+        {sumber === 'wilayah' && <p className="ggn-catatan">Pick Up hanya ada di sumber SiMonLang.</p>}
       </div>
+
+      {sumber === 'banding' && (
+        <>
+          <div className="ggn-bagian-kepala">
+            <h2 className="ggn-bagian">SiMonLang vs Gangguan Wilayah</h2>
+            <LegendaSumber />
+          </div>
+          <PerbandinganSumber data={data} filter={{ penyulang, fgtm, dari, sampai }} />
+        </>
+      )}
+      {sumber !== 'banding' && <>
 
       <div className="ggn-bagian-kepala">
         <h2 className="ggn-bagian">Per bulan <small>{teksPeriode({ dari, sampai })} · ikut filter</small></h2>
         <LegendaAlat />
       </div>
       <div className="ggn-grafik-grid" aria-label="Grafik per bulan">
-        {JENIS_GGN.map((j) => (
+        {jenisAda.map((j) => (
           <KartuGrafik key={j.kode} className={'ggn-panel ggn-w--' + j.warna} judul={j.label + ' per bulan'} sub={teksPeriode({ dari, sampai })}>
             <h3><span className="ggn-titik" />{j.label}<b>{angka(tersaring[j.kode].length)}<i> kali</i></b></h3>
             <GrafikBulan isi={perBulanRentang(tersaring[j.kode], j.kode, dari, sampai)} />
@@ -77,7 +92,7 @@ export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBand
       </div>
       {banding.galat && <p className="k-pesan k-pesan--galat">{banding.galat}</p>}
       <div className="ggn-grafik-grid" aria-label="Perbandingan 3 tahun">
-        {JENIS_GGN.map((j) => {
+        {jenisAda.map((j) => {
           const isi = banding.data ? perTahunGgn(saringFilter(banding.data[j.kode], j.kode, { penyulang, fgtm }), j.kode, tahunBanding) : null;
           return (
             <KartuGrafik key={j.kode} className={'ggn-panel ggn-w--' + j.warna} judul={j.label + ' · perbandingan 3 tahun'} sub={tigaTahun(tahunBanding).join(' · ')}>
@@ -104,7 +119,7 @@ export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBand
       <section className="ggn-daftar" aria-label="Daftar kejadian">
         <div className="ggn-daftar-kepala">
           <div className="ggn-tab" role="tablist" aria-label="Jenis">
-            {JENIS_GGN.map((j) => <button key={j.kode} type="button" role="tab" aria-selected={jenis === j.kode} className={jenis === j.kode ? 'aktif' : ''} onClick={() => ubah({ jenis: j.kode })}>{j.label} <span>{tersaring[j.kode].length}</span></button>)}
+            {jenisAda.map((j) => <button key={j.kode} type="button" role="tab" aria-selected={jenis === j.kode} className={jenis === j.kode ? 'aktif' : ''} onClick={() => ubah({ jenis: j.kode })}>{j.label} <span>{tersaring[j.kode].length}</span></button>)}
           </div>
           <label className="ggn-cari">
             <Ikon nama="cari" ukuran={17} />
@@ -127,6 +142,7 @@ export function TabData({ data, memuat, q, ubah, ubahTanggal, banding, tahunBand
           </button>
         )}
       </section>
+      </>}
     </section>
   );
 }

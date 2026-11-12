@@ -23,7 +23,7 @@
 .cp-har-awal th, .cp-har-awal td { border-top: 2px solid var(--neutral-200); }
 .cp-har-tabel tbody tr:hover td:not(.cp-har-total), .cp-har-tabel tbody tr:hover .cp-har-krit { background: var(--brand-50); }
 .cp-har-n { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 999px; background: var(--success-100); color: var(--success-700); font-weight: 900; }
-.cp-har-total .cp-har-n { background: var(--brand-600); color: #fff; }
+.cp-har-total .cp-har-n { background: var(--isi-utama); color: var(--di-isi); }
 .cp-har-0 { color: var(--neutral-300); }
 
 @media (max-width: 760px) {

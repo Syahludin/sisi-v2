@@ -71,7 +71,7 @@ class _UbahLokasiP0ScreenState extends State<UbahLokasiP0Screen> {
   Widget build(BuildContext context) {
     final x = widget.p0;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Edit lokasi P0', subjudul: x.kodeTampil),
       body: Form(
         key: _form,

@@ -9,8 +9,10 @@ import '../../theme/app_colors.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../switching/switching_model.dart' show JaringanSwitching, labelSwitching;
+import 'draf_tiang.dart';
+import 'draf_ui.dart';
 import 'tiang_model.dart';
-import '../../widgets/simpan_latar.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../switching/switching_repository.dart';
 import 'tiang_repository.dart';
 
@@ -36,10 +38,50 @@ class _SegmenScreenState extends State<SegmenScreen> {
 
   List<String> get _daftarPenyulang => ({for (final x in _jaringan) x.penyulang}.toList()..sort());
 
+  DrafTiang get _draf => widget.repo.draf;
+
   @override
   void initState() {
     super.initState();
-    _segarkan();
+    _draf.addListener(_dariDraf);
+    _awal();
+  }
+
+  @override
+  void dispose() {
+    _draf.removeListener(_dariDraf);
+    super.dispose();
+  }
+
+  /// Draf berubah (server menerima di latar / petugas menghapus): daftar dibaca ulang dari salinan HP.
+  Future<void> _dariDraf() async {
+    final j = await widget.repo.segmenLokal(widget.sesi);
+    if (!mounted || j == null) return;
+    final dulu = {for (final s in _segmen) if (s.draf.isNotEmpty) s.teks('nama')};
+    setState(() => _isi(j));
+    final terkirim = [for (final n in dulu) if (_segmen.any((s) => s.teks('nama') == n && s.draf.isEmpty)) n];
+    // kartu "Terkirim" hanya bila server menerimanya di latar (bukan dibuang, bukan dari form) dan layar ini yang sedang tampil
+    if (terkirim.isNotEmpty && !_membuang && (ModalRoute.of(context)?.isCurrent ?? false)) {
+      unawaited(tampilPopupBerhasil(context, judul: 'Data Terkirim', keterangan: terkirim.length == 1 ? '${terkirim.first} tersimpan di server' : '${terkirim.length} segmen tersimpan di server'));
+    }
+  }
+
+  bool _membuang = false;
+
+  Future<void> _awal() async {
+    await _draf.daftar(widget.sesi.userId);
+    final j = await widget.repo.segmenLokal(widget.sesi);
+    if (mounted && j != null) setState(() => _isi(j));
+    await _segarkan();
+  }
+
+  void _isi(Map<String, dynamic> j) {
+    _segmen = [for (final x in (j['segmen'] as List? ?? const []).whereType<Map<dynamic, dynamic>>()) Segmen(Map<String, dynamic>.from(x))];
+        _jaringan = [
+          for (final x in (j['jaringan'] as List? ?? const []).whereType<Map<dynamic, dynamic>>())
+            JaringanSwitching('${x['sectionId']}', '${x['penyulang']}', '${x['section']}')
+        ];
+    _switching = [for (final x in (j['switching'] as List? ?? const []).whereType<Map<dynamic, dynamic>>()) Map<String, dynamic>.from(x)];
   }
 
   Future<void> _segarkan() async {
@@ -50,22 +92,58 @@ class _SegmenScreenState extends State<SegmenScreen> {
     try {
       final j = await widget.repo.segmen(widget.sesi);
       if (!mounted) return;
-      setState(() {
-        _segmen = [for (final x in (j['segmen'] as List? ?? const []).whereType<Map<dynamic, dynamic>>()) Segmen(Map<String, dynamic>.from(x))];
-        _jaringan = [
-          for (final x in (j['jaringan'] as List? ?? const []).whereType<Map<dynamic, dynamic>>())
-            JaringanSwitching('${x['sectionId']}', '${x['penyulang']}', '${x['section']}')
-        ];
-        _switching = [for (final x in (j['switching'] as List? ?? const []).whereType<Map<dynamic, dynamic>>()) Map<String, dynamic>.from(x)];
-      });
+      setState(() => _isi(j));
     } catch (e) {
       if (mounted) setState(() => _galat = e is ApiException ? KodeError.pesan(e.kode) : 'Tidak bisa terhubung ke server.');
     }
     if (mounted) setState(() => _muat = false);
   }
 
-  Future<void> _buka([Segmen? s]) async {
-    final isian = await Navigator.push<IsianSegmen>(
+  void _kabari(HasilKirim h) {
+    switch (h) {
+      case Terkirim():
+        unawaited(tampilPopupBerhasil(context, judul: 'Data Tersimpan', keterangan: '${h.hasil['nama'] ?? 'Segmen'} tersimpan di server'));
+      case Ditolak():
+        tampilPesan(context, h.pesan);
+      case BelumTerkirim():
+        tampilPesan(context, h.pesan);
+    }
+  }
+
+  Future<void> _muatDariBerkas() async {
+    final j = await widget.repo.segmenLokal(widget.sesi);
+    if (mounted && j != null) setState(() => _isi(j));
+  }
+
+  /// Segmen berdraf: alasan + Perbaiki Isian / Kirim Ulang / Hapus Draf (hapus meminta konfirmasi).
+  Future<void> _tindakDraf(Segmen s) async {
+    final uid = widget.sesi.userId;
+    final pilih = await tampilTindakDraf(context,
+        nama: s.teks('nama'), perluDiperbaiki: s.draf == 'perluDiperbaiki', pesan: _draf.pesan(uid, s.id), galat: _draf.galat(uid, s.id));
+    if (!mounted || pilih == null) return;
+    switch (pilih) {
+      case TindakDraf.perbaiki:
+        return _buka(s, true);
+      case TindakDraf.kirimUlang:
+        final h = await denganPemuat(context, () => _draf.kirim(widget.sesi, s.id));
+        if (!mounted) return;
+        await _muatDariBerkas();
+        if (mounted) _kabari(h);
+      case TindakDraf.hapus:
+        if (!await konfirmasiHapusDraf(context, s.teks('nama')) || !mounted) return;
+        _membuang = true;
+        try {
+          await _draf.hapus(widget.sesi, s.id);
+        } finally {
+          _membuang = false;
+        }
+        await _muatDariBerkas();
+    }
+  }
+
+  Future<void> _buka([Segmen? s, bool tanpaDraf = false]) async {
+    if (s != null && s.draf.isNotEmpty && !tanpaDraf) return _tindakDraf(s);
+    final hasil = await Navigator.push<HasilKirim>(
         context,
         MaterialPageRoute(
             builder: (_) => SegmenFormScreen(
@@ -76,14 +154,12 @@ class _SegmenScreenState extends State<SegmenScreen> {
                 switching: _switching,
                 segmen: _segmen,
                 penyulangAwal: _penyulang)));
-    if (isian == null || !mounted) return;
-    simpanLatar(context,
-        kerja: () async {
-          await widget.repo.simpanSegmen(widget.sesi, isian);
-          return null;
-        },
-        sesudah: () => unawaited(_segarkan()));
+    if (!mounted) return;
+    await _muatDariBerkas();
+    if (hasil != null && mounted) _kabari(hasil);
   }
+
+  String _status(Segmen s) => s.draf == 'perluDiperbaiki' ? '\nDraf perlu diperbaiki, ketuk untuk memperbaiki' : (s.draf == 'belumTerkirim' ? ' · Draf, belum terkirim' : '');
 
   String _section(String id) => _jaringan.where((x) => x.sectionId == id).map((x) => x.section).firstOrNull ?? id;
 
@@ -136,8 +212,8 @@ class _SegmenScreenState extends State<SegmenScreen> {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                            '${s.teks('penyulang')} · ${_section(s.teks('sectionId'))}\n${s.teks('awalNama')} → ${s.teks('akhirNama')} · ${s.kabelTanah ? 'Kabel tanah${s.dataKabelKurang ? ' (data kabel belum lengkap)' : ''}' : '${s.teks('jumlahTerverifikasi')}/${s.teks('jumlahTiang')} tiang'}${s.aktif ? '' : ' · NONAKTIF'}',
-                            style: const TextStyle(height: 1.4)),
+                            '${s.teks('penyulang')} · ${_section(s.teks('sectionId'))}\n${s.teks('awalNama')} → ${s.teks('akhirNama')} · ${s.kabelTanah ? 'Kabel tanah${s.dataKabelKurang ? ' (data kabel belum lengkap)' : ''}' : '${s.teks('jumlahTerverifikasi')}/${s.teks('jumlahTiang')} tiang'}${s.aktif ? '' : ' · NONAKTIF'}${_status(s)}',
+                            style: TextStyle(height: 1.4, color: s.draf == 'perluDiperbaiki' ? AppColors.red700 : null)),
                       ),
                       trailing: Text(s.id, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
                       onTap: SwitchingRepository.bolehUbah(widget.sesi) ? () => _buka(s) : null,
@@ -182,18 +258,57 @@ class _SegmenFormScreenState extends State<SegmenFormScreen> {
     if (_i.baru && _i.t['penyulang']!.isEmpty) _i.t['penyulang'] = widget.penyulangAwal;
   }
 
-  void _simpan() {
+  bool _menyimpan = false;
+
+  Future<void> _simpan() async {
+    if (_menyimpan) return;
     final g = _i.cek({for (final x in widget.jaringan) x.penyulang}.toList());
     setState(() => _galat = g);
     if (g.isNotEmpty) {
       tampilPesan(context, g.values.first);
       return;
     }
-    Navigator.pop(context, _i);
+    setState(() => _menyimpan = true);
+    HasilKirim h;
+    try {
+      h = await widget.repo.simpanSegmen(widget.sesi, _i);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _menyimpan = false);
+        tampilPesan(context, 'Gagal menyimpan di HP: ${'$e'.replaceFirst('Exception: ', '')}');
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _menyimpan = false);
+    if (h is Ditolak) {
+      final peta = <String, String>{};
+      for (final x in h.galat) {
+        peta.putIfAbsent(x.field, () => x.pesan);
+      }
+      setState(() => _galat = peta);
+      tampilPesan(context, h.pesan);
+      return;
+    }
+    Navigator.pop(context, h);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_menyimpan,
+        child: Stack(children: [
+          _bangun(context),
+          if (_menyimpan)
+            const Positioned.fill(
+              child: Material(
+                color: Color(0x66000000),
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [SisiLoader(ukuran: 64), SizedBox(height: 12), Text('Menyimpan…', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15))])),
+              ),
+            ),
+        ]),
+      );
+
+  Widget _bangun(BuildContext context) {
     final pny = _i.t['penyulang']!;
     final daftarPny = {for (final x in widget.jaringan) x.penyulang}.toList()..sort();
     final swc = [
@@ -238,7 +353,7 @@ class _SegmenFormScreenState extends State<SegmenFormScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52), backgroundColor: AppColors.brand700),
-              onPressed: _simpan,
+              onPressed: _menyimpan ? null : _simpan,
               child: const Text('Simpan Segmen'),
             ),
           ),

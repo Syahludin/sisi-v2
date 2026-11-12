@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): identitas visual "Jaringan SiSi". Latar teal SiSi bergradien dengan motif
+/// v1.0.18 (permintaan Master Guswan 22 Okt 2026): identitas visual "Jaringan SiSi". Latar hijau SiSi bergradien dengan motif
 /// tiang + kawat jaringan distribusi yang samar (pekerjaan sehari-hari tim lapangan), aksen kuning PLN dipakai hemat
 /// untuk penanda judul dan angka penting. Dipakai header semua layar (HeaderInsJar, sisiAppBar), hero Beranda,
 /// dan kartu ringkasan angka.
 class SisiMotif {
   SisiMotif._();
 
-  /// Gradien latar header: teal tua ke teal SiSi.
+  /// Gradien latar header: hijau rimba tua ke hijau SiSi (Hijau Rimba, sama dengan web).
   static const gradien = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -23,10 +23,13 @@ class SisiMotif {
   static const percik = AppColors.accent400;
 }
 
-/// Tiang + kawat jaringan (catenary) yang samar di kanan bawah. [kerapatan] = jumlah tiang.
+/// Tiang + kawat jaringan (catenary) yang samar di kanan bawah. [kerapatan] = jumlah tiang. Hijau Rimba: ditambah trafo tiang kuning
+/// berpetir di tiang ketiga dan tiga pohon di bawah jaringan (sama dengan web MotifJaringan), muncul di akhir gambar bertahap.
 /// v1.0.28: [progres] 0..1 = gambar bertahap (tiang tumbuh satu per satu, lalu kawat terentang); 1 = utuh.
 class PolaJaringanPainter extends CustomPainter {
-  const PolaJaringanPainter({this.warna = Colors.white, this.alpha = .11, this.kerapatan = 4, this.progres = 1});
+  const PolaJaringanPainter({this.warna = Colors.white, this.alpha = .11, this.kerapatan = 4, this.progres = 1, this.trafo = true, this.pohon = true});
+  final bool trafo;
+  final bool pohon;
   final Color warna;
   final double alpha;
   final int kerapatan;
@@ -67,6 +70,46 @@ class PolaJaringanPainter extends CustomPainter {
       final palang = (9.0 + 3 * i) * ((t - .6) / .4).clamp(0.0, 1.0);
       if (palang > 0) canvas.drawLine(atas.translate(-palang, 5), atas.translate(palang, 5), tiang);
     }
+    // pohon (di belakang tiang / kawat) dan trafo, muncul di ujung gambar bertahap
+    final muncul = progres >= 1 ? 1.0 : ((progres - .75) / .25).clamp(0.0, 1.0);
+    if (muncul > 0 && kerapatan >= 3) {
+      if (pohon) {
+        final daun = Paint()..color = const Color(0xFF8FD6AD).withValues(alpha: alpha * 1.6 * muncul);
+        final batang = Paint()..color = warna.withValues(alpha: alpha * .9 * muncul);
+        final unit = size.height / 300;
+        for (final (fx, rr) in [(.45, 34.0), (1.6, 26.0), (3.4, 30.0)]) {
+          final x = mulaiX + jarak * fx, r = rr * unit;
+          if (x + r > size.width + r) continue;
+          canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x - 3 * unit, dasar - r * 1.3, 6 * unit, r * 1.3), const Radius.circular(2)), batang);
+          canvas.drawCircle(Offset(x, dasar - r * 1.6), r, daun);
+          canvas.drawCircle(Offset(x + r * .7, dasar - r * 1.15), r * .68, daun);
+          canvas.drawCircle(Offset(x - r * .7, dasar - r * 1.2), r * .6, daun);
+        }
+      }
+      if (trafo) {
+        final unit = size.height / 300, t = puncak[2];
+        final tinggi = 40 * unit, lebar = 34 * unit;
+        final kiri = t.dx + 6 * unit, atas = t.dy + (dasar - t.dy) * .28;
+        final bushing = Paint()
+          ..color = warna.withValues(alpha: alpha * 3 * muncul)
+          ..strokeWidth = 2 * unit
+          ..style = PaintingStyle.stroke;
+        canvas.drawLine(Offset(kiri + 10 * unit, atas), Offset(kiri + 10 * unit, t.dy), bushing);
+        canvas.drawLine(Offset(kiri + lebar - 10 * unit, atas), Offset(kiri + lebar - 10 * unit, t.dy), bushing);
+        final badan = RRect.fromRectAndRadius(Rect.fromLTWH(kiri, atas, lebar, tinggi), Radius.circular(4 * unit));
+        canvas.drawRRect(badan, Paint()..color = AppColors.accent600.withValues(alpha: (alpha * 6).clamp(0.0, .9) * muncul));
+        final petir = Path()
+          ..moveTo(kiri + 19 * unit, atas + 8 * unit)
+          ..relativeLineTo(-7 * unit, 13 * unit)
+          ..relativeLineTo(6 * unit, 0)
+          ..relativeLineTo(-3 * unit, 12 * unit)
+          ..relativeLineTo(9 * unit, -16 * unit)
+          ..relativeLineTo(-6 * unit, 0)
+          ..relativeLineTo(3 * unit, -9 * unit)
+          ..close();
+        canvas.drawPath(petir, Paint()..color = AppColors.brand950.withValues(alpha: muncul));
+      }
+    }
     // tiga kawat melendut antar tiang
     for (final dx in [-1.0, 0.0, 1.0]) {
       for (var i = 0; i + 1 < puncak.length; i++) {
@@ -93,7 +136,7 @@ class PolaJaringanPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PolaJaringanPainter old) =>
-      old.warna != warna || old.alpha != alpha || old.kerapatan != kerapatan || old.progres != progres;
+      old.warna != warna || old.alpha != alpha || old.kerapatan != kerapatan || old.progres != progres || old.trafo != trafo || old.pohon != pohon;
 }
 
 /// Latar header SiSi: gradien + motif jaringan, sudut membulat. Isi [child] di atasnya.

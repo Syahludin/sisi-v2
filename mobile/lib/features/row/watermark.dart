@@ -135,7 +135,7 @@ class Watermark {
   static const Color warnaKotak = Color(0xB30B1F3A);
   static const Color warnaAksen = Color(0xFFF59E0B);
   static const Color warnaSub = Color(0xFFFCD34D);
-  static const Color warnaLabel = Color(0xFFE2E8F0);
+  static const Color warnaLabel = Color(0xFFDBE4DE);
 
   static final Map<String, ui.Image> _logo = {};
 

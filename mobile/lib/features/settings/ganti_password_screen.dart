@@ -91,7 +91,7 @@ class _GantiPasswordScreenState extends State<GantiPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Ganti Password', subjudul: widget.sesi.username),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [
         Container(

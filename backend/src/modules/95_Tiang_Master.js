@@ -17,7 +17,9 @@ var TIANG_HEADER_ = {
     // kolom verifikasi (hanya diisi verifikasi lapangan)
     'jumlah_sirkuit', 'jenis_tiang', 'ukuran_tiang', 'konstruksi_lapangan', 'lat', 'lng', 'sumber_koordinat', 'akurasi_m', 'gardu_id',
     'foto_tiang_id', 'foto_kepala_id', 'tanda_cek', 'status_verifikasi', 'verifikasi_terakhir', 'diverifikasi_oleh',
-    'aktif', 'revision', 'diubah_pada', 'diubah_oleh'],
+    'aktif', 'revision', 'diubah_pada', 'diubah_oleh',
+    // sisi jalan tiang (ditambah 10 Nov 2026; di belakang supaya tab lama cukup diperpanjang)
+    'sisi_jalan'],
   // 1 baris per sirkuit di sebuah tiang (tiang satu sirkuit = satu baris); gawang = dari tiang induk sirkuit ini ke tiang ini
   db_Tiang_Sirkuit: [
     'No', 'sirkuit_id', 'tiang_id', 'penyulang', 'posisi', 'induk_tiang_id', 'gawang_m', 'peran_titik',
@@ -25,7 +27,9 @@ var TIANG_HEADER_ = {
     'jenis_kabel', 'ukuran_mm2', 'penghantar_id', 'tanda_cek_gawang', 'status_verifikasi',
     'aktif', 'revision', 'diubah_pada', 'diubah_oleh',
     // konfirmasi induk + keterangan wajib (ditambah 9 Nov 2026; di belakang supaya tab lama cukup diperpanjang)
-    'induk_status', 'induk_keterangan', 'switching_keterangan'],
+    'induk_status', 'induk_keterangan', 'switching_keterangan',
+    // konstruksi per penyulang (ditambah 10 Nov 2026)
+    'konstruksi_id'],
   // dibuat Admin satu per satu (web atau HP); petugas hanya memilih
   db_Segmen: [
     'No', 'segmen_id', 'nama', 'penyulang', 'section_id', 'urutan', 'induk_segmen_id',

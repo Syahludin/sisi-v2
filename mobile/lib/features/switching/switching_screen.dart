@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,6 +20,8 @@ import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_widgets.dart';
 import '../hartek/foto_lapangan.dart';
 import '../row/watermark.dart';
+import '../tiang/peta_tiang.dart';
+import '../tiang/tiang_repository.dart';
 import 'switching_form_screen.dart';
 import 'switching_model.dart';
 import 'switching_repository.dart';
@@ -27,12 +31,15 @@ import 'switching_repository.dart';
 /// Ketuk titik / baris = rincian (foto, navigasi, Ubah, ambil foto). Tombol Tambah = form dengan GPS lokasi petugas.
 /// Daftar terakhir tersimpan di HP (tetap terbaca tanpa sinyal); simpan + foto butuh sinyal.
 class SwitchingScreen extends StatefulWidget {
-  const SwitchingScreen({super.key, required this.deps, required this.sesi, this.repo, this.embedded = false});
+  const SwitchingScreen({super.key, required this.deps, required this.sesi, this.repo, this.tiangRepo, this.embedded = false});
   final Deps? deps;
   final Sesi sesi;
 
   /// Untuk uji: repository pengganti (tanpa server). Biasanya null = dari [deps].
   final SwitchingRepository? repo;
+
+  /// Untuk peta tiang Terverifikasi + garis penyulang. Null = peta tanpa lapisan tiang.
+  final TiangRepository? tiangRepo;
 
   /// true = di dalam Master Jaringan (tab): tanpa bilah judul sendiri.
   final bool embedded;
@@ -44,18 +51,23 @@ class SwitchingScreen extends StatefulWidget {
 const _urlOsm = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const _urlSatelit = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const _paketApp = 'id.co.pln.toboali.sisi_row';
+/// Citra Esri di luar kota tidak punya ubin lebih dekat dari zoom 17 (tampil "Map data not yet available"): di atasnya ubin diperbesar.
+const _zoomEsriMaks = 17;
 const _pusat = LatLng(-3.0, 106.45);
+const _zoomTiang = 14.0;
 
 class _SwitchingScreenState extends State<SwitchingScreen> {
-  late final SwitchingRepository _repo = widget.repo ?? SwitchingRepository(widget.deps!.api);
+  late final SwitchingRepository _repo = widget.repo ?? SwitchingRepository(widget.deps!.api, widget.deps!.tiangApi);
   final _peta = MapController();
   DataSwitching? _data;
   bool _muat = true;
-  bool _lokal = false;
   String? _galat;
   String _jenis = '', _penyulang = '', _status = '', _cari = '';
   bool _nonaktif = false, _modePeta = true, _satelit = false, _petaSiap = false, _ringkasBuka = false;
   LatLng? _saya;
+  PetaTiang? _tiang;
+  bool _lapisTiang = true;
+  double _zoom = 11, _zoomGambar = 11;
 
   bool get _bolehUbah => SwitchingRepository.bolehUbah(widget.sesi);
 
@@ -71,10 +83,22 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
     if (l != null) {
       setState(() {
         _data = l;
-        _lokal = true;
       });
     }
+    unawaited(_muatTiang());
     await _segarkan();
+  }
+
+  /// Lapisan tiang hanya pelengkap: gagal muat tidak mengganggu peta switching (data terakhir di HP tetap tampil).
+  Future<void> _muatTiang() async {
+    final r = widget.tiangRepo;
+    if (r == null) return;
+    try {
+      final l = await r.petaLokal(widget.sesi);
+      if (mounted && l != null && _tiang == null) setState(() => _tiang = l);
+      final d = await r.peta(widget.sesi);
+      if (mounted) setState(() => _tiang = d);
+    } catch (_) {}
   }
 
   Future<void> _segarkan() async {
@@ -87,16 +111,17 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
       if (!mounted) return;
       setState(() {
         _data = d;
-        _lokal = false;
         _muat = false;
       });
       _pasPeta();
+      unawaited(_muatTiang());
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _muat = false;
         _galat = e is ApiException ? KodeError.pesan(e.kode) : 'Tidak bisa terhubung ke server.';
       });
+      if (_data != null) tampilPesan(context, _galat!);
     }
   }
 
@@ -142,27 +167,17 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
       MaterialPageRoute(builder: (_) => SwitchingFormScreen(sesi: widget.sesi, repo: _repo, data: d, awal: s, penyulangAwal: _penyulang)),
     );
     if (kiriman == null || !mounted) return;
-    simpanLatar(context, kerja: () => _kirim(kiriman.$1, kiriman.$2), sesudah: () => unawaited(_segarkan()));
+    final op = const Uuid().v4();   // "Coba Lagi" memakai opId yang sama: server tidak menggandakan data bila jawaban pertama hilang
+    simpanLatar(context, kerja: () => _kirim(kiriman.$1, kiriman.$2, op), sesudah: () => unawaited(_segarkan()));
   }
 
-  /// Simpan data lalu kirim foto satu per satu (di latar belakang). Foto gagal tidak membatalkan data: dikembalikan sebagai catatan.
-  Future<String?> _kirim(IsianSwitching i, Map<String, String> foto) async {
-    var hasil = await _repo.simpan(widget.sesi, i, data: _data);
-    final gagal = <String>[];
-    for (final (slot, label) in slotFotoSwitching) {
-      final path = foto[slot];
-      if (path == null) continue;
-      try {
-        await _repo.unggahFoto(widget.sesi, hasil.id, slot, path);
-        hasil = hasil.salin({
-          'foto': {...?(hasil.d['foto'] as Map?)?.cast<String, dynamic>(), slot: true}
-        });
-      } catch (_) {
-        gagal.add(label);
-      }
-    }
-    if (mounted) setState(() => _data = _data?.ganti(hasil));
-    return gagal.isEmpty ? null : 'Data tersimpan, foto ${gagal.join(', ')} belum terkirim. Ambil ulang dari rincian switching.';
+  /// Simpan data + foto satu paket (Hostinger). Hasil null = semua terkirim; jalur mundur bisa mengembalikan catatan foto yang belum terkirim.
+  Future<String?> _kirim(IsianSwitching i, Map<String, String> foto, String opId) async {
+    final h = await _repo.simpan(widget.sesi, i, data: _data, foto: foto, opId: opId);
+    if (mounted) setState(() => _data = _data?.ganti(h.switching));
+    if (h.fotoGagal.isEmpty) return null;
+    final label = [for (final (slot, nama) in slotFotoSwitching) if (h.fotoGagal.contains(slot)) nama];
+    return 'Data tersimpan, foto ${label.join(', ')} belum terkirim. Ambil ulang dari rincian switching.';
   }
 
   void _rincian(Switching s) {
@@ -219,16 +234,7 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
               ? const SisiLoading(pesan: 'Memuat switching')
               : SisiKosong(judul: 'Belum bisa memuat', pesan: _galat ?? 'Coba lagi.', ikon: Icons.cloud_off_outlined))
           : Column(children: [
-              if (_galat != null || _lokal)
-                Container(
-                  width: double.infinity,
-                  color: AppColors.accent100,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text(
-                    _galat != null ? 'Data tersimpan di HP. $_galat' : 'Menampilkan data tersimpan di HP, memperbarui…',
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.accent700),
-                  ),
-                ),
+              if (_muat) const Padding(padding: EdgeInsets.only(top: 6), child: SisiLoader(ukuran: 28)),
               _BarisSaring(
                 penyulang: d.penyulang,
                 pilih: _penyulang,
@@ -246,6 +252,66 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
     );
   }
 
+  /// Garis penyulang selalu tampil; titik tiang hanya dari zoom [_zoomTiang] (tidak menggambar ribuan titik pada zoom jauh).
+  List<Widget> _lapisanTiang(PetaTiang t) {
+    final daftar = _data?.penyulang ?? const <String>[];
+    final ruas = t.ruasUntuk(_penyulang);
+    return [
+      PolylineLayer(polylines: [
+        for (final r in ruas) Polyline(points: [r.dari, r.ke], color: warnaPenyulang(daftar, r.penyulang), strokeWidth: 3),
+      ]),
+      if (_zoomGambar >= _zoomTiang)
+        CircleLayer(circles: [
+          for (final x in t.titikUntuk(_penyulang))
+            CircleMarker(point: x.titik, radius: 4.5, color: Colors.white, borderColor: AppColors.brand800, borderStrokeWidth: 2),
+        ]),
+    ];
+  }
+
+  void _ketukTiang(LatLng p) {
+    final t = _tiang;
+    if (!_lapisTiang || t == null || _zoom < _zoomTiang) return;
+    final mPerPiksel = 156543.03 * math.cos(p.latitude * math.pi / 180) / math.pow(2, _zoom);
+    final x = t.terdekat(p, 14 * mPerPiksel, penyulang: _penyulang);
+    if (x == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(x.nama.isEmpty ? x.id : x.nama, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Jalur ${x.kode}${x.penyulang.isEmpty ? '' : ' · ${x.penyulang.join(', ')}'}', style: const TextStyle(color: AppColors.neutral700)),
+            const SizedBox(height: 4),
+            const Text('Tiang Terverifikasi', style: TextStyle(color: AppColors.neutral500, fontSize: 12.5)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _legendaTiang() {
+    final t = _tiang!, daftar = _data?.penyulang ?? const <String>[];
+    final ada = {for (final r in t.ruasUntuk(_penyulang)) PetaTiang.kunci(r.penyulang)}.toList()..sort();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(10)),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${t.titikUntuk(_penyulang).length} tiang Terverifikasi${t.tanpaKoordinat > 0 ? ' · ${t.tanpaKoordinat} tanpa koordinat' : ''}',
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+        for (final p in ada.take(8))
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 14, height: 3, color: warnaPenyulang(daftar, p)),
+            const SizedBox(width: 6),
+            Text(p, style: const TextStyle(fontSize: 11)),
+          ]),
+      ]),
+    );
+  }
+
   Widget _petaWidget(List<Switching> tampil, RingkasSwitching r) {
     return Stack(children: [
       FlutterMap(
@@ -254,13 +320,20 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
           initialCenter: _pusat,
           initialZoom: 11,
           interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+          onPositionChanged: (k, _) {
+            final dekat = k.zoom >= _zoomTiang;
+            _zoom = k.zoom;
+            if (dekat != (_zoomGambar >= _zoomTiang)) setState(() => _zoomGambar = k.zoom);
+          },
+          onTap: (_, p) => _ketukTiang(p),
           onMapReady: () {
             _petaSiap = true;
             _pasPeta();
           },
         ),
         children: [
-          TileLayer(urlTemplate: _satelit ? _urlSatelit : _urlOsm, userAgentPackageName: _paketApp, maxNativeZoom: 19),
+          TileLayer(urlTemplate: _satelit ? _urlSatelit : _urlOsm, userAgentPackageName: _paketApp, maxNativeZoom: _satelit ? _zoomEsriMaks : 19),
+          if (_lapisTiang && _tiang != null) ..._lapisanTiang(_tiang!),
           MarkerLayer(markers: [
             for (final s in tampil)
               if (s.adaTitik)
@@ -315,6 +388,13 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
               tooltip: _satelit ? 'Peta' : 'Satelit',
               onTap: () => setState(() => _satelit = !_satelit)),
           const SizedBox(height: 10),
+          if (_tiang != null) ...[
+            _TombolPeta(
+                ikon: _lapisTiang ? Icons.timeline_rounded : Icons.timeline_outlined,
+                tooltip: _lapisTiang ? 'Sembunyikan Tiang' : 'Tampilkan Tiang',
+                onTap: () => setState(() => _lapisTiang = !_lapisTiang)),
+            const SizedBox(height: 10),
+          ],
           _TombolPeta(ikon: Icons.my_location_rounded, tooltip: 'Lokasi Saya', onTap: _lokasiSaya),
           const SizedBox(height: 10),
           _TombolPeta(ikon: Icons.fit_screen_outlined, tooltip: 'Tampilkan Semua', onTap: _pasPeta),
@@ -322,6 +402,7 @@ class _SwitchingScreenState extends State<SwitchingScreen> {
           _TombolPeta(ikon: Icons.refresh_rounded, tooltip: 'Muat Ulang', onTap: _muat ? () {} : _segarkan),
         ]),
       ),
+      if (_lapisTiang && _tiang != null && _tiang!.titik.isNotEmpty) Positioned(left: 64, bottom: 28, child: _legendaTiang()),
       if (tampil.isEmpty)
         const Center(
           child: Card(

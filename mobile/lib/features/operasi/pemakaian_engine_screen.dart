@@ -61,7 +61,7 @@ class _PemakaianEngineScreenState extends State<PemakaianEngineScreen> {
   Widget build(BuildContext context) {
     final d = _data;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Pemakaian Engine', subjudul: 'Kuota Apps Script + Cloud Run', actions: [
         TombolSegarkan(sibuk: _sibuk, onPressed: () => _muat(segarkan: true)),
       ]),

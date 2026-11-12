@@ -31,11 +31,17 @@ const ukuranTiang = [
 ];
 /// Keterangan bawaan (boleh diubah admin) untuk Tiang Awal SKTM dan sirkuit tanpa switching hulu.
 const ketTitikAwal = 'Tiang Awal SKTM', ketTanpaSwitching = 'Tidak ada switching';
-const posisiSirkuit = [('KIRI', 'Kiri'), ('KANAN', 'Kanan'), ('ATAS', 'Atas'), ('BAWAH', 'Bawah'), ('TENGAH', 'Tengah')];
+/// Posisi penyulang di tiang: 1 penyulang selalu Atas, lebih dari 1 dipilih dan tidak boleh kembar (server: TIANG_POSISI_).
+const posisiSirkuit = [('ATAS', 'Atas'), ('TENGAH', 'Tengah'), ('BAWAH', 'Bawah')];
+/// Sisi jalan tiang: penyulang di sisi berbeda berarti tiang berbeda (server: TIANG_SISI_JALAN_).
+const sisiJalan = [('KIRI', 'Kiri'), ('KANAN', 'Kanan')];
 const peranTitik = [('biasa', 'Biasa'), ('switching', 'Switching'), ('gardu', 'Gardu'), ('percabangan', 'Percabangan'), ('ujung', 'Ujung')];
 const jenisKabel = ['AAAC', 'AAACS', 'MVTIC', 'XLPE', 'A3CS'];
 const ukuranKabel = [35, 50, 70, 95, 120, 150, 240];
-const slotFotoTiang = [('TIANG', 'Tiang Utuh'), ('KEPALA', 'Kepala Tiang')];
+const slotFotoTiang = [('TIANG', 'Full Tiang'), ('KEPALA', 'Konstruksi SUTM')];
+
+/// Nama foto di daftar kekurangan data lama (sebelum 1.0.74): cache jalur di HP masih memakai nama ini.
+const _namaFotoLama = {'TIANG': 'Tiang Utuh', 'KEPALA': 'Kepala Tiang'};
 
 class Sirkuit {
   Sirkuit(this.d);
@@ -62,16 +68,18 @@ class Tiang {
 
   /// Hijau hanya bila Terverifikasi dan datanya lengkap; Terverifikasi tetapi kurang = Perlu Dilengkapi.
   String get statusTampil => status == 'TERVERIFIKASI' && kurang.isNotEmpty ? 'PERLU_DILENGKAPI' : status;
-  bool get selesai => statusTampil == 'TERVERIFIKASI' || status == 'TIDAK_DITEMUKAN';
+  /// Draf yang belum diterima server: 'belumTerkirim' / 'perluDiperbaiki' ('' = data dari server). Draf tidak dihitung selesai.
+  String get draf => teks('draf');
+  bool get selesai => draf.isEmpty && (statusTampil == 'TERVERIFIKASI' || status == 'TIDAK_DITEMUKAN');
 
   /// Salinan setelah foto [slots] terkirim: kekurangan foto itu gugur tanpa menunggu server (foto dikirim sesudah simpan).
   Tiang denganFoto(Set<String> slots) {
     if (slots.isEmpty) return this;
-    final label = {for (final (slot, nama) in slotFotoTiang) slot: 'Foto $nama'};
+    bool gugur(String k, String slot) => k == 'Foto ${slotFotoTiang.firstWhere((x) => x.$1 == slot).$2}' || k == 'Foto ${_namaFotoLama[slot]}';
     return Tiang({
       ...d,
       'foto': {...(d['foto'] is Map ? d['foto'] as Map : const {}), for (final s in slots) s: true},
-      if (d['kurang'] is List) 'kurang': [for (final k in kurang) if (!slots.any((s) => label[s] == k)) k],
+      if (d['kurang'] is List) 'kurang': [for (final k in kurang) if (!slots.any((s) => gugur(k, s))) k],
       'sirkuit': [for (final s in sirkuit) s.d],
     });
   }
@@ -233,6 +241,7 @@ final _polaKoord = RegExp(r'^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?
 const _kolomSirkuit = [
   'penyulang',
   'posisi',
+  'konstruksiId',
   'sectionId',
   'segmenId',
   'indukTiangId',
@@ -261,6 +270,7 @@ class IsianSirkuit {
     for (final k in _kolomSirkuit) {
       i.t[k] = s.teks(k);
     }
+    if (!posisiSirkuit.any((p) => p.$1 == i.t['posisi'])) i.t['posisi'] = ''; // posisi lama (Kiri / Kanan) dipilih ulang
     i.ukuranMm2 = s.angka('ukuranMm2');
     return i;
   }
@@ -301,25 +311,44 @@ class IsianSirkuit {
     }
   }
 
+  /// Isian wajib sirkuit yang masih kosong, per kunci kolom (form menandai kolomnya merah). Kunci: kolom di [t] + 'ukuranMm2', 'induk',
+  /// 'indukKeterangan', 'switching'. Posisi hanya wajib bila penyulang ganda (tunggal selalu Atas).
+  Set<String> kunciKosong(bool ganda) {
+    final k = <String>{
+      for (final kunci in const ['penyulang', 'sectionId', 'segmenId', 'konstruksiId', 'peranTitik', 'jenisKabel'])
+        if (t[kunci]!.trim().isEmpty) kunci,
+      if (ganda && t['posisi']!.trim().isEmpty) 'posisi',
+      if (ukuranMm2 == null || ukuranMm2 == 0) 'ukuranMm2',
+    };
+    if (t['indukStatus'] == 'TITIK_AWAL') {
+      if (t['indukKeterangan']!.trim().isEmpty) k.add('indukKeterangan');
+    } else if (!const ['BENAR', 'DIGANTI'].contains(t['indukStatus']) || t['indukTiangId']!.trim().isEmpty) {
+      k.add('induk');
+    }
+    if (t['switchingId']!.trim().isEmpty && t['switchingKeterangan']!.trim().isEmpty) k.add('switching');
+    return k;
+  }
+
   /// Kekurangan sirkuit ini untuk status Terverifikasi (cermin kurangLengkapTiang_ di server); awalan "Sirkuit n: " bila [ganda].
   List<String> kurang(int no, bool ganda) {
-    final p = ganda ? 'Sirkuit ${no + 1}: ' : '';
+    final p = ganda ? 'Penyulang ${no + 1}: ' : '';
     final k = <String>[
       for (final (kunci, label) in const [
         ('penyulang', 'Penyulang'),
         ('sectionId', 'Section'),
         ('segmenId', 'Segmen'),
-        ('posisi', 'Posisi'),
+        ('konstruksiId', 'Konstruksi'),
         ('peranTitik', 'Peran Titik'),
         ('jenisKabel', 'Jenis Kabel')
       ])
         if (t[kunci]!.trim().isEmpty) '$p$label',
+      if (ganda && t['posisi']!.trim().isEmpty) '${p}Posisi',
       if (ukuranMm2 == null || ukuranMm2 == 0) '${p}Ukuran mm²',
     ];
     if (t['indukStatus'] == 'TITIK_AWAL') {
       if (t['indukKeterangan']!.trim().isEmpty) k.add('${p}Keterangan Tiang Awal SKTM');
     } else if (!const ['BENAR', 'DIGANTI'].contains(t['indukStatus']) || t['indukTiangId']!.trim().isEmpty) {
-      k.add('${p}Konfirmasi Induk Tiang');
+      k.add('${p}Konfirmasi Tiang Hulu');
     }
     if (t['switchingId']!.trim().isEmpty && t['switchingKeterangan']!.trim().isEmpty) k.add('${p}Switching Hulu atau Keterangan Tanpa Switching');
     return k;
@@ -337,13 +366,13 @@ class IsianSirkuit {
 class IsianTiang {
   IsianTiang(this.tiang, {String kode = '', List<IsianSirkuit>? contoh})
       : kode = tiang?.teks('kode') ?? kode,
-        status = 'TERVERIFIKASI' {
+        status = '' {
     final t = tiang;
     if (t != null) {
       jenis = t.teks('jenisTiang').isNotEmpty ? t.teks('jenisTiang') : t.teks('jenisTiangAset');
       ukuran = t.teks('ukuranTiang').isNotEmpty ? t.teks('ukuranTiang') : t.teks('ukuranTiangAset');
-      konstruksiId = t.teks('konstruksiId');
-      if (t.status == 'PERLU_PERBAIKAN') status = t.status;
+      sisiJalan = t.teks('sisiJalan');
+      if (const ['TERVERIFIKASI', 'PERLU_PERBAIKAN', 'TIDAK_DITEMUKAN'].contains(t.status)) status = t.status; // belum diverifikasi = harus dipilih
     }
     final lama = [for (final s in t?.sirkuit ?? const <Sirkuit>[]) IsianSirkuit.dari(s)];
     if (lama.isEmpty) lama.add(IsianSirkuit());
@@ -357,17 +386,22 @@ class IsianTiang {
       }
     }
     sirkuit = lama;
+    _rapikanPosisi();
   }
 
   final Tiang? tiang;
   final String kode;
+  /// '' = hasil verifikasi belum dipilih (wajib).
   String status;
   String nama = '';
   String jenis = '';
   String ukuran = '';
-  String konstruksiId = '';
+  String sisiJalan = '';
   String koordinat = '';
   double? akurasiM;
+
+  /// 'PETA' = titik dipilih di peta (bukan GPS di lokasi); '' = GPS / diketik. Server mencatat sumber 'peta', akurasi dikosongkan.
+  String sumberKoordinat = '';
 
   /// Dasar koordinat bila selisih GPS dari koordinat terdaftar > [toleransiKoordinatM]: 'TERDAFTAR' (pakai koordinat aset) atau 'LAPANGAN'.
   String dasarKoordinat = '';
@@ -381,57 +415,96 @@ class IsianTiang {
 
   bool get perluDasar => !hilang && (selisihM ?? 0) > toleransiKoordinatM;
 
+  /// Ganti koordinat. Pilihan [dasarKoordinat] dipertahankan selama selisih masih > batas (tidak tereset saat GPS diambil ulang / diketik / dipilih di peta);
+  /// dibuang hanya bila koordinat kembali dalam batas (dasar tak lagi dibutuhkan).
+  void setKoordinat(String k, {double? akurasiM, String sumber = ''}) {
+    koordinat = k;
+    this.akurasiM = akurasiM;
+    sumberKoordinat = sumber;
+    if (!perluDasar) dasarKoordinat = '';
+  }
+
   bool get baru => tiang == null;
+
+  /// Tiang baru yang belum diterima server (id sementara LOKAL-...): dikirim sebagai tiang baru, bukan ubahan.
+  bool get sementara => tiang != null && tiang!.id.startsWith('LOKAL-');
   bool get hilang => status == 'TIDAK_DITEMUKAN';
+  bool get statusDipilih => status.isNotEmpty;
 
   /// Tambah / kurangi sirkuit menjadi [n] (1-3); sirkuit baru menyalin sirkuit pertama.
   void aturJumlahSirkuit(int n) {
     while (sirkuit.length < n) {
-      sirkuit.add(sirkuit.first.salin(induk: sirkuit.first.t['indukTiangId']!));
+      final baru = sirkuit.first.salin(induk: sirkuit.first.t['indukTiangId']!)..t['posisi'] = '';
+      sirkuit.add(baru);
+      baru.t['posisi'] = const ['BAWAH', 'TENGAH', 'ATAS'].firstWhere((p) => !sirkuit.any((s) => s.t['posisi'] == p), orElse: () => '');
     }
     if (sirkuit.length > n) sirkuit = sirkuit.sublist(0, n);
+    _rapikanPosisi();
   }
+
+  /// Penyulang tunggal selalu di posisi Atas.
+  void _rapikanPosisi() {
+    if (sirkuit.length == 1) sirkuit.first.t['posisi'] = 'ATAS';
+  }
+
+  /// Posisi yang sudah dipakai penyulang lain di tiang ini (pilihan posisi penyulang [no] menyingkirkannya).
+  Set<String> posisiTerpakai(int no) => {
+        for (var n = 0; n < sirkuit.length; n++)
+          if (n != no && sirkuit[n].t['posisi']!.isNotEmpty) sirkuit[n].t['posisi']!
+      };
 
   /// Kekurangan data untuk status Terverifikasi (kosong = boleh). [fotoAda] = slot foto yang sudah ada (di server atau baru diambil).
   List<String> kurang(Set<String> fotoAda) => [
         if (jenis.isEmpty) 'Jenis Tiang',
         if (ukuran.isEmpty) 'Ukuran Tiang',
-        if (konstruksiId.isEmpty) 'Konstruksi',
+        if (sisiJalan.isEmpty) 'Sisi Jalan',
         for (final (slot, label) in slotFotoTiang)
           if (!fotoAda.contains(slot)) 'Foto $label',
         for (var n = 0; n < sirkuit.length; n++) ...sirkuit[n].kurang(n, sirkuit.length > 1),
       ];
 
-  /// Galat sebelum dikirim (server tetap memeriksa ulang). Kunci: 'nama', 'koordinat', 'sirkuit<i>', 'lengkap'.
+  /// Galat sebelum dikirim (server tetap memeriksa ulang); kosong = boleh disimpan. Semua isian wajib diperiksa untuk status Terverifikasi
+  /// maupun Perlu Perbaikan; Tidak Ditemukan hanya butuh statusnya. Kunci (urutan form): 'status', 'nama', 'koordinat', 'dasar', 'foto',
+  /// 'jenis', 'ukuran', 'sisi', 'sirkuit<i>', 'posisi'.
   Map<String, String> cek(List<String> penyulang, [Set<String> fotoAda = const {}]) {
     final g = <String, String>{};
+    if (!statusDipilih) g['status'] = 'Pilih hasil verifikasi.';
     if (baru && nama.trim().isEmpty) g['nama'] = 'Nama tiang wajib diisi.';
     if (hilang) return g;
-    if (uraiKoordinat(koordinat) == null) g['koordinat'] = 'Ambil GPS di dekat tiang.';
+    if (uraiKoordinat(koordinat) == null) g['koordinat'] = 'Koordinat tiang wajib diisi. Ambil dengan GPS atau pilih di peta.';
     if (perluDasar && dasarKoordinat.isEmpty) g['dasar'] = 'Selisih koordinat lebih dari ${toleransiKoordinatM.round()} m: pilih koordinat yang dipakai.';
+    final fotoKurang = [for (final (slot, label) in slotFotoTiang) if (!fotoAda.contains(slot)) label];
+    if (fotoKurang.isNotEmpty) g['foto'] = 'Foto wajib diambil: ${fotoKurang.join(', ')}.';
+    if (jenis.isEmpty) g['jenis'] = 'Pilih jenis tiang.';
+    if (ukuran.isEmpty) g['ukuran'] = 'Pilih ukuran tiang.';
+    if (sisiJalan.isEmpty) g['sisi'] = 'Pilih lokasi sisi tiang.';
     for (var i = 0; i < sirkuit.length; i++) {
-      if (!penyulang.contains(sirkuit[i].t['penyulang'])) g['sirkuit$i'] = 'Pilih penyulang sirkuit ${i + 1}.';
+      final kosong = sirkuit[i].kunciKosong(sirkuit.length > 1);
+      if (!penyulang.contains(sirkuit[i].t['penyulang'])) {
+        g['sirkuit$i'] = 'Pilih penyulang ${i + 1}.';
+      } else if (kosong.isNotEmpty) {
+        g['sirkuit$i'] = 'Penyulang ${i + 1} belum lengkap, isi kolom yang bertanda merah.';
+      }
     }
-    if (status == 'TERVERIFIKASI') {
-      final k = kurang(fotoAda);
-      if (k.isNotEmpty) g['lengkap'] = 'Lengkapi dulu: ${k.join(', ')}.';
-    }
+    final posisi = [for (final s in sirkuit) s.t['posisi']!].where((p) => p.isNotEmpty).toList();
+    if (posisi.length != posisi.toSet().length) g['posisi'] = 'Posisi penyulang tidak boleh sama.';
     return g;
   }
 
   Map<String, dynamic> payload() => {
-        if (!baru) 'tiangId': tiang!.id,
-        if (!baru) 'revision': tiang!.revision,
-        if (baru) 'nama': nama.trim(),
-        if (baru && RegExp(r'^[A-Z]{3}$').hasMatch(kode)) 'kode': kode,
+        if (!baru && !sementara) 'tiangId': tiang!.id,
+        if (!baru && !sementara) 'revision': tiang!.revision,
+        if (baru || sementara) 'nama': baru ? nama.trim() : tiang!.nama,
+        if ((baru || sementara) && RegExp(r'^[A-Z]{3}$').hasMatch(kode)) 'kode': kode,
         'statusVerifikasi': status,
         if (!hilang) ...{
           'koordinat': koordinat.trim(),
           if (perluDasar && dasarKoordinat.isNotEmpty) 'dasarKoordinat': dasarKoordinat,
-          if (akurasiM != null) 'akurasiM': double.parse(akurasiM!.toStringAsFixed(1)),
+          if (sumberKoordinat == 'PETA') 'sumberKoordinat': 'PETA',
+          if (akurasiM != null && sumberKoordinat != 'PETA') 'akurasiM': double.parse(akurasiM!.toStringAsFixed(1)),
           if (jenis.isNotEmpty) 'jenisTiang': jenis,
           if (ukuran.isNotEmpty) 'ukuranTiang': ukuran,
-          if (konstruksiId.isNotEmpty) 'konstruksiId': konstruksiId,
+          if (sisiJalan.isNotEmpty) 'sisiJalan': sisiJalan,
           'sirkuit': [for (final s in sirkuit) s.payload()],
         },
       };
@@ -447,6 +520,9 @@ class Segmen {
   int get revision => (d['revision'] as num?)?.toInt() ?? 0;
   bool get kabelTanah => d['jenisSegmen'] == 'KABEL_TANAH';
   bool get dataKabelKurang => kabelTanah && teks('statusData') == 'KURANG';
+
+  /// Draf yang belum diterima server: 'belumTerkirim' / 'perluDiperbaiki' ('' = data dari server).
+  String get draf => teks('draf');
 }
 
 const awalSegmen = [
@@ -505,6 +581,9 @@ class IsianSegmen {
   String urutan = '';
   bool aktif = true;
   bool get baru => asal == null;
+
+  /// Segmen baru yang belum diterima server (id sementara LOKAL-...): dikirim sebagai segmen baru, bukan ubahan.
+  bool get sementara => asal != null && asal!.id.startsWith('LOKAL-');
   bool get kabelTanah => t['jenisSegmen'] == 'KABEL_TANAH';
 
   static double? _angka(String v) => double.tryParse(v.trim().replaceAll(',', '.'));
@@ -530,6 +609,7 @@ class IsianSegmen {
           if (_angka(t['panjangKabelM']!) != null) 'panjangKabelM': _angka(t['panjangKabelM']!),
         },
         if (int.tryParse(urutan.trim()) != null) 'urutan': int.parse(urutan.trim()),
-        if (!baru) ...{'segmenId': asal!.id, 'revision': asal!.revision, 'aktif': aktif},
+        if (!baru && !sementara) ...{'segmenId': asal!.id, 'revision': asal!.revision},
+        if (!baru) 'aktif': aktif,
       };
 }

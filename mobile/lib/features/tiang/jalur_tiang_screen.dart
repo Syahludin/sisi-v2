@@ -8,9 +8,11 @@ import '../../core/api_client.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/simpan_latar.dart';
+import '../../widgets/popup_berhasil.dart';
 import '../../widgets/sisi_loader.dart';
 import '../../widgets/sisi_widgets.dart';
+import 'draf_tiang.dart';
+import 'draf_ui.dart';
 import 'tiang_form_screen.dart';
 import 'tiang_model.dart';
 import 'tiang_repository.dart';
@@ -28,7 +30,7 @@ class JalurTiangScreen extends StatefulWidget {
   State<JalurTiangScreen> createState() => _JalurTiangScreenState();
 }
 
-enum _Saring { semua, belum, bertanda, selesai }
+enum _Saring { semua, belum, bertanda, selesai, draf }
 
 Color warnaStatusTiang(String s) => switch (infoStatusTiang(s).$2) {
       'ok' => AppColors.success600,
@@ -45,15 +47,45 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
 
   bool get _bolehUbah => TiangRepository.bolehUbah(widget.sesi);
 
+  DrafTiang get _draf => widget.repo.draf;
+
   @override
   void initState() {
     super.initState();
+    _draf.addListener(_dariDraf);
     _awal();
   }
 
-  Future<void> _awal() async {
+  @override
+  void dispose() {
+    _draf.removeListener(_dariDraf);
+    super.dispose();
+  }
+
+  Future<void> _muatDariBerkas() async {
     final l = await widget.repo.jalurLokal(widget.sesi, widget.kode);
     if (mounted && l != null) setState(() => _tiang = l);
+  }
+
+  /// Draf berubah (server menerima di latar / petugas menghapus): daftar jalur dibaca ulang dari berkas HP.
+  Future<void> _dariDraf() async {
+    final l = await widget.repo.jalurLokal(widget.sesi, widget.kode);
+    if (!mounted || l == null) return;
+    final dulu = {for (final t in _tiang ?? const <Tiang>[]) if (t.draf.isNotEmpty) t.nama};
+    final kini = {for (final t in l) if (t.draf.isNotEmpty) t.nama};
+    final terkirim = [for (final n in dulu.difference(kini)) if (l.any((t) => t.nama == n)) n];
+    setState(() => _tiang = l);
+    // kartu "Terkirim" hanya bila server menerimanya di latar (bukan dibuang, bukan dari form) dan layar ini yang sedang tampil
+    if (terkirim.isNotEmpty && !_membuang && (ModalRoute.of(context)?.isCurrent ?? false)) {
+      unawaited(tampilPopupBerhasil(context, judul: 'Data Terkirim', keterangan: terkirim.length == 1 ? '${terkirim.first} tersimpan di server' : '${terkirim.length} tiang tersimpan di server'));
+    }
+  }
+
+  bool _membuang = false;
+
+  Future<void> _awal() async {
+    await _draf.daftar(widget.sesi.userId);
+    await _muatDariBerkas();
     await _segarkan();
   }
 
@@ -66,7 +98,11 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
       final t = await widget.repo.jalur(widget.sesi, widget.kode);
       if (mounted) setState(() => _tiang = t);
     } catch (e) {
-      if (mounted) setState(() => _galat = e is ApiException ? KodeError.pesan(e.kode) : 'Tidak bisa terhubung ke server.');
+      if (mounted) {
+        final pesan = e is ApiException ? KodeError.pesan(e.kode) : 'Tidak bisa terhubung ke server.';
+        setState(() => _galat = pesan);
+        if (_tiang != null) tampilPesan(context, pesan);
+      }
     }
     if (mounted) setState(() => _muat = false);
   }
@@ -76,6 +112,7 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
         _Saring.belum => !t.selesai,
         _Saring.bertanda => t.bertanda,
         _Saring.selesai => t.selesai,
+        _Saring.draf => t.draf.isNotEmpty,
       };
 
   /// Usulan sirkuit = sirkuit induk yang sudah diverifikasi (penyulang, segmen, kabel biasanya sama sepanjang jalur).
@@ -86,8 +123,48 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
     return asal == null ? null : [for (final s in asal.sirkuit) IsianSirkuit.dari(s)];
   }
 
-  Future<void> _buka(Tiang? t, {String indukBaru = ''}) async {
-    final kiriman = await Navigator.push<(IsianTiang, Map<String, String>)>(
+  /// Kabar hasil simpan / kirim ulang untuk petugas.
+  void _kabari(HasilKirim h) {
+    switch (h) {
+      case Terkirim():
+        unawaited(tampilPopupBerhasil(context, judul: 'Data Tersimpan', keterangan: '${h.hasil['nama'] ?? 'Tiang'} tersimpan di server'));
+      case Ditolak():
+        tampilPesan(context, h.pesan);
+      case BelumTerkirim():
+        tampilPesan(context, h.pesan);
+    }
+  }
+
+  /// Tiang berdraf: alasan + Perbaiki Isian / Kirim Ulang / Hapus Draf (hapus meminta konfirmasi, foto ikut terhapus).
+  Future<void> _tindakDraf(Tiang t) async {
+    final uid = widget.sesi.userId;
+    final pilih = await tampilTindakDraf(context,
+        nama: t.nama, perluDiperbaiki: t.draf == 'perluDiperbaiki', pesan: _draf.pesan(uid, t.id), galat: _draf.galat(uid, t.id));
+    if (!mounted || pilih == null) return;
+    switch (pilih) {
+      case TindakDraf.perbaiki:
+        return _buka(t, tanpaDraf: true);
+      case TindakDraf.kirimUlang:
+        final h = await denganPemuat(context, () => _draf.kirim(widget.sesi, t.id));
+        if (!mounted) return;
+        await _muatDariBerkas();
+        if (mounted) _kabari(h);
+      case TindakDraf.hapus:
+        if (!await konfirmasiHapusDraf(context, t.nama) || !mounted) return;
+        _membuang = true;
+        try {
+          await _draf.hapus(widget.sesi, t.id);
+        } finally {
+          _membuang = false;
+        }
+        await _muatDariBerkas();
+    }
+  }
+
+  Future<void> _buka(Tiang? t, {String indukBaru = '', bool tanpaDraf = false}) async {
+    if (t != null && t.draf.isNotEmpty && !tanpaDraf) return _tindakDraf(t);
+    final uid = widget.sesi.userId;
+    final hasil = await Navigator.push<HasilKirim>(
       context,
       MaterialPageRoute(
           builder: (_) => TiangFormScreen(
@@ -98,11 +175,15 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
               tiang: t,
               contoh: _contoh(t),
               daftar: _tiang ?? const [],
-              indukBaru: indukBaru)),
+              indukBaru: indukBaru,
+              fotoAntre: t == null ? const {} : _draf.foto(uid, t.id),
+              galatAwal: t == null ? const [] : _draf.galat(uid, t.id))),
     );
-    if (kiriman == null || !mounted) return;
-    simpanLatar(context, kerja: () => _kirim(kiriman.$1, kiriman.$2));
-    if (t == null) return; // tiang baru: ID belum diketahui, kembali ke daftar
+    if (!mounted) return;
+    await _muatDariBerkas();   // form sudah menulis draf / jawaban server ke berkas jalur
+    if (hasil == null || !mounted) return;
+    _kabari(hasil);
+    if (t == null) return;   // tiang baru: kembali ke daftar
     final lanjut = berikutnya(urutanJalur(_tiang!), t.id);
     if (lanjut == null) return;
     final ya = await showModalBottomSheet<bool>(
@@ -111,7 +192,7 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('${t.nama} Sedang Disimpan', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.brand950)),
+            Text('${t.nama} Tersimpan', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.brand950)),
             const SizedBox(height: 14),
             FilledButton.icon(onPressed: () => Navigator.pop(c, true), icon: const Icon(Icons.arrow_forward_rounded), label: Text('Lanjut ke ${lanjut.nama}')),
             const SizedBox(height: 8),
@@ -123,35 +204,6 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
     if (ya == true && mounted) unawaited(_buka(lanjut));
   }
 
-  /// Simpan verifikasi lalu kirim foto (di latar belakang); daftar jalur diperbarui dari jawaban server.
-  Future<String?> _kirim(IsianTiang i, Map<String, String> foto) async {
-    final (baru, _) = await widget.repo.simpan(widget.sesi, i, daftar: _tiang);
-    final gagal = <String>[], terkirim = <String>{};
-    for (final (slot, label) in slotFotoTiang) {
-      final path = foto[slot];
-      if (path == null) continue;
-      try {
-        await widget.repo.unggahFoto(widget.sesi, baru.id, slot, path);
-        terkirim.add(slot);
-      } catch (_) {
-        gagal.add(label);
-      }
-    }
-    if (mounted) {
-      setState(() {
-        final d = [...?_tiang];
-        final k = d.indexWhere((x) => x.id == baru.id);
-        if (k >= 0) {
-          d[k] = baru.denganFoto(terkirim);
-        } else {
-          d.add(baru.denganFoto(terkirim));
-        }
-        _tiang = d;
-      });
-    }
-    return gagal.isEmpty ? null : 'Data tersimpan, foto ${gagal.join(', ')} belum terkirim. Buka tiang ini lagi untuk mengambil ulang.';
-  }
-
   @override
   Widget build(BuildContext context) {
     final semua = _tiang;
@@ -160,7 +212,7 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
       for (final b in urut)
         if (_lolos(b.tiang)) b
     ];
-    final lanjut = urut.map((b) => b.tiang).where((t) => !t.selesai).firstOrNull;
+    final lanjut = urut.map((b) => b.tiang).where((t) => !t.selesai && t.draf.isEmpty).firstOrNull;
     return Scaffold(
       appBar: AppBar(title: Text('Jalur ${widget.kode}'), actions: [
         IconButton(
@@ -189,13 +241,7 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
               ? const SisiLoading(pesan: 'Memuat tiang')
               : SisiKosong(judul: 'Belum Bisa Memuat', pesan: _galat ?? 'Coba lagi.', ikon: Icons.cloud_off_outlined))
           : Column(children: [
-              if (_galat != null)
-                Container(
-                    width: double.infinity,
-                    color: AppColors.accent100,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child:
-                        Text('Data tersimpan di HP. $_galat', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.accent700))),
+              if (_muat) const Padding(padding: EdgeInsets.only(top: 8), child: SisiLoader(ukuran: 30)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                 child: Row(children: [
@@ -207,7 +253,8 @@ class _JalurTiangScreenState extends State<JalurTiangScreen> {
                           (_Saring.semua, 'Semua'),
                           (_Saring.belum, 'Belum'),
                           (_Saring.bertanda, 'Bertanda Cek'),
-                          (_Saring.selesai, 'Selesai')
+                          (_Saring.selesai, 'Selesai'),
+                          (_Saring.draf, 'Draf')
                         ])
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -252,10 +299,12 @@ class _BarisTiang extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = b.tiang, w = warnaStatusTiang(t.statusTampil);
+    final t = b.tiang, draf = t.draf, perlu = draf == 'perluDiperbaiki';
+    // draf (belum diterima server) tidak pernah hijau: ikon awan coret, kuning bila menunggu sinyal, merah bila server menolak isiannya
+    final w = draf.isEmpty ? warnaStatusTiang(t.statusTampil) : (perlu ? AppColors.red600 : AppColors.accent600);
     final ket = [
       if (t.sirkuit.isNotEmpty && t.sirkuit.first.teks('penyulang').isNotEmpty) t.sirkuit.first.teks('penyulang'),
-      if (t.sirkuit.length > 1) '${t.sirkuit.length} sirkuit',
+      if (t.sirkuit.length > 1) '${t.sirkuit.length} penyulang',
       ...t.tanda.map(labelTanda)
     ];
     return Padding(
@@ -270,7 +319,7 @@ class _BarisTiang extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.neutral150)),
             child: Row(children: [
-              Icon(b.cabang ? Icons.subdirectory_arrow_right_rounded : Icons.circle, size: b.cabang ? 20 : 12, color: w),
+              Icon(draf.isNotEmpty ? Icons.cloud_off_outlined : (b.cabang ? Icons.subdirectory_arrow_right_rounded : Icons.circle), size: draf.isNotEmpty ? 20 : (b.cabang ? 20 : 12), color: w),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -288,7 +337,8 @@ class _BarisTiang extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: w.withValues(alpha: .12), borderRadius: BorderRadius.circular(99)),
-                child: Text(infoStatusTiang(t.statusTampil).$1, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: w)),
+                child: Text(draf.isEmpty ? infoStatusTiang(t.statusTampil).$1 : (perlu ? 'Draf perlu diperbaiki' : 'Draf, belum terkirim'),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: w)),
               ),
             ]),
           ),

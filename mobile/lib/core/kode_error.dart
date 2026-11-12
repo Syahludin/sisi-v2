@@ -362,6 +362,16 @@ class KodeError {
         return 'Section yang dipilih bukan milik penyulang ini. Pilih ulang section.';
       case 'HULU_TIDAK_VALID':
         return 'Switching hulu tidak valid (diri sendiri atau rantai hulu berputar).';
+      // 11 Nov 2026: modul tiang di server Hostinger
+      case 'PINDAH_HOSTINGER':
+        return 'Data tiang kini disimpan di server baru. Perbarui aplikasi lalu coba lagi.';
+      case 'TIKET_DICABUT':
+        return 'Akun ini tidak lagi diizinkan menyimpan data tiang. Hubungi admin.';
+      case 'TIKET_KEDALUWARSA':
+      case 'TIKET_TIANG_TIDAK_VALID': // TiangApi: TIKET_TIDAK_VALID dari server tiang (kode itu sudah dipakai Yandal)
+        return 'Izin ke server tiang habis. Coba lagi sebentar.';
+      case 'OPERASI_BERJALAN':
+        return 'Data sedang diproses server. Coba lagi sebentar.';
       default:
         if (sesiHabis.contains(kode)) return 'Sesi berakhir. Silakan login lagi.';
         return 'Terjadi kesalahan ($kode).';

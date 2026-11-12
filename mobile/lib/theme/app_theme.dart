@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 
@@ -64,16 +65,19 @@ class AppTheme {
 
     return base.copyWith(
       textTheme: textTheme,
+      // Hijau Rimba: bilah atas hijau tua + garis kuning petir di bawahnya (sama dengan web), ikon / judul putih
       appBarTheme: const AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.brand900,
+        backgroundColor: AppColors.brand900,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        iconTheme: IconThemeData(color: AppColors.brand800, size: 22),
-        actionsIconTheme: IconThemeData(color: AppColors.brand800, size: 22),
-        titleTextStyle: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: -.25, color: AppColors.brand900),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        shape: Border(bottom: BorderSide(color: AppColors.accent600, width: 3)),
+        iconTheme: IconThemeData(color: Colors.white, size: 22),
+        actionsIconTheme: IconThemeData(color: Colors.white, size: 22),
+        titleTextStyle: TextStyle(fontSize: 18, height: 1.2, fontWeight: FontWeight.w800, letterSpacing: -.25, color: Colors.white),
       ),
       cardTheme: const CardThemeData(
         elevation: 0,
@@ -95,7 +99,7 @@ class AppTheme {
         elevation: 0,
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        modalBarrierColor: Color(0x9910252E),
+        modalBarrierColor: Color(0x990D2A1D),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
         showDragHandle: false,
         dragHandleColor: AppColors.neutral300,

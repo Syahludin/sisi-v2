@@ -133,6 +133,7 @@ function tulisBlok_(t, ubah, baru, opsi) {
   // v0.66.4: opsi.bolehId = kolom *_id REFERENSI yang boleh diubah (mis. section_id P0); id baris tetap terkunci.
   var bolehId = (opsi && opsi.bolehId) || [];
   if (!t.dalamLock || !LOCK_AKTIF_.ya) throw new SisiError_('HARUS_DALAM_LOCK', t.nama);
+  if (t.batch) return tulisBlokTunda_(t, ubah, baru, opsi); // v1.0.71: sinkronTiang menulis sekali di akhir kelompok
   ubah = ubah || []; baru = baru || [];
   if (!ubah.length && !baru.length) return;
   var lebar = t.header.length, akhir = Math.max(t.sheet.getLastRow(), 1);

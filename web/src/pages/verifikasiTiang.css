@@ -31,3 +31,69 @@
 .vt-kartu > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 4px; }
 .vt-kartu > header b { font-size: 16px; font-weight: 900; color: var(--brand-950); }
 .vt-kartu > header small { color: var(--neutral-500); }
+
+/* ===== Pola daftar + rincian (desain Hijau Rimba): ringkasan, jalur kiri, tiang kanan ===== */
+.vt-ringkas { display: grid; gap: 12px; margin-bottom: 14px; }
+.vt-ringkas .vt-total { margin-bottom: 0; }
+.vt-stat > div { border-left-color: var(--neutral-300); }
+.vt-stat .vt-stat--ok { border-left-color: var(--success-600); }
+.vt-stat .vt-stat--draf { border-left-color: var(--accent-600); }
+.vt-stat .vt-stat--tolak { border-left-color: var(--red-600); }
+.vt-stat .vt-stat--cek { border-left-color: var(--accent-700); }
+
+.vt-split { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.vt-daftar { position: sticky; top: 0; display: grid; gap: 10px; max-height: calc(100dvh - 190px); padding: 12px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); }
+.vt-daftar ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; overflow-y: auto; min-height: 0; }
+.vt-cari { width: 100%; }
+.vt-jalur {
+  all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 7px; width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--neutral-150); background: var(--neutral-50); transition: background .12s, border-color .12s;
+}
+.vt-jalur:hover { background: var(--brand-50); border-color: var(--brand-100); }
+.vt-jalur:focus-visible { outline: 3px solid var(--accent-400); outline-offset: 2px; }
+.vt-jalur--aktif { background: var(--brand-100); border-color: var(--brand-500); box-shadow: inset 4px 0 0 var(--accent-600); }
+.vt-jalur-atas { display: flex; align-items: baseline; gap: 8px; }
+.vt-jalur-atas b { font: 800 15px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing: .04em; color: var(--brand-950); }
+.vt-jalur-n { flex: 1; font-size: 12px; color: var(--neutral-500); font-variant-numeric: tabular-nums; }
+.vt-jalur-p { font-size: 13px; font-weight: 900; color: var(--brand-700); font-variant-numeric: tabular-nums; }
+.vt-jalur-tanda { display: flex; flex-wrap: wrap; gap: 5px; }
+.vt-kosong-kecil { padding: 10px; font-size: 12.5px; color: var(--neutral-500); }
+
+.vt-rincian { min-width: 0; padding: 16px 18px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); }
+.vt-rincian--kosong { display: grid; justify-items: center; gap: 8px; padding: 48px 24px; text-align: center; color: var(--neutral-500); border-style: dashed; }
+.vt-rincian--kosong b { font-size: 15px; color: var(--brand-900); }
+.vt-rincian--kosong p { max-width: 420px; margin: 0; font-size: 13px; line-height: 1.5; }
+.vt-rincian-kepala { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.vt-rincian-judul { flex: 1; min-width: 0; }
+.vt-rincian-judul h2 { margin: 0; font-size: 18px; font-weight: 900; color: var(--brand-950); }
+.vt-rincian-judul span { font-size: 12.5px; color: var(--neutral-500); font-variant-numeric: tabular-nums; }
+.vt-kembali { display: none; }
+.vt-bar--besar { height: 10px; margin-bottom: 14px; }
+.vt-rincian .vt-saring { justify-content: space-between; }
+.vt-rincian .vt-cari { width: auto; min-width: 220px; }
+.vt-chip-n { margin-left: 2px; font-variant-numeric: tabular-nums; opacity: .75; }
+.vt-catatan { display: grid; gap: 4px; justify-items: start; font-size: 12px; color: var(--neutral-700); }
+
+/* layar sempit: dua langkah (daftar -> rincian) */
+@media (max-width: 900px) {
+  .vt-split { grid-template-columns: minmax(0, 1fr); }
+  .vt-daftar { position: static; max-height: none; }
+  .vt-split--rincian .vt-daftar, .vt-split:not(.vt-split--rincian) .vt-rincian { display: none; }
+  .vt-kembali { display: inline-flex; order: -1; padding-left: 0; }
+  .vt-rincian-kepala { gap: 8px; }
+  .vt-rincian-judul { order: 1; flex: 1 1 100%; }
+  .vt-rincian-kepala > .k-tombol--garis { margin-left: auto; }
+  .vt-rincian { padding: 14px; }
+  .vt-rincian .vt-cari { width: 100%; min-width: 0; }
+}
+
+/* jaga isi kartu jalur tidak melewati batas (kode panjang, banyak lencana) */
+.vt-daftar { min-width: 0; overflow: hidden; }
+.vt-daftar ul { grid-template-columns: minmax(0, 1fr); }
+.vt-daftar li { min-width: 0; }
+.vt-jalur { min-width: 0; overflow: hidden; }
+.vt-jalur-atas { min-width: 0; }
+.vt-jalur-atas b { min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-jalur-n { white-space: nowrap; }
+.vt-cari { min-width: 0; max-width: 100%; }
+.vt-cari input { min-width: 0; width: 100%; }

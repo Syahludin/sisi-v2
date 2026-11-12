@@ -11,8 +11,9 @@
  * config PHP; beda production / staging). Kosong = fitur mati (website membaca dari Apps Script seperti biasa).
  */
 var MYSQL_TIKET_DETIK_ = 15 * 60;
+var MYSQL_TIKET_MOBILE_DETIK_ = 8 * 60 * 60;
+var MYSQL_MENU_TIANG_ = ['OPS_VERIFIKASI_TIANG', 'OPS_MASTER_SWITCHING'];
 var MYSQL_TERKIRIM_PROP_ = 'MYSQL_TERKIRIM';
-var MYSQL_KOLOM_WAKTU_GGN_ = { penyulang: 'waktu_padam', ar: 'waktu_ar', pickup: 'waktu_event' };
 
 /** { url, rahasia } atau null (belum diatur). Diatur tapi salah = CONFIG_TIDAK_VALID. */
 function konfigMysql_() {
@@ -35,24 +36,50 @@ function buatTiketMysql_(rahasia, isi) {
   return p + '.' + bytesKeHex_(Utilities.computeHmacSha256Signature('tiket.' + p, rahasia, Utilities.Charset.UTF_8));
 }
 
-/** Tiket hanya untuk website (platform WEB) akun Admin / Admin ES / Super (ROLE_WEB_), dicek paling awal. */
-function wajibWebTiket_(sesi, platform) {
-  if (platform !== 'WEB' || !sesi || ROLE_WEB_().indexOf(sesi.role) === -1) throw new SisiError_('AKSES_DITOLAK', 'tiket API khusus website admin');
+/**
+ * Tiket API: website (platform WEB) untuk akun Admin / Admin ES / Super (ROLE_WEB_), atau HP (platform MOBILE) untuk akun
+ * ADMIN / SUPER (modul tiang di Hostinger, tiket 8 jam). Dicek paling awal.
+ */
+function wajibTiketApi_(sesi, platform) {
+  var web = platform === 'WEB' && sesi && ROLE_WEB_().indexOf(sesi.role) !== -1;
+  var hp = platform === 'MOBILE' && sesi && ['ADMIN', 'SUPER'].indexOf(sesi.role) !== -1;
+  if (!web && !hp) throw new SisiError_('AKSES_DITOLAK', 'tiket API khusus website admin dan HP admin tiang');
 }
 
-/** getTiketApi {} -> { tiket, sampai } untuk website (platform WEB, admin). API PHP belum diatur = CONFIG_TIDAK_LENGKAP. */
+/** getTiketApi {} -> { tiket, sampai }. WEB: menu WEB, 15 menit. MOBILE: menu tiang saja, 8 jam. API PHP belum diatur = CONFIG_TIDAK_LENGKAP. */
 function getTiketApi_(sesi, data, platform) {
-  wajibWebTiket_(sesi, platform);
+  wajibTiketApi_(sesi, platform);
   validasi_(data, {});
   var konf = konfigMysql_();
   if (!konf) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'MYSQL_API_URL');
+  if (platform === 'MOBILE') return tiketMobileMysql_(konf, sesi, menuUntuk_(sesi, 'MOBILE'));
   return tiketWebMysql_(konf, sesi, menuUntuk_(sesi, 'WEB'));
 }
 
 function tiketWebMysql_(konf, sesi, menu) {
   var exp = Math.floor(Date.now() / 1000) + MYSQL_TIKET_DETIK_;
   return {
-    tiket: buatTiketMysql_(konf.rahasia, { u: String(sesi.userId), m: menu.map(function (m) { return m.kode; }), env: cfg_().ENV, exp: exp }),
+    // role ikut tiket: tiang.php (modul tiang, ADMIN / SUPER) memeriksanya; tiang = TIANG_API_URL terisi (web membaca tiang dari Hostinger)
+    tiket: buatTiketMysql_(konf.rahasia, { u: String(sesi.userId), role: String(sesi.role), m: menu.map(function (m) { return m.kode; }), env: cfg_().ENV, exp: exp }),
+    sampai: new Date(exp * 1000).toISOString(),
+    tiang: !!infoVersi_().tiangApi
+  };
+}
+
+/**
+ * Tiket HP modul tiang (docs/superpowers/specs/2026-11-11-tiang-hostinger-design.md S6): { u, role, m: menu tiang yang boleh,
+ * t: yang boleh DIUBAH, env, exp 8 jam }. Hanya dua menu tiang (hak sekecil mungkin); menu tanpa akses tidak ikut.
+ */
+function tiketMobileMysql_(konf, sesi, menu) {
+  var exp = Math.floor(Date.now() / 1000) + MYSQL_TIKET_MOBILE_DETIK_;
+  var tiang = menu.filter(function (m) { return MYSQL_MENU_TIANG_.indexOf(m.kode) !== -1; });
+  return {
+    tiket: buatTiketMysql_(konf.rahasia, {
+      u: String(sesi.userId), role: String(sesi.role),
+      m: tiang.map(function (m) { return m.kode; }),
+      t: tiang.filter(function (m) { return m.aksi === 'UBAH'; }).map(function (m) { return m.kode; }),
+      env: cfg_().ENV, exp: exp
+    }),
     sampai: new Date(exp * 1000).toISOString()
   };
 }
@@ -68,7 +95,7 @@ function tiketCekSesiMysql_(sesi, platform, menu) {
 
 /** Baris tab ggn_ satu jenis -> baris MySQL { penyulang, tgl, isi } (isi = bentuk jawaban getHistoriGangguan). */
 function barisMysqlGgn_(jenis) {
-  var tab = GGN_TAB_[jenis], kunci = MYSQL_KOLOM_WAKTU_GGN_[jenis];
+  var tab = GGN_TAB_[jenis], kunci = GGN_KUNCI_WAKTU_[jenis];
   return tabel_('GANGGUAN_SHEET_ID', tab.sheet).rows.map(function (o) {
     var w = o[kunci] instanceof Date ? tglJakarta_(o[kunci]) : String(o[kunci] || ''), d = w.slice(0, 10);
     return { penyulang: String(o.penyulang || ''), tgl: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '', isi: keluarGgn_(o, tab.header) };

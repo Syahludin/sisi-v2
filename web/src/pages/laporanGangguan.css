@@ -1,10 +1,10 @@
 /* Laporan Gangguan Penyulang (v1.0.59; desain ulang review 8 Nov 2026, sama dengan HP). Semua kelas berawalan .lgp (unik). */
-.lgp { --lgp-pmt: #1d6a73; --lgp-sukses: var(--success-600); --lgp-lockout: #b5651d; }
+.lgp { --lgp-pmt: #1f6b45; --lgp-sukses: var(--success-600); --lgp-lockout: #b5651d; }
 
 /* --- hero: tanggal laporan + tiga angka + kirim --- */
 .lgp-hero {
   position: relative; overflow: hidden; display: grid; gap: 16px; padding: 20px 22px 18px; border-radius: 18px;
-  background: var(--gradien-sisi); color: #fff; box-shadow: 0 10px 22px rgba(20, 32, 30, .22);
+  background: var(--gradien-sisi); color: #fff; box-shadow: 0 10px 22px rgba(12, 30, 21, .22);
 }
 .lgp-hero--kosong { min-height: 180px; align-content: start; }
 .lgp-hero-atas { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -12,7 +12,7 @@
 .lgp-judul { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: rgba(255, 255, 255, .78); }
 .lgp-tanggal { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.2; }
 .lgp-h1 {
-  padding: 3px 9px; border-radius: 999px; background: var(--accent-400); color: #14201e;
+  padding: 3px 9px; border-radius: 999px; background: var(--accent-400); color: var(--di-aksen);
   font-size: 12px; font-weight: 900; letter-spacing: .04em;
 }
 .lgp-segar { flex: 0 0 auto; }
@@ -24,8 +24,8 @@
 }
 .lgp-kpi b { font-size: 32px; font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .lgp-kpi span { font-size: 12.5px; font-weight: 700; color: rgba(255, 255, 255, .82); }
-.lgp-kpi--pmt { --lgp-warna: #5fb3f0; }
-.lgp-kpi--sukses { --lgp-warna: #5bd69a; }
+.lgp-kpi--pmt { --lgp-warna: #8fd6ad; }
+.lgp-kpi--sukses { --lgp-warna: #ffd21e; }
 .lgp-kpi--lockout { --lgp-warna: #e0a85c; }
 .lgp-kirim { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -55,7 +55,7 @@
 .lgp-kat--pmt { --lgp-warna: var(--lgp-pmt); }
 .lgp-kat--sukses { --lgp-warna: var(--lgp-sukses); }
 .lgp-kat--lockout { --lgp-warna: var(--lgp-lockout); }
-.lgp-kat--tertinggi { --lgp-warna: var(--accent-600); background: linear-gradient(180deg, var(--accent-100), #fff 70%); }
+.lgp-kat--tertinggi { --lgp-warna: var(--accent-600); background: linear-gradient(180deg, var(--accent-100), var(--putih) 70%); }
 .lgp-kat header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .lgp-kat h3 { margin: 0; font-size: 15px; font-weight: 900; color: var(--brand-950); }
 .lgp-jumlah { font-size: 13px; font-weight: 900; color: var(--lgp-warna); font-variant-numeric: tabular-nums; white-space: nowrap; }

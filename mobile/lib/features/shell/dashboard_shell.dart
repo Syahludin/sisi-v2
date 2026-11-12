@@ -317,7 +317,7 @@ class _SisiBottomBar extends StatelessWidget {
                       Text(
                         _item[i].label,
                         style: i == indeks
-                            ? const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppColors.cyan600)
+                            ? const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.brand800)
                             : const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.neutral500),
                       ),
                       const SizedBox(height: 10),
@@ -331,13 +331,14 @@ class _SisiBottomBar extends StatelessWidget {
                   child: Container(
                     width: ukuranBubble,
                     height: ukuranBubble,
+                    // Hijau Rimba: pemutus aktif = kuning petir berbingkai hijau tua (sama dengan menu atas web)
                     decoration: BoxDecoration(
-                      color: AppColors.navy700,
+                      color: AppColors.accent600,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.cyan600, width: 2),
-                      boxShadow: [BoxShadow(color: AppColors.navy700.withValues(alpha: .30), blurRadius: 8, offset: const Offset(0, 2))],
+                      border: Border.all(color: AppColors.brand900, width: 2.5),
+                      boxShadow: [BoxShadow(color: AppColors.accent600.withValues(alpha: .55), blurRadius: 12, offset: const Offset(0, 2))],
                     ),
-                    child: Icon(_item[indeks].ikon, color: Colors.white, size: besar ? 39 : 30),
+                    child: Icon(_item[indeks].ikon, color: AppColors.brand950, size: besar ? 39 : 30),
                   ),
                 ),
               ),

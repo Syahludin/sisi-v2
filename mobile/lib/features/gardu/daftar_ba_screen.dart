@@ -702,7 +702,7 @@ class _DaftarBaScreenState extends State<DaftarBaScreen> {
     final antre = AntreanBa.i.daftar(widget.sesi.userId);
     final adaFilter = _filter.jumlahAktif > 0 || _filter.tahap != null || _filter.sumber != null || _cari.text.trim().isNotEmpty;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Daftar BA', subjudul: _muat ? 'Memuat...' : '$_jumlah BA${adaFilter ? ' sesuai filter' : ''}', actions: [
         TombolSegarkan(sibuk: _muat, onPressed: _segarkan),
       ]),

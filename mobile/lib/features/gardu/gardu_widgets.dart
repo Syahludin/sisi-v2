@@ -202,7 +202,7 @@ Future<void> tampilDetailGardu(BuildContext context, Gardu g, {VoidCallback? onR
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: const Color(0xFFF6F8FC),
+    backgroundColor: const Color(0xFFF1F5F2),
     builder: (c) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: .82,

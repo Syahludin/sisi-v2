@@ -1,0 +1,22 @@
+/* Motif jaringan SUTM (MotifJaringan.jsx). Garis memakai --motif-rgb (bawaan putih, di atas latar hijau tua); pohon --motif-pohon. */
+.motif { --motif-rgb: 255, 255, 255; --motif-pohon: rgba(143, 214, 173, .32); }
+.motif-tiang, .motif-palang { fill: none; stroke: rgba(var(--motif-rgb), .28); stroke-width: 3.2; stroke-linecap: round; }
+.motif-kawat { fill: none; stroke: rgba(var(--motif-rgb), .22); stroke-width: 2; stroke-linecap: round; }
+.motif-pohon circle { fill: var(--motif-pohon); }
+.motif-batang { fill: rgba(var(--motif-rgb), .18); }
+.motif-bushing { stroke: rgba(var(--motif-rgb), .4); stroke-width: 2; }
+.motif-sirip { fill: rgba(var(--motif-rgb), .3); }
+.motif-badan { fill: var(--accent-600); fill-opacity: .9; stroke: rgba(var(--motif-rgb), .5); stroke-width: 1.5; }
+.motif-petir { fill: var(--di-aksen); }
+
+@keyframes motifGaris { to { stroke-dashoffset: 0; } }
+@keyframes motifPudar { from { opacity: 0; } to { opacity: 1; } }
+.motif--animasi .motif-tiang { stroke-dasharray: 1; stroke-dashoffset: 1; animation: motifGaris .7s ease-out forwards; }
+.motif--animasi .motif-palang { opacity: 0; animation: motifPudar .3s ease-out forwards; }
+.motif--animasi .motif-kawat { stroke-dasharray: 1; stroke-dashoffset: 1; animation: motifGaris .55s ease-in-out forwards; }
+.motif--animasi .motif-trafo, .motif--animasi .motif-pohon { opacity: 0; animation: motifPudar .45s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .motif--animasi .motif-tiang, .motif--animasi .motif-palang, .motif--animasi .motif-kawat, .motif--animasi .motif-trafo, .motif--animasi .motif-pohon {
+    animation: none; opacity: 1; stroke-dashoffset: 0;
+  }
+}

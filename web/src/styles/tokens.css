@@ -1,63 +1,80 @@
-/* Palet SiSi "Hijau Redup": teal redup, emas redup, netral kehijauan. Nama token tetap; aplikasi HP belum ikut. */
+/* Palet SiSi "Hijau Rimba" (spec 2026-11-11-desain-hijau-rimba): hijau tua rimba, kuning petir logo, netral kehijauan.
+   Nama token tetap (dipakai seluruh halaman); nilai sama dengan mobile/lib/theme/app_colors.dart. Kontras diperiksa: npm run kontras. */
 :root {
-  --brand-950: #0f2a27;
-  --brand-900: #143732;
-  --brand-800: #1d4a45;
-  --brand-700: #2d6a64;
-  --brand-600: #3a7f78;
-  --brand-500: #4f9a92;
-  --brand-100: #dcebe8;
-  --brand-50: #eef5f3;
+  --brand-950: #0d2a1d;
+  --brand-900: #153f2c;
+  --brand-800: #1a5238;
+  --brand-700: #1f6b45;
+  --brand-600: #28804f;
+  --brand-500: #3c9a60;
+  --brand-100: #d6e9da;
+  --brand-50: #eef5ef;
 
-  --accent-700: #8f6d1a;
-  --accent-600: #d7ae45;
-  --accent-400: #dcb556;
-  --accent-100: #f5ecd0;
+  --accent-700: #725a00;
+  --accent-600: #ffd21e;    /* petir logo: hanya untuk aktif / bertegangan / perhatian */
+  --accent-400: #ffe15e;
+  --accent-100: #fff6c8;
 
-  --neutral-950: #14201e;
-  --neutral-900: #1d2b29;
-  --neutral-700: #3f5350;
-  --neutral-500: #5b6f6b;
-  --neutral-400: #8a9b97;
-  --neutral-300: #b5c3bf;
-  --neutral-200: #cdd8d3;
-  --neutral-150: #dde5e1;
-  --neutral-100: #e9efec;
-  --neutral-50: #f2f6f4;
-  --surface: #f8faf9;
+  --neutral-950: #121c17;
+  --neutral-900: #1b2822;
+  --neutral-700: #3d4f46;
+  --neutral-500: #5c6f65;
+  --neutral-400: #8a9a91;
+  --neutral-300: #b3c1b9;
+  --neutral-200: #ccd7d0;
+  --neutral-150: #dbe4de;
+  --neutral-100: #e7eee9;
+  --neutral-50: #f1f5f2;
+  --surface: #f7faf8;
 
-  --red-700: #a8433f;
-  --red-600: #bd5550;
-  --red-100: #f8e6e4;
-  --success-700: #3a6f1f;
-  --success-600: #4d8a2c;
-  --success-100: #e6f0dc;
+  --red-700: #a63a3a;
+  --red-600: #c04a4a;
+  --red-100: #fae4e4;
+  --success-700: #1f6b45;
+  --success-600: #28804f;
+  --success-100: #dff0e4;
 
-  --putih: #fff;            /* permukaan kartu / bilah; gelap = #17211f */
-  --pil-aktif: #0f2a27;
-  --utama-hover: #1d4a45;
-  --latar-dasar: #0f2a27;
+  --putih: #fff;            /* permukaan kartu / bilah; gelap = #16231c */
+  --isi-utama: #1f6b45;     /* latar tombol / pil terisi (teks --di-isi) */
+  --pil-aktif: #153f2c;
+  --utama-hover: #1a5238;
+  --isi-setuju: #1f6b45;
+  --isi-setuju-hover: #28804f;
+  --isi-bahaya: #a63a3a;
+  --isi-bahaya-hover: #c04a4a;
+  --di-isi: #fff;           /* teks di atas latar terisi hijau / merah */
+  --di-aksen: #0d2a1d;      /* teks di atas kuning petir (jangan putih) */
+  --navy-logo: #0e1f4d;     /* hanya logo dan garis tiang pada motif SUTM */
+  /* bilah atas hijau tua (diagram satu garis): sama di tema terang dan gelap kecuali latar */
+  --bar-latar: #153f2c;
+  --bar-garis: #8fbfa3;     /* bus, isolator, bingkai pemutus */
+  --bar-teks: #fff;
+  --bar-redup: #b8d9c4;
+  --bar-hover: rgba(255, 255, 255, .1);
+  --bar-kaca: rgba(255, 255, 255, .07);
+  --latar-dasar: #153f2c;
   color-scheme: light;
 
-  /* gradien header / latar SiSi (SisiMotif.gradien) */
-  --gradien-sisi: linear-gradient(135deg, #0c1614 0%, #142724 52%, #1d4a45 100%);
+  /* gradien header / latar SiSi */
+  --gradien-sisi: linear-gradient(135deg, #0b2418 0%, #153f2c 55%, #1f6b45 100%);
   --font: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Tema gelap: skala netral dibalik, tint merek jadi gelap. Dipasang lewat <html data-tema="gelap"> (tema.js). */
+/* Tema gelap: skala netral dibalik, tint merek jadi gelap, teks merek jadi hijau terang. Dipasang lewat <html data-tema="gelap"> (tema.js). */
 :root[data-tema="gelap"] {
-  --brand-950: #eef3f1; --brand-900: #dfe9e6; --brand-800: #b9d6d0; --brand-700: #3f8a82; --brand-600: #4f9a92; --brand-500: #5aa79e;
-  --brand-100: #1d3a36; --brand-50: #172b28;
-  --accent-700: #dcb556; --accent-600: #d7ae45; --accent-400: #dcb556; --accent-100: #3a3016;
-  --neutral-950: #eef3f1; --neutral-900: #d6e0dc; --neutral-700: #a8b9b4; --neutral-500: #8ba09a; --neutral-400: #6f827d; --neutral-300: #3f524e;
-  --neutral-200: #2c3d39; --neutral-150: #223330; --neutral-100: #1f2c29; --neutral-50: #101816; --surface: #17211f;
-  --red-700: #e49893; --red-600: #cf6a65; --red-100: #3a1f1d;
-  --success-700: #9bcf74; --success-600: #6fa84a; --success-100: #1f3318;
-  --putih: #17211f; --pil-aktif: #3f8a82; --utama-hover: #347a73; --latar-dasar: #0c1614;
+  --brand-950: #e6efe9; --brand-900: #cfe3d6; --brand-800: #a7d4b6; --brand-700: #6cc896; --brand-600: #5cb884; --brand-500: #4aa872;
+  --brand-100: #1e3a2a; --brand-50: #132219;
+  --accent-700: #ffd21e; --accent-600: #ffd21e; --accent-400: #ffe15e; --accent-100: #3a3016;
+  --neutral-950: #e6efe9; --neutral-900: #d0ddd5; --neutral-700: #a6b7ad; --neutral-500: #869a8e; --neutral-400: #6a7d72; --neutral-300: #3d5045;
+  --neutral-200: #2a3b31; --neutral-150: #213128; --neutral-100: #1c2a22; --neutral-50: #0f1a14; --surface: #16231c;
+  --red-700: #eb9a9a; --red-600: #d06a6a; --red-100: #3a1d1d;
+  --success-700: #6cc896; --success-600: #5cb884; --success-100: #1e3a2a;
+  --putih: #16231c; --isi-utama: #23784a; --pil-aktif: #23784a; --utama-hover: #28804f;
+  --isi-setuju: #23784a; --isi-setuju-hover: #28804f; --isi-bahaya: #a63a3a; --isi-bahaya-hover: #b84444;
+  --latar-dasar: #0b1510;
+  --bar-latar: #0d2a1d;
   color-scheme: dark;
 }
-:root[data-tema="gelap"] .k-tombol--setuju { background: #3a6f1f; }
-:root[data-tema="gelap"] .k-tombol--bahaya { background: #a8433f; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; }
@@ -71,5 +88,3 @@ body {
 button, input { font: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--accent-400); outline-offset: 2px; }
-:root[data-tema="gelap"] .k-tombol--setuju:hover:not(:disabled) { background: #4d8a2c; }
-:root[data-tema="gelap"] .k-tombol--bahaya:hover:not(:disabled) { background: #bd5550; }

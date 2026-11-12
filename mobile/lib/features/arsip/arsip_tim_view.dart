@@ -394,7 +394,7 @@ class _KartuHariArsip extends StatelessWidget {
     final h = l['header'] is Map ? l['header'] as Map : const {};
     final tgl = DateTime.tryParse('${l['tanggal']}');
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFFFCFDFF), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.neutral200)),
+      decoration: BoxDecoration(color: const Color(0xFFFFFFFF), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.neutral200)),
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [

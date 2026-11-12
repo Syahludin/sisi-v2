@@ -227,7 +227,7 @@ enum KategoriBeban {
   cukup('Cukup', '50 - 79%', Color(0xFF0284C7), Color(0xFFE0F2FE)),
   overload('Overload', '80 - 99%', Color(0xFFB45309), Color(0xFFFEF3C7)),
   buruk('Buruk', '>= 100%', Color(0xFFDC2626), Color(0xFFFEE2E2)),
-  belum('Belum Diukur', 'tanpa data', Color(0xFF64748B), Color(0xFFF1F5F9));
+  belum('Belum Diukur', 'tanpa data', Color(0xFF5C6F65), Color(0xFFE7EEE9));
 
   const KategoriBeban(this.label, this.range, this.warna, this.latar);
   final String label;

@@ -5,8 +5,9 @@
  *   Gangguan_Dashboard_Wilayah  gangguan penyulang (padam); IMPORTRANGE dari Dashboard_Padam_PLN_BABEL (se-wilayah, disaring kolom ULP)
  *   AR_Dashboard_Wilayah        auto reclose; IMPORTRANGE yang sama
  *   Tarikan_PickUp_UP3          pick up recloser (se-UP3, disaring ULP Toboali)
- * Data lama penyulang / AR (sumber Tarikan_SiMonLang / Tarikan_AR) disimpan beku sebagai ggn_Penyulang_SiMonLang /
- * ggn_AR_SiMonLang (ADMIN_migrasiGangguanSumberBaru) untuk pembanding (ADMIN_bandingGangguan).
+ * Sumber SiMonLang (Tarikan_SiMonLang / Tarikan_AR; pick up juga SiMonLang) ikut disinkron ke ggn_Penyulang_SiMonLang /
+ * ggn_AR_SiMonLang (header baku sama dengan ggn_Penyulang / ggn_AR) untuk filter Sumber website (wilayah | simonlang |
+ * banding) dan ADMIN_bandingGangguan.
  * Disalin (dinormalkan, kolom yang dipakai saja) ke spreadsheet SiSi_Gangguan (GANGGUAN_SHEET_ID): ggn_Penyulang, ggn_AR,
  * ggn_PickUp. Endpoint baca hanya membuka salinan ini (sempit, cepat, dicache), tidak pernah membuka sumber.
  *
@@ -18,29 +19,29 @@ var GGN_SINKRON_PROP_ = 'GGN_SINKRON';   // JSON { waktu, sumber, jumlah: {..}, 
 var GGN_PEMICU_FN_ = 'ADMIN_pemicuSinkronGangguan';
 var GGN_JAM_PEMICU_ = 18;
 
+var GGN_HEADER_PENYULANG_ = ['gangguan_id', 'no_apkt', 'up3', 'ulp', 'penyulang', 'kode_aset', 'peralatan', 'jenis_peralatan', 'waktu_padam',
+  'waktu_nyala', 'durasi_menit', 'indikasi', 'status', 'arus_r', 'arus_s', 'arus_t', 'arus_n', 'beban_a', 'pelanggan',
+  'pelanggan_x_durasi', 'pelanggan_vip', 'ens_kwh', 'scada', 'status_scada', 'cuaca', 'kode_fgtm', 'penyebab',
+  'ket_penyebab', 'lokasi', 'daerah_padam', 'jumlah_gardu', 'keterangan', 'petugas', 'pengawas', 'koordinat',
+  'nyala_bertahap', 'masih_padam'];
+var GGN_HEADER_AR_ = ['ar_id', 'ulp', 'penyulang', 'kode_aset', 'peralatan', 'jenis_peralatan', 'waktu_ar', 'indikasi', 'arus_r',
+  'arus_s', 'arus_t', 'arus_n', 'beban_a', 'pelanggan', 'ens_kwh', 'scada', 'status_scada', 'cuaca', 'kode_fgtm',
+  'penyebab', 'ket_penyebab', 'lokasi', 'keterangan', 'petugas', 'pengawas', 'koordinat'];
+// penyulang_sl / ar_sl = sumber SiMonLang (Tarikan_SiMonLang / Tarikan_AR), header sama dengan sumber wilayah
 var GGN_TAB_ = {
-  penyulang: {
-    sheet: 'ggn_Penyulang', sumber: 'Gangguan_Dashboard_Wilayah', acuan: 'ggn_Penyulang_SiMonLang',
-    header: ['gangguan_id', 'no_apkt', 'up3', 'ulp', 'penyulang', 'kode_aset', 'peralatan', 'jenis_peralatan', 'waktu_padam',
-      'waktu_nyala', 'durasi_menit', 'indikasi', 'status', 'arus_r', 'arus_s', 'arus_t', 'arus_n', 'beban_a', 'pelanggan',
-      'pelanggan_x_durasi', 'pelanggan_vip', 'ens_kwh', 'scada', 'status_scada', 'cuaca', 'kode_fgtm', 'penyebab',
-      'ket_penyebab', 'lokasi', 'daerah_padam', 'jumlah_gardu', 'keterangan', 'petugas', 'pengawas', 'koordinat',
-      'nyala_bertahap', 'masih_padam']
-  },
-  ar: {
-    sheet: 'ggn_AR', sumber: 'AR_Dashboard_Wilayah', acuan: 'ggn_AR_SiMonLang',
-    header: ['ar_id', 'ulp', 'penyulang', 'kode_aset', 'peralatan', 'jenis_peralatan', 'waktu_ar', 'indikasi', 'arus_r',
-      'arus_s', 'arus_t', 'arus_n', 'beban_a', 'pelanggan', 'ens_kwh', 'scada', 'status_scada', 'cuaca', 'kode_fgtm',
-      'penyebab', 'ket_penyebab', 'lokasi', 'keterangan', 'petugas', 'pengawas', 'koordinat']
-  },
+  penyulang: { sheet: 'ggn_Penyulang', sumber: 'Gangguan_Dashboard_Wilayah', header: GGN_HEADER_PENYULANG_ },
+  ar: { sheet: 'ggn_AR', sumber: 'AR_Dashboard_Wilayah', header: GGN_HEADER_AR_ },
   pickup: {
     sheet: 'ggn_PickUp', sumber: 'Tarikan_PickUp_UP3',
     header: ['pickup_id', 'ulp', 'penyulang', 'recloser', 'waktu_event', 'indikasi_relay', 'fasa', 'waktu_tindak_lanjut',
       'temuan', 'status', 'koordinat_temuan', 'koordinat_ujung', 'petugas_eksekusi', 'foto_arus', 'foto_ujung',
       'foto_temuan', 'foto_sesudah']
-  }
+  },
+  penyulang_sl: { sheet: 'ggn_Penyulang_SiMonLang', sumber: 'Tarikan_SiMonLang', header: GGN_HEADER_PENYULANG_ },
+  ar_sl: { sheet: 'ggn_AR_SiMonLang', sumber: 'Tarikan_AR', header: GGN_HEADER_AR_ }
 };
-var GGN_JENIS_ = ['penyulang', 'ar', 'pickup'];
+var GGN_JENIS_ = ['penyulang', 'ar', 'pickup', 'penyulang_sl', 'ar_sl'];
+var GGN_KUNCI_WAKTU_ = { penyulang: 'waktu_padam', ar: 'waktu_ar', pickup: 'waktu_event', penyulang_sl: 'waktu_padam', ar_sl: 'waktu_ar' };
 
 var GGN_BULAN_ = { jan: 1, januari: 1, feb: 2, februari: 2, mar: 3, maret: 3, apr: 4, april: 4, mei: 5, may: 5, jun: 6,
   juni: 6, jul: 7, juli: 7, agu: 8, agt: 8, agustus: 8, aug: 8, sep: 9, september: 9, okt: 10, oktober: 10, oct: 10,
@@ -162,6 +163,7 @@ function penyulangGgn_(v) { return teksGgn_(v).toUpperCase(); }
 
 /** Baris sumber (objek per nama header) -> objek tab ggn_. null = bukan ULP ini / tanpa waktu. */
 function normalGgn_(jenis, r, alias) {
+  if (jenis === 'penyulang_sl' || jenis === 'ar_sl') return normalSimonlangGgn_(jenis, r, alias);
   var ulp = teksGgn_(r['ULP'] || r['ULP '] || '');
   // sumber wilayah (se-Babel): hanya ULP ini, kolom ULP kosong dibuang; pick up lama: kolom kosong dibiarkan
   if (jenis === 'pickup' ? ulp && !ulpCocok_(ulp, alias) : !ulpCocok_(ulp, alias)) return null;
@@ -213,6 +215,35 @@ function normalGgn_(jenis, r, alias) {
   return p.waktu_event && p.penyulang ? p : null;
 }
 
+/**
+ * Baris Tarikan_SiMonLang / Tarikan_AR -> objek tab ggn_*_SiMonLang (kolom sama dengan sumber wilayah; yang tidak ada di
+ * SiMonLang dikosongkan). Waktu = 'Tanggal/Jam Padam' (satu sel); Kode FGTM = sel 'Kode FGTM' apa adanya (sudah berkode).
+ */
+function normalSimonlangGgn_(jenis, r, alias) {
+  var ulp = teksGgn_(r['ULP']);
+  if (!ulpCocok_(ulp, alias)) return null;
+  var w = waktuGgn_(r[jenis === 'ar_sl' ? 'Tanggal/Jam AR' : 'Tanggal/Jam Padam']), nama = teksGgn_(r['Nama PMT/OG/LBS/ACR'] || r['Nama PMT/OG/ACR']);
+  var umum = {
+    ulp: ulp, penyulang: penyulangGgn_(r['Penyulang']), peralatan: nama, jenis_peralatan: jenisAlatGgn_(nama) || teksGgn_(r['Jenis Peralatan']).toUpperCase(),
+    indikasi: teksGgn_(r['Indikasi']).toUpperCase(), arus_r: angkaGgn_(r['R']), arus_s: angkaGgn_(r['S']), arus_t: angkaGgn_(r['T']),
+    arus_n: angkaGgn_(r['N']), beban_a: angkaGgn_(r['Beban (A)']), cuaca: teksGgn_(r['Cuaca']).toUpperCase(),
+    kode_fgtm: teksGgn_(r['Kode FGTM']), lokasi: teksGgn_(r['Lokasi Gangguan']), keterangan: teksGgn_(r['Keterangan Lain']),
+    petugas: teksGgn_(r['Petugas P2D']), pengawas: teksGgn_(r['Pengawas'])
+  };
+  if (jenis === 'ar_sl') {
+    umum.ar_id = teksGgn_(r['ID']); umum.waktu_ar = w; umum.scada = teksGgn_(r['Scada']).toUpperCase();
+    umum.penyebab = teksGgn_(r['Penyebab AR']);
+    return umum.waktu_ar && umum.penyulang ? umum : null;
+  }
+  var nyala = waktuGgn_(r['Tanggal/Jam Nyala']), menit = angkaGgn_(r['Durasi Padam']);
+  umum.gangguan_id = teksGgn_(r['ID']); umum.no_apkt = teksGgn_(r['Nomor APKT']); umum.waktu_padam = w; umum.waktu_nyala = nyala;
+  umum.durasi_menit = menit; umum.ens_kwh = angkaGgn_(r['ENS (kWh)']);
+  umum.scada = teksGgn_(r['Operasi Scada?']).toUpperCase(); umum.status_scada = teksGgn_(r['Ket SCADA Tidak Bisa']);
+  umum.penyebab = teksGgn_(r['Penyebab Gangguan']);
+  umum.koordinat = koordinatTeksGgn_(r['Koordinat_Fix'] || r['KOORDINAT']);
+  return umum.waktu_padam && umum.penyulang ? umum : null;
+}
+
 /** Hanya tautan https (foto AppSheet); lainnya dibuang (tidak pernah jadi href mentah di website). */
 function linkGgn_(v) { var s = teksGgn_(v); return /^https:\/\/[^\s"'<>]+$/.test(s) ? s : ''; }
 
@@ -226,7 +257,7 @@ function susunTabGgn_(jenis, nilai, alias) {
     var o = normalGgn_(jenis, r, alias);
     if (o) hasil.push(o);
   }
-  var kunciWaktu = { penyulang: 'waktu_padam', ar: 'waktu_ar', pickup: 'waktu_event' }[jenis];
+  var kunciWaktu = GGN_KUNCI_WAKTU_[jenis];
   if (jenis === 'pickup') {
     var kembar = {};
     hasil.forEach(function (o) {
@@ -296,37 +327,17 @@ function ADMIN_siapkanSheetGangguan() {
       console.log(tab.sheet + ' dibuat.');
     }
     var h = sh.getRange(1, 1, 1, tab.header.length).getValues()[0].map(teksGgn_);
-    if (tab.header.some(function (x, i) { return h[i] !== x; })) throw new SisiError_('CONFIG_TIDAK_VALID', 'header ' + tab.sheet);
-  });
-  var info = sinkronGgn_('ADMIN');
-  console.log('Sinkron selesai: ' + JSON.stringify(info.jumlah) + '. Pasang pemicu harian: ADMIN_jadwalkanSinkronGangguan.');
-}
-
-/**
- * Editor, sekali (4 Nov 2026): pindah penyulang + AR ke sumber baru. Isi lama ggn_Penyulang / ggn_AR disalin utuh jadi
- * ggn_Penyulang_SiMonLang / ggn_AR_SiMonLang (beku, pembanding), lalu tab ggn_ dikosongkan berheader baru dan disinkron.
- * Tab yang sudah berheader baru dilewati; acuan yang sudah ada tidak pernah ditimpa.
- */
-function ADMIN_migrasiGangguanSumberBaru() {
-  pastikanPemilik_();
-  var ss = bukaSpreadsheet_(cfg_().GANGGUAN_SHEET_ID);
-  denganLock_(function () {
-    ['penyulang', 'ar'].forEach(function (j) {
-      var tab = GGN_TAB_[j], sh = ss.getSheetByName(tab.sheet);
-      if (!sh) throw new SisiError_('SHEET_TIDAK_ADA', tab.sheet);
-      var h = sh.getRange(1, 1, 1, tab.header.length).getValues()[0].map(teksGgn_);
-      if (!tab.header.some(function (x, k) { return h[k] !== x; })) { console.log(tab.sheet + ' sudah berheader baru, dilewati.'); return; }
-      if (ss.getSheetByName(tab.acuan)) throw new SisiError_('CONFIG_TIDAK_VALID', tab.acuan + ' sudah ada');
-      var salin = sh.copyTo(ss).setName(tab.acuan);
-      if (salin.getLastRow() !== sh.getLastRow()) throw new SisiError_('CONFIG_TIDAK_VALID', 'salinan ' + tab.acuan + ' tidak sama');
+    if (tab.header.some(function (x, i) { return h[i] !== x; })) {
+      // tab SiMonLang lama (arsip beku berheader lama) ditimpa: isinya dibangun ulang dari sumber SiMonLang
+      if (!/_sl$/.test(j)) throw new SisiError_('CONFIG_TIDAK_VALID', 'header ' + tab.sheet);
       sh.clear();
       sh.getRange(1, 1, 1, tab.header.length).setValues([tab.header]).setFontWeight('bold');
       sh.setFrozenRows(1);
-      console.log(tab.sheet + ' disalin ke ' + tab.acuan + ' (' + (salin.getLastRow() - 1) + ' baris), header baru dipasang.');
-    });
-  }, 30000);
+      console.log(tab.sheet + ' berheader lama, dikosongkan dan dipasang header baru.');
+    }
+  });
   var info = sinkronGgn_('ADMIN');
-  console.log('Sinkron sumber baru selesai: ' + JSON.stringify(info.jumlah) + '. Periksa: ADMIN_bandingGangguan.');
+  console.log('Sinkron selesai: ' + JSON.stringify(info.jumlah) + '. Pasang pemicu harian: ADMIN_jadwalkanSinkronGangguan.');
 }
 
 /* ===== pembanding data lama (SiMonLang) vs sumber baru ===== */
@@ -397,8 +408,7 @@ function ADMIN_bandingGangguan() {
   var ss = bukaSpreadsheet_(cfg_().GANGGUAN_SHEET_ID), sh = ss.getSheetByName(GGN_BANDING_SHEET_) || ss.insertSheet(GGN_BANDING_SHEET_);
   var keluar = [];
   ['penyulang', 'ar'].forEach(function (j) {
-    var tab = GGN_TAB_[j];
-    var h = bandingGgn_(j, tabel_('GANGGUAN_SHEET_ID', tab.acuan).rows, tabel_('GANGGUAN_SHEET_ID', tab.sheet).rows);
+    var h = bandingGgn_(j, tabel_('GANGGUAN_SHEET_ID', GGN_TAB_[j + '_sl'].sheet).rows, tabel_('GANGGUAN_SHEET_ID', GGN_TAB_[j].sheet).rows);
     console.log(j + ' ' + h.rentang.dari + ' s.d. ' + h.rentang.sampai + ': ' + JSON.stringify(h.jumlah));
     h.baris.forEach(function (b) { keluar.push([j].concat(b)); });
   });
@@ -442,12 +452,22 @@ function cekDataGgn_(data, boleh) {
   Object.keys(data || {}).forEach(function (k) { if (boleh.indexOf(k) === -1) throw new SisiError_('FIELD_TIDAK_DIKENAL', k); });
 }
 
+/**
+ * Sel tanggal-jam tab ggn_ (Sheets mengubah teks 'yyyy-MM-dd HH:mm' jadi tanggal-jam, dibaca sebagai Date) -> 'yyyy-MM-dd HH:mm' WIB.
+ * Tepat 00:00 = hanya tanggal (sel yang memang hanya tanggal, mis. tanggal tindak lanjut pick up). Jam harus ikut terkirim:
+ * website mencocokkan kejadian SiMonLang vs Wilayah per jam.
+ */
+function waktuKeluarGgn_(d) {
+  var iso = new Date(d.getTime() + 7 * 3600 * 1000).toISOString(), jam = iso.slice(11, 16);
+  return jam === '00:00' ? iso.slice(0, 10) : iso.slice(0, 10) + ' ' + jam;
+}
+
 /** Isi sel tab ggn_ -> nilai jawaban (angka tetap angka, JSON bertahap diurai). */
 function keluarGgn_(o, header) {
   var r = {};
   header.forEach(function (h) {
     var v = o[h];
-    if (v instanceof Date) v = tglJakarta_(v);
+    if (v instanceof Date) v = waktuKeluarGgn_(v);
     if ((h === 'nyala_bertahap' || h === 'masih_padam') && v) { try { v = JSON.parse(v); } catch (e) { v = null; } }
     if (v !== '' && v !== undefined && v !== null) r[h] = v;   // kosong tidak dikirim (jawaban lebih kecil)
   });
@@ -455,14 +475,25 @@ function keluarGgn_(o, header) {
 }
 
 /**
- * getHistoriGangguan { dari?, sampai? } (yyyy-MM-dd, maks GGN_RENTANG_MAKS_ hari; bawaan 1 Januari tahun ini s.d. hari ini)
+ * getHistoriGangguan { dari?, sampai?, sumber? } (yyyy-MM-dd, maks GGN_RENTANG_MAKS_ hari; bawaan 1 Januari tahun ini s.d. hari ini)
  *   -> { dari, sampai, tahunTop, sinkron, top: { penyulang|ar|pickup: [{ nama, jumlah }] x12 }, penyulang: [..], ar, pickup }.
  * top = 12 penyulang terbanyak TAHUN BERJALAN (tidak ikut rentang / filter). Baris rentang dikirim, saring + ringkasan di klien.
+ * sumber (v1.0.71, filter Sumber website): tanpa = penyulang + AR wilayah + pick up (bentuk lama, HP);
+ *   'wilayah' = penyulang + AR wilayah, pickup []; 'simonlang' = penyulang + AR + pick up dari SiMonLang;
+ *   'banding' = penyulang + AR wilayah, ditambah penyulang_sl + ar_sl (SiMonLang), tanpa pick up.
  */
 var GGN_RENTANG_MAKS_ = 731;
+var GGN_SUMBER_BACA_ = {   // sumber -> { kunci jawaban: jenis tab ggn_ }
+  '': { penyulang: 'penyulang', ar: 'ar', pickup: 'pickup' },
+  wilayah: { penyulang: 'penyulang', ar: 'ar', pickup: null },
+  simonlang: { penyulang: 'penyulang_sl', ar: 'ar_sl', pickup: 'pickup' },
+  banding: { penyulang: 'penyulang', ar: 'ar', penyulang_sl: 'penyulang_sl', ar_sl: 'ar_sl' }
+};
 function getHistoriGangguan_(sesi, data) {
   wajibAdminGgn_(sesi);
-  cekDataGgn_(data, ['dari', 'sampai']);
+  cekDataGgn_(data, ['dari', 'sampai', 'sumber']);
+  var sumber = data.sumber === undefined || data.sumber === null ? '' : String(data.sumber);
+  if (!Object.prototype.hasOwnProperty.call(GGN_SUMBER_BACA_, sumber)) throw new SisiError_('FORMAT_SALAH', 'sumber');
   var hariIni = tglJakarta_(new Date()), tahunIni = hariIni.slice(0, 4);
   var tgl = function (k, bawaan) {
     var v = data[k] === undefined || data[k] === null || data[k] === '' ? bawaan : String(data[k]);
@@ -474,16 +505,19 @@ function getHistoriGangguan_(sesi, data) {
   if (dari > sampai) throw new SisiError_('DI_LUAR_RENTANG', 'dari');
   if ((Date.parse(sampai) - Date.parse(dari)) / 864e5 > GGN_RENTANG_MAKS_) throw new SisiError_('DI_LUAR_RENTANG', 'sampai');
   var hasil = { dari: dari, sampai: sampai, tahunTop: Number(tahunIni), sinkron: infoPublikGgn_(bacaInfoSinkronGgn_()), top: {} };
-  var kunciWaktu = { penyulang: 'waktu_padam', ar: 'waktu_ar', pickup: 'waktu_event' };
-  GGN_JENIS_.forEach(function (j) {
-    var tab = GGN_TAB_[j], t = tabel_('GANGGUAN_SHEET_ID', tab.sheet), hitung = {};
-    hasil[j] = [];
+  var peta = GGN_SUMBER_BACA_[sumber];
+  Object.keys(peta).forEach(function (kunci) {
+    var j = peta[kunci];
+    hasil[kunci] = [];
+    hasil.top[kunci] = [];
+    if (!j) return;
+    var tab = GGN_TAB_[j], t = tabel_('GANGGUAN_SHEET_ID', tab.sheet), hitung = {}, kw = GGN_KUNCI_WAKTU_[j];
     t.rows.forEach(function (o) {
-      var w = o[kunciWaktu[j]] instanceof Date ? tglJakarta_(o[kunciWaktu[j]]) : String(o[kunciWaktu[j]] || ''), d = w.slice(0, 10);
+      var w = o[kw] instanceof Date ? tglJakarta_(o[kw]) : String(o[kw] || ''), d = w.slice(0, 10);
       if (w.slice(0, 4) === tahunIni && o.penyulang) hitung[o.penyulang] = (hitung[o.penyulang] || 0) + 1;
-      if (d >= dari && d <= sampai) hasil[j].push(keluarGgn_(o, tab.header));
+      if (d >= dari && d <= sampai) hasil[kunci].push(keluarGgn_(o, tab.header));
     });
-    hasil.top[j] = Object.keys(hitung).map(function (n) { return { nama: n, jumlah: hitung[n] }; })
+    hasil.top[kunci] = Object.keys(hitung).map(function (n) { return { nama: n, jumlah: hitung[n] }; })
       .sort(function (a, b) { return b.jumlah - a.jumlah || (a.nama < b.nama ? -1 : 1); }).slice(0, 12);
   });
   return hasil;

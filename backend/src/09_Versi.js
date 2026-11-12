@@ -10,6 +10,11 @@
  * Script Properties (opsional):
  *   VERSI_APP_MINIMUM   x.y.z, kosong / tidak valid = versi server (default: app wajib sama dengan backend).
  *                       Lebih besar dari versi server = dipotong ke versi server.
+ *   NOTIFIKASI_UPDATE_APP  'TIDAK' = HP TIDAK menampilkan "Update tersedia" / info server lama (hemat data petugas saat deploy harian);
+ *                       wajib update (app < VERSI_APP_MINIMUM) tetap tampil, dan Cek Pembaruan manual di Pengaturan tetap jujur.
+ *                       Kosong / selain TIDAK = notifikasi menyala (perilaku lama). Dibawa ping sebagai versi.notifikasi.
+ *   TIANG_API_URL       https://<domain>/sisi-api[-staging] : alamat API tiang di Hostinger (HP menambah /tiang.php). Kosong = HP memakai
+ *                       jalur Apps Script lama (jalur mundur). Dibawa ping sebagai versi.tiangApi.
  *   LINK_UPDATE_APP     https://... tempat APK terbaru (mis. folder Drive / App Distribution). Kosong = minta ke admin.
  *   CATATAN_UPDATE_APP  catatan singkat isi pembaruan (maks 300 karakter, satu baris per poin dipisah |).
  *   WAJIB_VERSI_APP     v0.81.1: 'YA' = server MENOLAK panggilan HP (selain ping) dari app di bawah VERSI_APP_MINIMUM,
@@ -18,7 +23,7 @@
  *   APK_FOLDER_ID       v1.0.19: folder Drive berisi APK (nama memuat versi, mis. SiSi-STG-1.0.19.apk). HP yang login
  *                       memanggil getUpdateApp lalu mengunduh + memasang APK langsung dari app (tanpa unduh terpisah).
  */
-var VERSI_BACKEND_ = '1.0.70';
+var VERSI_BACKEND_ = '1.0.69';
 
 function pecahVersi_(v) {
   var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(v === null || v === undefined ? '' : v).trim());
@@ -39,8 +44,11 @@ function infoVersi_() {
   if (!pecahVersi_(min) || bandingVersi_(min, VERSI_BACKEND_) > 0) min = VERSI_BACKEND_;
   var link = String(p.getProperty('LINK_UPDATE_APP') || '').trim();
   if (!/^https:\/\/[^\s]+$/.test(link) || link.length > 500) link = '';
+  var tiangApi = String(p.getProperty('TIANG_API_URL') || '').trim().replace(/\/+$/, '');
+  if (!/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._-]+)*$/i.test(tiangApi) || tiangApi.length > 200) tiangApi = '';
   var catatan = String(p.getProperty('CATATAN_UPDATE_APP') || '').replace(/[\x00-\x1f]+/g, ' ').trim().slice(0, 300);
-  return { server: VERSI_BACKEND_, minimum: min, linkUnduh: link, catatan: catatan };
+  var notif = String(p.getProperty('NOTIFIKASI_UPDATE_APP') || '').trim().toUpperCase() !== 'TIDAK';
+  return { server: VERSI_BACKEND_, minimum: min, linkUnduh: link, catatan: catatan, notifikasi: notif, tiangApi: tiangApi };
 }
 
 /** v0.81.1: HP di bawah versi minimum ditolak kalau WAJIB_VERSI_APP = YA. versiApp kosong = app lama (<= 0.80). */

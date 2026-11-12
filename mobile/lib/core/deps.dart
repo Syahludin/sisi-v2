@@ -11,6 +11,10 @@ import '../features/insdu/insdu_store.dart';
 import '../features/insjar/insjar_store.dart';
 import '../features/insjar/temuan_admin_antre.dart';
 import '../features/master/master_repository.dart';
+import '../features/tiang/draf_tiang.dart';
+import '../features/tiang/tiang_api.dart';
+import '../features/tiang/tiket_tiang.dart';
+import '../features/tiang/tiang_repository.dart';
 import '../features/row/foto_repository.dart';
 import '../features/row/laporan_repository.dart';
 import '../features/row/perbaikan_repository.dart';
@@ -23,6 +27,7 @@ import '../features/yandal/p0_repository.dart';
 import '../features/yandal/p0_sync.dart';
 import '../features/yandal/yandal_arsip_repository.dart';
 import 'api_client.dart';
+import 'cek_versi.dart' show PemeriksaVersi;
 import 'guard_lokasi.dart';
 import 'jam_terpercaya.dart';
 import 'notifikasi.dart';
@@ -56,6 +61,8 @@ class Deps {
     required this.insdu,
     required this.wo,
     required this.temuanAdmin,
+    required this.drafTiang,
+    required this.tiangApi,
     required this.absensi,
     required this.absensiRepo,
     required this.gudangRepo,
@@ -85,6 +92,8 @@ class Deps {
   final InsDuStore insdu; // v1.0.12: Inspeksi Gardu di HP + antrean kirim otomatis
   final WoStore wo; // v1.0.16: WO tindak lanjut tim di HP (offline) + antrean kirim otomatis
   final AntreanTemuanAdmin temuanAdmin; // v1.0.29: temuan inspeksi admin dikirim di latar
+  final DrafTiang drafTiang; // 11 Nov 2026: draf verifikasi tiang / segmen di HP, satu paket ke server, dikirim ulang otomatis
+  final TiangApi tiangApi; // 11 Nov 2026: API tiang di Hostinger (alamat dari ping; kosong = jalur Apps Script lama)
   final AntreanAbsensi absensi; // v1.0.51: absensi safety briefing, simpan di HP lalu kirim di latar
   final AbsensiRepository absensiRepo; // v1.0.51: baca absensi hari ini
   final GudangRepository gudangRepo; // v1.0.57: Gudang Material (Stok Material Yandal + Material Gudang admin)
@@ -127,6 +136,14 @@ class Deps {
     // v1.0.29: temuan inspeksi input admin (menu Temuan Inspeksi): simpan di HP, kirim di latar
     final temuanAdmin = AntreanTemuanAdmin(GudangHartekSql(db), (s, aksi, data) => api.call(aksi, token: s.token, data: data,
         timeout: Duration(seconds: aksi == 'uploadFotoTemuanInspeksi' ? 90 : 60)));
+    // 11 Nov 2026: modul tiang di Hostinger: alamat dari ping (diingat di HP), tiket 8 jam dari Apps Script
+    final alamatTiang = AlamatTiang(GudangHartekSql(db));
+    await alamatTiang.muat();
+    PemeriksaVersi.terakhir.addListener(() => unawaited(alamatTiang.perbarui(PemeriksaVersi.terakhir.value?.tiangApi)));
+    final tiangApi = TiangApi(alamat: () => alamatTiang.nilai, tiket: TiketTiang.dariApi(api), lama: api);
+    // draf verifikasi tiang (menu OPS_VERIFIKASI_TIANG): disimpan di HP, satu paket data + foto ke server, dikirim ulang otomatis
+    final drafTiang = DrafTiang(GudangHartekSql(db), tiangApi);
+    drafTiang.pasangLokal(TiangRepository(tiangApi, draf: drafTiang));
     // v1.0.51: absensi safety briefing (menu OPS_ABSENSI): antrean di HP, dikirim di latar
     final absensi = AntreanAbsensi(GudangHartekSql(db), (s, aksi, data) => api.call(aksi, token: s.token, data: data, timeout: const Duration(seconds: 60)));
     final syncCtl = SyncController(
@@ -141,6 +158,7 @@ class Deps {
       insdu: insdu,
       wo: wo,
       temuanAdmin: temuanAdmin,
+      drafTiang: drafTiang,
       absensi: absensi,
       probeOnline: () async {
         await api.call('ping', timeout: const Duration(seconds: 12));
@@ -177,6 +195,8 @@ class Deps {
       insdu: insdu,
       wo: wo,
       temuanAdmin: temuanAdmin,
+      drafTiang: drafTiang,
+      tiangApi: tiangApi,
       absensi: absensi,
       absensiRepo: AbsensiRepository(api),
       gudangRepo: GudangRepository(api),

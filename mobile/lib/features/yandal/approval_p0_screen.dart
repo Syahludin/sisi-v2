@@ -369,7 +369,7 @@ class _ApprovalP0ScreenState extends State<ApprovalP0Screen> {
   Widget build(BuildContext context) {
     final tampil = _list.where((x) => x.cocok(_cari)).toList();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Approval P0', subjudul: 'Verifikasi pekerjaan P0 Yandal', actions: [
         TombolSegarkan(sibuk: _muat, onPressed: _ambil),
       ]),
@@ -634,7 +634,7 @@ class _Pil extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(99)),
+        decoration: BoxDecoration(color: const Color(0xFFE7EEE9), borderRadius: BorderRadius.circular(99)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(ikon, size: 13, color: warna),
           const SizedBox(width: 4),
@@ -881,7 +881,7 @@ class _FotoServerState extends State<FotoServer> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Stack(fit: StackFit.expand, children: [
-              Container(color: const Color(0xFFE2E8F0)),
+              Container(color: const Color(0xFFDBE4DE)),
               if (!ada)
                 const Center(child: Icon(Icons.image_not_supported_outlined, color: AppColors.neutral400))
               else

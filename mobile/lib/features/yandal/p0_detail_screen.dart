@@ -354,7 +354,7 @@ class _P0DetailScreenState extends State<P0DetailScreen> {
           ]),
         );
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar(x.kodeTampil, subjudul: x.namaTampil, actions: [
         TombolSegarkan(sibuk: _menyegarkan || _proses, onPressed: _segarkan),
         if (x.foto.isEmpty && !x.terkirim)
@@ -579,7 +579,7 @@ class _P0KelompokScreenState extends State<P0KelompokScreen> {
     final proses = l?.where((x) => !x.selesai).toList() ?? const <P0Lokal>[];
     final selesai = l?.where((x) => x.selesai).toList() ?? const <P0Lokal>[];
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar(widget.nama, subjudul: '${proses.length} sedang · ${selesai.length} selesai'),
       body: l == null
           ? const SisiLoading(pesan: 'Memuat...', ukuran: 60)

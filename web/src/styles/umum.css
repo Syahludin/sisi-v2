@@ -5,12 +5,12 @@
   padding: 24px; text-align: center; color: #fff; background: var(--gradien-sisi);
 }
 .layar-tengah > p { margin: 0; font-size: 14px; color: rgba(255, 255, 255, .78); }
-.layar-putus { max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: #ffd1d6; }
+.layar-putus { max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: #fae4e4; }
 .layar-putus p { margin: 0; font-size: 15px; line-height: 1.5; color: #fff; }
 .layar-aksi { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
 .tombol-kuning, .tombol-garis {
   display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px;
   border-radius: 13px; font-weight: 900; font-size: 14px;
 }
-.tombol-kuning { border: 0; background: var(--accent-400); color: #14201e; }
+.tombol-kuning { border: 0; background: var(--accent-400); color: var(--di-aksen); }
 .tombol-garis { border: 1px solid rgba(255, 255, 255, .35); background: transparent; color: #fff; }

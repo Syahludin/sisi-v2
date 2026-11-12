@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Dialog from '../components/Dialog.jsx';
 import Ikon from '../components/Ikon.jsx';
 import SisiLoader from '../components/SisiLoader.jsx';
-import { JENIS_GGN, jenisGgn, MENU_GGN } from '../gangguan.js';
+import { JENIS_GGN, jenisGgn, MENU_GGN, pilihSumber } from '../gangguan.js';
 import { daftarPenyulang } from '../laporan.js';
 import { muatMaster } from '../master.js';
 import { aksiMenu } from '../katalog.js';
@@ -21,12 +21,13 @@ const TAB = [['top', 'Top 12 Penyulang', 'listrik'], ['data', 'Data Gangguan', '
  *  - Top 12 Penyulang (historiGangguan/TabTop.jsx): per jenis, tahun dipilih (?top=), tidak ikut filter.
  *  - Data Gangguan (historiGangguan/TabData.jsx): filter + grafik per bulan + perbandingan 3 tahun + pie FGTM + daftar.
  * Semua grafik: batang PMT (trip dari sumber GI / PLTD) | Section (selain PMT) bersebelahan.
- * Pilihan disimpan di alamat (?tab=&top=&penyulang=&fgtm=&dari=&sampai=&jenis=&pie=).
+ * Pilihan disimpan di alamat (?tab=&sumber=&top=&penyulang=&fgtm=&dari=&sampai=&jenis=&pie=).
  */
 export default function HistoriGangguan({ api, sesi, rute, keRute }) {
   const bolehUbah = aksiMenu(sesi, MENU_GGN) === 'UBAH';
   const q = rute.query;
   const tab = TAB.some(([k]) => k === q.tab) ? q.tab : 'top';
+  const sumber = pilihSumber(q.sumber);
   const tahunIni = hariIniWib().slice(0, 4);
   const dari = q.dari || tahunIni + '-01-01';
   const sampai = q.sampai || hariIniWib();
@@ -42,19 +43,19 @@ export default function HistoriGangguan({ api, sesi, rute, keRute }) {
   const tahunKini = Number(tahunIni);
   const tahunTop = Number(q.top) >= TAHUN_AWAL && Number(q.top) <= tahunKini ? Number(q.top) : tahunKini;
   const tahunBanding = Number(sampai.slice(0, 4));
-  const tt = useTigaTahun(api, tahunTop, ulang);
-  const tb = useTigaTahun(api, tahunBanding !== tahunTop ? tahunBanding : null, ulang);
+  const tt = useTigaTahun(api, tahunTop, ulang, sumber);
+  const tb = useTigaTahun(api, tahunBanding !== tahunTop ? tahunBanding : null, ulang, sumber);
   const banding = tahunBanding !== tahunTop ? tb : tt;
 
   const muat = useCallback(async () => {
     const no = ++urut.current;
     setMemuat(true); setGalat('');
     try {
-      const j = await api('getHistoriGangguan', { dari, sampai }, { batasMs: 60000, awal: (t) => { if (no === urut.current) setData(t.data); } });
+      const j = await api('getHistoriGangguan', { dari, sampai, sumber }, { batasMs: 60000, awal: (t) => { if (no === urut.current) setData(t.data); } });
       if (no === urut.current) setData(j.data);
     } catch (e) { if (no === urut.current) setGalat(pesan(kodeGalat(e))); }
     if (no === urut.current) setMemuat(false);
-  }, [api, dari, sampai]);
+  }, [api, dari, sampai, sumber]);
   useEffect(() => { muat(); }, [muat]);
 
   const ubah = (o) => keRute({ query: o }, { ganti: true });
@@ -71,7 +72,7 @@ export default function HistoriGangguan({ api, sesi, rute, keRute }) {
     try {
       const j = await api('sinkronHistoriGangguan', {}, { batasMs: 300000 });
       const n = j.data?.jumlah || {};
-      setInfo(`Diperbarui dari sumber: ${angka(n.penyulang)} gangguan penyulang, ${angka(n.ar)} AR, ${angka(n.pickup)} pick up (semua tahun).`);
+      setInfo(`Diperbarui dari sumber: Wilayah ${angka(n.penyulang)} gangguan penyulang, ${angka(n.ar)} AR; SiMonLang ${angka(n.penyulang_sl)} gangguan penyulang, ${angka(n.ar_sl)} AR, ${angka(n.pickup)} pick up (semua tahun).`);
       await muat();
       setUlang((x) => x + 1);
     } catch (e) { setGalat(pesan(kodeGalat(e))); }
@@ -124,12 +125,12 @@ export default function HistoriGangguan({ api, sesi, rute, keRute }) {
       </div>
 
       {tab === 'top' && (
-        <TabTop tahunTop={tahunTop} tahunKini={tahunKini} tt={tt} onTahun={(t) => ubah({ top: t === tahunKini ? '' : String(t) })} onPilih={setRincian} />
+        <TabTop sumber={sumber} ubah={ubah} tahunTop={tahunTop} tahunKini={tahunKini} tt={tt} onTahun={(t) => ubah({ top: t === tahunKini ? '' : String(t) })} onPilih={setRincian} />
       )}
       {tab === 'data' && (!data && memuat ? (
         <div className="k-tengah ggn-panel"><SisiLoader ukuran={56} label="Memuat" /><p>Loading History Gangguan</p></div>
       ) : data && (
-        <TabData data={data} memuat={memuat} ubah={ubah} ubahTanggal={ubahTanggal} banding={banding} tahunBanding={tahunBanding} tahunKini={tahunKini}
+        <TabData sumber={sumber} data={data} memuat={memuat} ubah={ubah} ubahTanggal={ubahTanggal} banding={banding} tahunBanding={tahunBanding} tahunKini={tahunKini}
           daftarNama={daftarNama} onBuka={setBuka}
           q={{ ...q, dari, sampai, penyulang: q.penyulang || '', fgtm: q.fgtm || '', dariAlamat: q.dari, sampaiAlamat: q.sampai }} />
       ))}

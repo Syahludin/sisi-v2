@@ -11,7 +11,7 @@ class HartekGaya {
   static const latar = AppColors.neutral50;
   static const tinta = AppColors.brand950;
   static const merek = AppColors.brand700;
-  static const redup = Color(0xFF4F656D); // teks sekunder, kontras cukup di latar terang
+  static const redup = Color(0xFF5C6F65); // teks sekunder, kontras cukup di latar terang
   static const garis = AppColors.neutral200;
   static const radius = 18.0;
 

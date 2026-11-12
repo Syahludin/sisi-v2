@@ -9,6 +9,8 @@ return [
     'dsn' => 'mysql:host=localhost;dbname=u000000000_sisi_staging;charset=utf8mb4',
     'user' => 'u000000000_sisi_staging',
     'sandi' => 'ISI_PASSWORD_DATABASE',
+    // folder foto tiang (LUAR public_html, ditulis PHP); bawaan <folder domain>/sisi-tiang-foto
+    'foto_dir' => '/home/u000000000/domains/contoh.id/sisi-tiang-foto-staging',
     // origin lain yang boleh memanggil (website di domain yang sama tidak perlu ditulis)
     'origin' => ['http://localhost:5173'],
 ];

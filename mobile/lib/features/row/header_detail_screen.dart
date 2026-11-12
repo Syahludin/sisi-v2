@@ -224,7 +224,7 @@ class _HeaderDetailScreenState extends State<HeaderDetailScreen> {
   Widget build(BuildContext context) {
     final h = _h;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Detail Laporan', subjudul: h?.kode, actions: [
         TombolSegarkan(sibuk: _menyegarkan || widget.deps.syncCtl.sedangSync, onPressed: _segarkan),
         MenuDataRow(

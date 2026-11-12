@@ -68,7 +68,8 @@ export default function GaspolUp3({ sesi, api, rute, keRute }) {
       const j = await api('kirimGaspolUp3', { dari: data.dari, sampai: data.sampai }, { batasMs: BATAS_GASPOL_MS });
       const r = j.data;
       setKonfirmasi(false);
-      setInfo('Terkirim ke GASPOL: ' + r.total + ' baris (' + r.tambah + ' baru, ' + r.timpa + ' diperbarui).');
+      setInfo('Terkirim ke GASPOL: ' + r.total + ' baris (' + r.tambah + ' baru, ' + r.timpa + ' diperbarui).'
+        + (r.dilewati?.length ? ' Section DIKOSONGKAN pada ' + r.dilewati.length + ' baris karena belum ada di daftar sheet DB GASPOL (data lainnya tetap terisi; tambahkan ke DB lalu kirim ulang bila perlu): ' + r.dilewati.join('; ') : ''));
     } catch (e) {
       setGalatKirim(pesan(kodeGalat(e)));
     } finally {

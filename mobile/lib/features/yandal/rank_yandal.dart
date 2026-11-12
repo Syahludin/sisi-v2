@@ -397,7 +397,7 @@ class RankYandalScreen extends StatelessWidget {
     final periode = '${data['periode'] ?? ''}';
     final bulan = periode.length == 7 ? DateFormat('MMMM y', 'id_ID').format(DateTime.parse('$periode-01')) : periode;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Rank Yandal', subjudul: bulan),
       body: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 40), children: [
         // v0.65.13 (permintaan Master Guswan 9 Okt 2026): kotak keterangan cara penilaian dihapus

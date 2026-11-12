@@ -142,3 +142,178 @@ test('samaPenyulang + saringGgn: nama penyulang dicocokkan tanpa beda huruf besa
   assert.equal(saringFilter(baris, 'penyulang', { penyulang: 'PALAS' }).length, 1);
   assert.equal(saringGgn(baris, 'penyulang', { penyulang: 'palas' }).length, 1);
 });
+
+test('cocokkanKejadian: sama persis, nilai beda, waktu bergeser, hanya di satu sumber', async () => {
+  const { cocokkanKejadian, bedaKejadian } = await import('../src/gangguan.js');
+  const sl = [
+    { penyulang: 'PALAS', waktu_padam: '2026-03-02 10:00', durasi_menit: 30, indikasi: 'GFR', kode_fgtm: 'Pohon - E1', peralatan: 'ACR A' },   // sama (kode FGTM beda tulisan)
+    { penyulang: 'PALAS', waktu_padam: '2026-03-03 08:00', durasi_menit: 20, indikasi: 'GFR', peralatan: 'ACR A' },                           // durasi beda 5
+    { penyulang: 'KOTA', waktu_padam: '2026-03-04 09:00', durasi_menit: 10 },                                                              // waktu bergeser 7 menit
+    { penyulang: 'TUNGKAL', waktu_padam: '2026-03-05 09:00' },                                                                              // hanya SiMonLang
+    { penyulang: 'PALAS', waktu_padam: '2026-03-09 09:00' },                                                                                // wilayah jauh (>30 menit): terpisah
+  ];
+  const wil = [
+    { penyulang: 'palas ', waktu_padam: '2026-03-02 10:00', durasi_menit: 30, indikasi: 'gfr', kode_fgtm: 'Pohon E1', peralatan: 'ACR A' },
+    { penyulang: 'PALAS', waktu_padam: '2026-03-03 08:00', durasi_menit: 25, indikasi: 'GFR', peralatan: 'ACR A' },
+    { penyulang: 'KOTA', waktu_padam: '2026-03-04 09:07', durasi_menit: 10 },
+    { penyulang: 'PALAS', waktu_padam: '2026-03-09 11:00' },
+  ];
+  const h = cocokkanKejadian(sl, wil, 'penyulang');
+  assert.equal(h.sama, 2, 'sama persis + waktu bergeser 7 menit (<= 1 jam) tanpa selisih lain = sama');
+  assert.equal(h.pasangan.length, 1);
+  assert.deepEqual(h.pasangan[0].beda.map((b) => [b.medan, b.sl, b.wil]), [['durasi_menit', 20, 25]]);
+  assert.deepEqual(h.hanyaSl.map((o) => o.penyulang + o.waktu_padam.slice(5, 10)), ['TUNGKAL03-05', 'PALAS03-09']);
+  assert.deepEqual(h.hanyaWil.map((o) => o.waktu_padam.slice(5, 16)), ['03-09 11:00']);
+  // toleransi angka: durasi/ENS selisih 1 dianggap sama; kosong vs terisi = beda
+  assert.deepEqual(bedaKejadian({ durasi_menit: 10 }, { durasi_menit: 11 }, 'penyulang'), []);
+  assert.deepEqual(bedaKejadian({ cuaca: '' }, { cuaca: 'HUJAN' }, 'penyulang').map((b) => b.medan), ['cuaca']);
+  // kembar (penyulang + menit sama) dicocokkan berurutan, tidak saling menimpa
+  const k = cocokkanKejadian([{ penyulang: 'A', waktu_ar: '2026-01-01 05:00' }, { penyulang: 'A', waktu_ar: '2026-01-01 05:00' }], [{ penyulang: 'A', waktu_ar: '2026-01-01 05:00' }], 'ar');
+  assert.equal(k.sama, 1);
+  assert.equal(k.hanyaSl.length, 1);
+});
+
+test('normalPeralatan: "- UJUNG", tanda baca, SP / SP. / SIMPANG dianggap sama; peralatan lain tetap beda', async () => {
+  const { normalPeralatan, bedaKejadian } = await import('../src/gangguan.js');
+  assert.equal(normalPeralatan('ACR POLSEK SIMBA - UJUNG'), normalPeralatan('ACR Polsek Simba'));
+  assert.equal(normalPeralatan('ACR PENUTUK - UJUNG'), normalPeralatan('ACR PENUTUK'));
+  assert.equal(normalPeralatan('ACR SP. TIGA'), normalPeralatan('acr simpang tiga'));
+  assert.equal(normalPeralatan('ACR SP TIGA - UJUNG'), normalPeralatan('ACR Simpang Tiga'));
+  assert.notEqual(normalPeralatan('ACR TEBING PANJANG'), normalPeralatan('PMT TANGIT'));
+  assert.equal(normalPeralatan('ACR UJUNG'), 'ACR UJUNG', 'UJUNG yang memang bagian nama tidak dibuang');
+  assert.deepEqual(bedaKejadian({ peralatan: 'ACR POLSEK SIMBA' }, { peralatan: 'ACR POLSEK SIMBA - UJUNG' }, 'ar'), []);
+  assert.deepEqual(bedaKejadian({ peralatan: 'ACR TEBING PANJANG' }, { peralatan: 'PMT TANGIT' }, 'ar').map((b) => b.medan), ['peralatan']);
+});
+
+test('cocokkanKejadian: indikasi jadi pembeda - GFR dan OCR di penyulang + menit yang sama dipasangkan sesuai indikasinya', async () => {
+  const { cocokkanKejadian } = await import('../src/gangguan.js');
+  const w = '2026-11-10 10:00';
+  // dua kejadian bersamaan; urutan di dua sumber terbalik, tetap berpasangan menurut indikasi
+  const sl = [{ penyulang: 'TUNGKAL', waktu_ar: w, indikasi: 'GFR', arus_r: 10 }, { penyulang: 'TUNGKAL', waktu_ar: w, indikasi: 'OCR', arus_r: 99 }];
+  const wil = [{ penyulang: 'TUNGKAL', waktu_ar: w, indikasi: 'OCR', arus_r: 99 }, { penyulang: 'TUNGKAL', waktu_ar: w, indikasi: 'GFR', arus_r: 10 }];
+  const h = cocokkanKejadian(sl, wil, 'ar');
+  assert.equal(h.sama, 2, 'tidak ada selisih palsu karena urutan');
+  assert.equal(h.pasangan.length + h.hanyaSl.length + h.hanyaWil.length, 0);
+  // satu kejadian saja tetapi indikasinya diinput berbeda: tetap satu pasangan dengan selisih indikasi (bukan dua "hanya")
+  const s = cocokkanKejadian([{ penyulang: 'A', waktu_ar: w, indikasi: 'GFR' }], [{ penyulang: 'A', waktu_ar: w, indikasi: 'OCR' }], 'ar');
+  assert.equal(s.pasangan.length, 1);
+  assert.deepEqual(s.pasangan[0].beda.map((b) => [b.medan, b.sl, b.wil]), [['indikasi', 'GFR', 'OCR']]);
+  assert.equal(s.hanyaSl.length + s.hanyaWil.length, 0);
+  // GFR + OCR di satu sumber, hanya GFR di sumber lain: OCR menjadi "hanya", GFR cocok
+  const b = cocokkanKejadian([{ penyulang: 'A', waktu_ar: w, indikasi: 'GFR' }, { penyulang: 'A', waktu_ar: w, indikasi: 'OCR' }], [{ penyulang: 'A', waktu_ar: w, indikasi: 'gfr' }], 'ar');
+  assert.equal(b.sama, 1);
+  assert.deepEqual(b.hanyaSl.map((o) => o.indikasi), ['OCR']);
+});
+
+test('selisih jam sampai 1 jam dianggap sama, lebih dari 1 jam berbeda; tanggal jadi acuan utama', async () => {
+  const { cocokkanKejadian } = await import('../src/gangguan.js');
+  const a = (w, extra = {}) => ({ penyulang: 'PALAS', waktu_padam: w, indikasi: 'GFR', ...extra });
+  let h = cocokkanKejadian([a('2026-11-10 10:00')], [a('2026-11-10 11:00')], 'penyulang');
+  assert.equal(h.sama, 1, 'tepat 60 menit masih sama');
+  h = cocokkanKejadian([a('2026-11-10 10:00')], [a('2026-11-10 11:01')], 'penyulang');
+  assert.equal(h.sama + h.pasangan.length, 0);
+  assert.equal(h.hanyaSl.length, 1);
+  assert.equal(h.hanyaWil.length, 1, '61 menit = dua kejadian berbeda');
+  // lewat tengah malam tetap dipasangkan bila <= 1 jam; di hari yang sama didahulukan
+  h = cocokkanKejadian([a('2026-11-10 23:50')], [a('2026-11-11 00:20')], 'penyulang');
+  assert.equal(h.sama, 1);
+  h = cocokkanKejadian([a('2026-11-10 23:50')], [a('2026-11-11 00:20'), a('2026-11-10 23:00')], 'penyulang');
+  assert.equal(h.sama, 1);
+  assert.equal(h.hanyaWil[0].waktu_padam, '2026-11-11 00:20', 'pasangan = 23:00 (tanggal sama), 00:20 sisa');
+  // waktu nyala ikut toleransi 1 jam
+  h = cocokkanKejadian([a('2026-11-10 10:00', { waktu_nyala: '2026-11-10 10:30' })], [a('2026-11-10 10:00', { waktu_nyala: '2026-11-10 11:20' })], 'penyulang');
+  assert.equal(h.sama, 1);
+  h = cocokkanKejadian([a('2026-11-10 10:00', { waktu_nyala: '2026-11-10 10:30' })], [a('2026-11-10 10:00', { waktu_nyala: '2026-11-10 11:45' })], 'penyulang');
+  assert.deepEqual(h.pasangan[0].beda.map((b) => b.medan), ['waktu_nyala']);
+});
+
+test('normalPeralatan: kurung dan bagian sesudah " - " diabaikan (OG PERMIS, PMT A - B)', async () => {
+  const { normalPeralatan, bedaKejadian } = await import('../src/gangguan.js');
+  assert.equal(normalPeralatan('OG PERMIS (GH PAYUNG)'), normalPeralatan('OG PERMIS - UJUNG'));
+  assert.equal(normalPeralatan('OG SEBAGIN (GH PAYUNG) (GH PAYUNG)'), 'OG SEBAGIN');
+  assert.equal(normalPeralatan('PMT A'), normalPeralatan('PMT A - B'));
+  assert.notEqual(normalPeralatan('PMT A - B'), normalPeralatan('PMT C - D'));
+  assert.equal(normalPeralatan('LBS SP-3'), 'LBS SP 3', 'tanda hubung tanpa spasi tetap bagian nama');
+  assert.equal(normalPeralatan('ACR TEBING PANJANG (GH X'), 'ACR TEBING PANJANG', 'kurung tak tertutup');
+  assert.deepEqual(bedaKejadian({ peralatan: 'PMT A' }, { peralatan: 'PMT A - B' }, 'penyulang'), []);
+  assert.deepEqual(bedaKejadian({ peralatan: 'ACR TEBING PANJANG' }, { peralatan: 'PMT TANGIT' }, 'penyulang').map((b) => b.medan), ['peralatan']);
+});
+
+test('normalCuaca: HUJAN DISERTAI PETIR = HUJAN + PETIR; cuaca lain tetap beda', async () => {
+  const { normalCuaca, bedaKejadian } = await import('../src/gangguan.js');
+  assert.equal(normalCuaca('HUJAN DISERTAI PETIR'), normalCuaca('HUJAN + PETIR'));
+  assert.equal(normalCuaca('Hujan  dengan petir'), 'HUJAN PETIR');
+  assert.equal(normalCuaca('HUJAN&PETIR'), 'HUJAN PETIR');
+  assert.equal(normalCuaca('HUJAN DAN ANGIN'), 'HUJAN ANGIN');
+  assert.notEqual(normalCuaca('HUJAN'), normalCuaca('HUJAN + PETIR'));
+  assert.notEqual(normalCuaca('CERAH'), normalCuaca('MENDUNG'));
+  assert.deepEqual(bedaKejadian({ cuaca: 'HUJAN DISERTAI PETIR' }, { cuaca: 'HUJAN + PETIR' }, 'penyulang'), []);
+  assert.deepEqual(bedaKejadian({ cuaca: 'HUJAN' }, { cuaca: 'HUJAN + PETIR' }, 'ar').map((b) => b.medan), ['cuaca']);
+  assert.deepEqual(bedaKejadian({ cuaca: '' }, { cuaca: 'CERAH' }, 'ar').map((b) => b.medan), ['cuaca']);
+});
+
+test('kejadian yang waktunya hanya tanggal (tanpa jam) tetap dipasangkan; beda indikasi = satu kartu', async () => {
+  const { cocokkanKejadian } = await import('../src/gangguan.js');
+  const sl = [{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA', waktu_ar: '2026-11-06', indikasi: 'OCR' }];
+  const wil = [{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA - UJUNG', waktu_ar: '2026-11-06', indikasi: 'GFR' }];
+  const h = cocokkanKejadian(sl, wil, 'ar');
+  assert.equal(h.pasangan.length, 1);
+  assert.deepEqual(h.pasangan[0].beda.map((b) => b.medan), ['indikasi']);
+  assert.equal(h.hanyaSl.length + h.hanyaWil.length, 0);
+  // dengan jam, jam tanpa nol di depan ('5:57') terbaca
+  const j = cocokkanKejadian([{ penyulang: 'A', waktu_ar: '2026-11-06 5:57', indikasi: 'GFR' }], [{ penyulang: 'A', waktu_ar: '2026-11-06 06:30', indikasi: 'OCR' }], 'ar');
+  assert.equal(j.pasangan.length, 1, '33 menit = satu kejadian');
+  // tanggal berbeda tanpa jam = bukan kejadian yang sama
+  const k = cocokkanKejadian([{ penyulang: 'A', waktu_ar: '2026-11-06', indikasi: 'GFR' }], [{ penyulang: 'A', waktu_ar: '2026-11-07', indikasi: 'GFR' }], 'ar');
+  assert.equal(k.hanyaSl.length + k.hanyaWil.length, 2);
+});
+
+test('satu sumber punya jam trip, sumber lain tidak: dianggap sama bila tanggal, penyulang, dan section sama', async () => {
+  const { cocokkanKejadian } = await import('../src/gangguan.js');
+  const sl = [{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA', waktu_ar: '2026-11-06', indikasi: 'GFR' }];                       // tanpa jam
+  const wil = [{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA - UJUNG', waktu_ar: '2026-11-06 21:24', indikasi: 'GFR' }];      // ada jam
+  let h = cocokkanKejadian(sl, wil, 'ar');
+  assert.equal(h.sama, 1, 'beda hanya "jam tidak tercatat" = sama');
+  assert.equal(h.pasangan.length + h.hanyaSl.length + h.hanyaWil.length, 0);
+  // section beda = bukan kejadian yang sama
+  h = cocokkanKejadian([{ penyulang: 'TUNGKAL', peralatan: 'ACR JELUTUNG', waktu_ar: '2026-11-06', indikasi: 'GFR' }], wil, 'ar');
+  assert.equal(h.hanyaSl.length, 1);
+  assert.equal(h.hanyaWil.length, 1);
+  // tanggal beda = bukan kejadian yang sama
+  h = cocokkanKejadian([{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA', waktu_ar: '2026-11-07', indikasi: 'GFR' }], wil, 'ar');
+  assert.equal(h.hanyaSl.length + h.hanyaWil.length, 2);
+  // penyulang beda = bukan kejadian yang sama
+  h = cocokkanKejadian([{ penyulang: 'PAKU', peralatan: 'ACR POLSEK SIMBA', waktu_ar: '2026-11-06', indikasi: 'GFR' }], wil, 'ar');
+  assert.equal(h.hanyaSl.length + h.hanyaWil.length, 2);
+  // selain jam, selisih lain tetap dilaporkan (indikasi), satu kartu
+  h = cocokkanKejadian([{ penyulang: 'TUNGKAL', peralatan: 'ACR POLSEK SIMBA', waktu_ar: '2026-11-06', indikasi: 'OCR' }], wil, 'ar');
+  assert.deepEqual(h.pasangan[0].beda.map((b) => b.medan), ['indikasi']);
+  // yang jamnya tercatat didahulukan daripada pasangan tanpa jam
+  h = cocokkanKejadian(
+    [{ penyulang: 'A', peralatan: 'ACR X', waktu_ar: '2026-11-06 10:00', indikasi: 'GFR' }, { penyulang: 'A', peralatan: 'ACR X', waktu_ar: '2026-11-06', indikasi: 'GFR' }],
+    [{ penyulang: 'A', peralatan: 'ACR X', waktu_ar: '2026-11-06 10:20', indikasi: 'GFR' }], 'ar');
+  assert.equal(h.sama, 1);
+  assert.equal(h.hanyaSl.length, 1);
+  assert.equal(h.hanyaSl[0].waktu_ar, '2026-11-06', 'yang tanpa jam jadi sisa, bukan yang berjam');
+});
+
+test('normalPeralatan: GG. / GG / GANG satu nama (ACR GANG MAWAR = ACR GG. MAWAR - UJUNG)', async () => {
+  const { normalPeralatan } = await import('../src/gangguan.js');
+  assert.equal(normalPeralatan('ACR GANG MAWAR'), normalPeralatan('ACR GG. MAWAR - UJUNG'));
+  assert.equal(normalPeralatan('ACR gg mawar'), normalPeralatan('ACR Gang. Mawar'));
+  assert.notEqual(normalPeralatan('ACR GG MAWAR'), normalPeralatan('ACR GG MELATI'));
+});
+
+test('cocokkanKejadian menyimpan pasangan yang cocok sempurna (samaDaftar) untuk rincian per penyulang', async () => {
+  const { cocokkanKejadian } = await import('../src/gangguan.js');
+  const a = (p, w, ind = 'GFR') => ({ penyulang: p, peralatan: 'ACR X', waktu_ar: w, indikasi: ind });
+  const h = cocokkanKejadian(
+    [a('PALAS', '2026-11-01 10:00'), a('PALAS', '2026-11-02 10:00', 'OCR'), a('KOTA', '2026-11-03 10:00')],
+    [a('PALAS', '2026-11-01 10:20'), a('PALAS', '2026-11-02 10:00', 'GFR'), a('TUNGKAL', '2026-11-04 10:00')], 'ar');
+  assert.equal(h.sama, 1);
+  assert.equal(h.samaDaftar.length, 1);
+  assert.equal(h.samaDaftar[0].sl.penyulang, 'PALAS');
+  assert.equal(h.samaDaftar[0].menit, 20, 'jam bergeser <= 1 jam tetap cocok');
+  assert.equal(h.pasangan.length, 1);
+  assert.deepEqual([h.hanyaSl.length, h.hanyaWil.length], [1, 1]);
+});

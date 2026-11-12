@@ -76,7 +76,7 @@ class _TimScreenState extends State<TimScreen> {
   Widget build(BuildContext context) {
     final r = RingkasTim(_laporan);
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Sub-tim ROW • ULP ${widget.sesi.ulp}', actions: [
         TombolSegarkan(sibuk: _tab == 0 && _memuat, onPressed: _segarkan),
       ]),

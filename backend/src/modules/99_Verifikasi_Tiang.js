@@ -1,7 +1,7 @@
 /**
  * Verifikasi Tiang di lapangan (permintaan Master Guswan 8 Nov 2026; rancangan docs/superpowers/specs/ (master tiang switching)).
  * Menu OPS_VERIFIKASI_TIANG (ADMIN / SUPER). Admin berjalan berurutan sepanjang jalur (urutan = induk hasil migrasi ITB) dan
- * memverifikasi tiap tiang: GPS, jenis / ukuran / konstruksi, sirkuit (1-3: penyulang, section, segmen, induk, switching, kabel),
+ * memverifikasi tiap tiang: GPS, jenis / ukuran, sisi jalan, penyulang (1-3, tiap penyulang: posisi, konstruksi, section, segmen, induk, switching, kabel),
  * 2 foto. Verifikasi Admin langsung berlaku (tanpa antrean); pengaman = log_Audit + foto. Kasus khusus: tiang baru dari lapangan
  * (ID BARU-0001), tiang tidak ditemukan (status TIDAK_DITEMUKAN), koordinat aset jauh (GPS lapangan dipakai, selisih dilaporkan).
  * Kolom aset (hasil migrasi ITB) tidak pernah diubah di sini.
@@ -12,15 +12,19 @@ var TIANG_FOTO_ = { TIANG: 'foto_tiang_id', KEPALA: 'foto_kepala_id' };
 var TIANG_POLA_ID_ = /^[0-9A-Za-z._-]{1,40}$/;
 var TIANG_KODE_LAIN_ = 'LAINNYA';
 var TIANG_SIRKUIT_MAKS_ = 3;
+/** Posisi penyulang di tiang: 1 penyulang selalu ATAS; lebih dari 1 dipilih dan tidak boleh kembar. Sisi jalan (KIRI / KANAN) milik tiang. */
+var TIANG_POSISI_ = ['ATAS', 'TENGAH', 'BAWAH'];
+var TIANG_SISI_JALAN_ = ['KIRI', 'KANAN'];
 var TIANG_STATUS_INDUK_ = ['BENAR', 'DIGANTI', 'TITIK_AWAL'];
 /** Selisih maksimum (meter) koordinat lapangan dari koordinat terdaftar tanpa harus memilih koordinat mana yang dipakai. */
 var TIANG_TOLERANSI_M_ = 10;
-var TIANG_BOLEH_ID_SIRKUIT_ = ['section_id', 'segmen_id', 'induk_tiang_id', 'switching_id', 'penghantar_id'];
+var TIANG_BOLEH_ID_SIRKUIT_ = ['section_id', 'segmen_id', 'induk_tiang_id', 'switching_id', 'penghantar_id', 'konstruksi_id'];
 
 /** Isian satu sirkuit: [nama API, kolom sheet, aturan validasi_]. */
 var TIANG_ISIAN_SIRKUIT_ = [
   ['penyulang', 'penyulang', { tipe: 'teks', wajib: true, maks: 80 }],
-  ['posisi', 'posisi', { tipe: 'pilihan', pilihan: ['KIRI', 'KANAN', 'ATAS', 'BAWAH', 'TENGAH'] }],
+  ['posisi', 'posisi', { tipe: 'pilihan', pilihan: TIANG_POSISI_ }],
+  ['konstruksiId', 'konstruksi_id', { tipe: 'uuid' }],
   ['sectionId', 'section_id', { tipe: 'teks', maks: 64, pola: /^[0-9A-Za-z_-]+$/ }],
   ['segmenId', 'segmen_id', { tipe: 'teks', maks: 20, pola: /^SGM-\d{4,}$/ }],
   ['indukTiangId', 'induk_tiang_id', { tipe: 'teks', maks: 40, pola: TIANG_POLA_ID_ }],
@@ -42,23 +46,24 @@ function kurangLengkapTiang_(t) {
   var k = [];
   if (!t.jenisTiang) k.push('Jenis Tiang');
   if (!t.ukuranTiang) k.push('Ukuran Tiang');
-  if (!t.konstruksiId) k.push('Konstruksi');
+  if (!t.sisiJalan) k.push('Sisi Jalan');
   if (t.foto) {
-    if (!t.foto.TIANG) k.push('Foto Tiang Utuh');
-    if (!t.foto.KEPALA) k.push('Foto Kepala Tiang');
+    if (!t.foto.TIANG) k.push('Foto Full Tiang');
+    if (!t.foto.KEPALA) k.push('Foto Konstruksi SUTM');
   }
   var s = t.sirkuit || [];
-  if (!s.length) k.push('Sirkuit');
+  if (!s.length) k.push('Penyulang');
   s.forEach(function (c, i) {
-    var p = s.length > 1 ? 'Sirkuit ' + (i + 1) + ': ' : '';
-    [['penyulang', 'Penyulang'], ['sectionId', 'Section'], ['segmenId', 'Segmen'], ['posisi', 'Posisi'], ['peranTitik', 'Peran Titik'], ['jenisKabel', 'Jenis Kabel']]
+    var p = s.length > 1 ? 'Penyulang ' + (i + 1) + ': ' : '';
+    [['penyulang', 'Penyulang'], ['sectionId', 'Section'], ['segmenId', 'Segmen'], ['konstruksiId', 'Konstruksi'], ['peranTitik', 'Peran Titik'], ['jenisKabel', 'Jenis Kabel']]
       .forEach(function (x) { if (!c[x[0]]) k.push(p + x[1]); });
+    if (s.length > 1 && !c.posisi) k.push(p + 'Posisi');
     if (!c.ukuranMm2) k.push(p + 'Ukuran mm²');
     if (c.indukStatus === 'TITIK_AWAL') {
       if (c.indukTiangId) k.push(p + 'Tiang Awal Tidak Boleh Punya Induk');
       if (!c.indukKeterangan) k.push(p + 'Keterangan Tiang Awal SKTM');
     } else if (TIANG_STATUS_INDUK_.indexOf(c.indukStatus) < 0 || !c.indukTiangId) {
-      k.push(p + 'Konfirmasi Induk Tiang');
+      k.push(p + 'Konfirmasi Tiang Hulu');
     }
     if (!c.switchingId && !c.switchingKeterangan) k.push(p + 'Switching Hulu atau Keterangan Tanpa Switching');
   });
@@ -67,9 +72,12 @@ function kurangLengkapTiang_(t) {
 
 function kodeJalurTiang_(r) { return teksSwc_(r.kode_nama_aset) || TIANG_KODE_LAIN_; }
 
-function sirkuitKeApi_(r) {
+function sirkuitKeApi_(r, tiang) {
   var o = { sirkuitId: teksSwc_(r.sirkuit_id) };
   TIANG_ISIAN_SIRKUIT_.forEach(function (x) { o[x[0]] = x[2].tipe === 'angka' ? angkaSwc_(r[x[1]]) : teksSwc_(r[x[1]]); });
+  // data lama: konstruksi satu per tiang disalin ke tiap penyulang; posisi lama (KIRI / KANAN) dikosongkan agar dipilih ulang
+  if (!o.konstruksiId && tiang) o.konstruksiId = teksSwc_(tiang.konstruksi_lapangan);
+  if (TIANG_POSISI_.indexOf(o.posisi) < 0) o.posisi = '';
   o.gawangM = angkaSwc_(r.gawang_m);
   o.segmenAset = teksSwc_(r.segmen_aset);
   o.tandaCekGawang = teksSwc_(r.tanda_cek_gawang);
@@ -82,12 +90,13 @@ function tiangKeApi_(r, sirkuit) {
     tiangId: teksSwc_(r.tiang_id), nama: teksSwc_(r.nama), kode: kodeJalurTiang_(r),
     latAset: angkaSwc_(r.lat_aset), lngAset: angkaSwc_(r.lng_aset), lat: angkaSwc_(r.lat), lng: angkaSwc_(r.lng),
     sumberKoordinat: teksSwc_(r.sumber_koordinat), jenisTiangAset: teksSwc_(r.jenis_tiang_aset), ukuranTiangAset: teksSwc_(r.ukuran_tiang_aset),
-    jenisTiang: teksSwc_(r.jenis_tiang), ukuranTiang: teksSwc_(r.ukuran_tiang), konstruksiId: teksSwc_(r.konstruksi_lapangan),
+    jenisTiang: teksSwc_(r.jenis_tiang), ukuranTiang: teksSwc_(r.ukuran_tiang), sisiJalan: teksSwc_(r.sisi_jalan),
     jumlahSirkuit: angkaSwc_(r.jumlah_sirkuit) || 1, tandaCek: teksSwc_(r.tanda_cek), statusVerifikasi: teksSwc_(r.status_verifikasi) || 'BELUM',
     verifikasiTerakhir: teksSwc_(r.verifikasi_terakhir), keteranganSumber: teksSwc_(r.keterangan_sumber),
     foto: { TIANG: !!teksSwc_(r.foto_tiang_id), KEPALA: !!teksSwc_(r.foto_kepala_id) }, revision: Number(r.revision) || 0,
-    sirkuit: (sirkuit || []).map(sirkuitKeApi_)
+    sirkuit: (sirkuit || []).map(function (c) { return sirkuitKeApi_(c, r); })
   };
+  if (o.sirkuit.length === 1) o.sirkuit[0].posisi = TIANG_POSISI_[0];
   if (o.statusVerifikasi === 'TERVERIFIKASI') o.kurang = kurangLengkapTiang_(o);   // hijau di HP hanya bila kosong
   return o;
 }
@@ -155,6 +164,40 @@ function getTiangJalur_(sesi, data) {
   return { kode: d.kode, tiang: tiang.map(function (r) { return tiangKeApi_(r, sirkuit[teksSwc_(r.tiang_id)]); }) };
 }
 
+/**
+ * getPetaTiang {} -> { titik: [{tiangId, nama, kode, lat, lng, penyulang: [..]}], garis: [{tiangId, indukTiangId, penyulang}], tanpaKoordinat }.
+ * Untuk peta Master Jaringan: hanya tiang Terverifikasi yang punya koordinat; garis = sirkuit -> induk (tiap penyulang sendiri-sendiri),
+ * hanya bila kedua ujungnya ada di titik. Tabel dibaca sekali, tanpa foto/detail (satu tiang dibuka lewat getTiangJalur).
+ */
+function getPetaTiang_(sesi, data) {
+  wajibAdminTiang_(sesi);
+  validasi_(data || {}, {});
+  var sirkuit = {};
+  tabelTiangSisi_('db_Tiang_Sirkuit').rows.forEach(function (r) {
+    if (isAktif_(r.aktif)) (sirkuit[teksSwc_(r.tiang_id)] = sirkuit[teksSwc_(r.tiang_id)] || []).push(r);
+  });
+  var titik = [], ada = {}, tanpa = 0;
+  tabelTiangSisi_('db_Tiang').rows.forEach(function (r) {
+    var id = teksSwc_(r.tiang_id);
+    if (!id || !isAktif_(r.aktif) || teksSwc_(r.status_verifikasi) !== 'TERVERIFIKASI') return;
+    var lat = angkaSwc_(r.lat), lng = angkaSwc_(r.lng);
+    if (lat === null || lng === null) { lat = angkaSwc_(r.lat_aset); lng = angkaSwc_(r.lng_aset); }
+    if (lat === null || lng === null) { tanpa++; return; }
+    var pny = [];
+    (sirkuit[id] || []).forEach(function (c) { var p = teksSwc_(c.penyulang); if (p && pny.indexOf(p) < 0) pny.push(p); });
+    ada[id] = true;
+    titik.push({ tiangId: id, nama: teksSwc_(r.nama), kode: kodeJalurTiang_(r), lat: lat, lng: lng, penyulang: pny });
+  });
+  var garis = [];
+  titik.forEach(function (t) {
+    (sirkuit[t.tiangId] || []).forEach(function (c) {
+      var induk = teksSwc_(c.induk_tiang_id), p = teksSwc_(c.penyulang);
+      if (induk && p && ada[induk]) garis.push({ tiangId: t.tiangId, indukTiangId: induk, penyulang: p });
+    });
+  });
+  return { titik: titik, garis: garis, tanpaKoordinat: tanpa };
+}
+
 /** Validasi daftar sirkuit kiriman (1-3 item, sirkuitId unik). */
 function bacaSirkuitKiriman_(daftar) {
   if (!Array.isArray(daftar)) throw new SisiError_('TIPE_SALAH', 'sirkuit');
@@ -201,7 +244,7 @@ function isianSirkuit_(s, ctx) {
 }
 
 /**
- * simpanVerifikasiTiang { tiangId?, revision?, statusVerifikasi, koordinat?, akurasiM?, jenisTiang?, ukuranTiang?, konstruksiId?,
+ * simpanVerifikasiTiang { tiangId?, revision?, statusVerifikasi, koordinat?, akurasiM?, jenisTiang?, ukuranTiang?, sisiJalan?,
  * nama?, kode?, sirkuit: [...] } -> { tiang, selisihM }. Tanpa tiangId = tiang baru dari lapangan (nama + kode + koordinat wajib).
  * TIDAK_DITEMUKAN: hanya status yang dicatat (koordinat / sirkuit tidak wajib, data lama tetap).
  */
@@ -214,8 +257,9 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
     tiangId: { tipe: 'teks', maks: 40, pola: TIANG_POLA_ID_ }, revision: { tipe: 'angka', bulat: true, min: 1 },
     statusVerifikasi: { tipe: 'pilihan', wajib: true, pilihan: TIANG_STATUS_ }, koordinat: { tipe: 'koordinat' },
     akurasiM: { tipe: 'angka', min: 0, max: 500 }, jenisTiang: { tipe: 'pilihan', pilihan: ['BETON', 'BESI', 'KAYU'] },
-    ukuranTiang: { tipe: 'teks', maks: 40 }, konstruksiId: { tipe: 'uuid' },
+    ukuranTiang: { tipe: 'teks', maks: 40 }, konstruksiId: { tipe: 'uuid' }, sisiJalan: { tipe: 'pilihan', pilihan: TIANG_SISI_JALAN_ },
     dasarKoordinat: { tipe: 'pilihan', pilihan: ['TERDAFTAR', 'LAPANGAN'] },
+    sumberKoordinat: { tipe: 'pilihan', pilihan: ['GPS', 'PETA'] },   // v1.0.73: PETA = titik dipilih di peta (bukan GPS di lokasi)
     nama: { tipe: 'teks', maks: 80 }, kode: { tipe: 'teks', maks: 3, pola: /^[A-Z]{3}$/ }
   });
   var hilang = d.statusVerifikasi === 'TIDAK_DITEMUKAN';
@@ -224,7 +268,11 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
   if (!hilang && !d.koordinat) throw new SisiError_('FIELD_WAJIB', 'koordinat');
   var sirkuitKirim = hilang && kiriman === undefined ? [] : bacaSirkuitKiriman_(kiriman);
   wajibKonfigTiang_();
-  if (d.konstruksiId && !daftarKonstruksi_().some(function (k) { return k.konstruksiId === d.konstruksiId; })) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'konstruksi');
+  // kiriman lama: konstruksiId satu per tiang dipakai untuk penyulang yang belum membawa konstruksi sendiri
+  sirkuitKirim.forEach(function (s) { if (!s.konstruksiId && d.konstruksiId) s.konstruksiId = d.konstruksiId; });
+  var konstruksi = {};
+  daftarKonstruksi_().forEach(function (k) { konstruksi[k.konstruksiId] = true; });
+  sirkuitKirim.forEach(function (s) { if (s.konstruksiId && !konstruksi[s.konstruksiId]) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'konstruksi'); });
   var jar = jaringanSwitching_(), switching = {}, segmen = {};
   tabelSwitching_().rows.forEach(function (r) { if (isAktif_(r.aktif)) switching[teksSwc_(r.switching_id)] = true; });
   tabelTiangSisi_(SGM_SHEET_).rows.forEach(function (r) {
@@ -251,11 +299,12 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
       selisih = jarakAset === null ? null : Math.round(jarakAset);
       u.lat = pakaiAset ? angkaSwc_(lama.lat_aset) : d.koordinat.lat;
       u.lng = pakaiAset ? angkaSwc_(lama.lng_aset) : d.koordinat.lng;
-      u.sumber_koordinat = pakaiAset ? 'aset' : 'lapangan';
-      u.akurasi_m = pakaiAset || d.akurasiM === undefined ? '' : d.akurasiM;
+      var dariPeta = !pakaiAset && d.sumberKoordinat === 'PETA';
+      u.sumber_koordinat = pakaiAset ? 'aset' : (dariPeta ? 'peta' : 'lapangan');
+      u.akurasi_m = pakaiAset || dariPeta || d.akurasiM === undefined ? '' : d.akurasiM;
       u.jenis_tiang = d.jenisTiang || '';
       u.ukuran_tiang = d.ukuranTiang || '';
-      u.konstruksi_lapangan = d.konstruksiId || '';
+      u.sisi_jalan = d.sisiJalan || '';
       u.jumlah_sirkuit = sirkuitKirim.length;
     }
     if (d.statusVerifikasi === 'TERVERIFIKASI') u.tanda_cek = '';
@@ -265,6 +314,10 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
     var ctx = { jar: jar, segmen: segmen, switching: switching, tiang: petaTiang, tiangId: id, lat: hilang ? null : u.lat, lng: hilang ? null : u.lng,
       verif: d.statusVerifikasi === 'TERVERIFIKASI' };
     var ubahS = [], baruS = [], dipakai = {}, usSemua = sirkuitKirim.map(function (s) { return isianSirkuit_(s, ctx); });
+    if (usSemua.length === 1) usSemua[0].posisi = TIANG_POSISI_[0];
+    else usSemua.forEach(function (us, n) {
+      if (us.posisi && usSemua.some(function (o, m) { return m < n && o.posisi === us.posisi; })) throw new SisiError_('DATA_TIDAK_VALID', 'posisi penyulang kembar');
+    });
     sirkuitKirim.forEach(function (s, n) {
       var us = usSemua[n];
       us.status_verifikasi = d.statusVerifikasi;
@@ -284,7 +337,7 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
     });
     // Terverifikasi = data wajib lengkap + induk dikonfirmasi (nilai sesudah section diisi dari segmen); foto dicek HP, server hanya bila sudah ada
     if (ctx.verif) {
-      var kurang = kurangLengkapTiang_({ jenisTiang: d.jenisTiang, ukuranTiang: d.ukuranTiang, konstruksiId: d.konstruksiId, sirkuit: usSemua.map(function (us) {
+      var kurang = kurangLengkapTiang_({ jenisTiang: d.jenisTiang, ukuranTiang: d.ukuranTiang, sisiJalan: d.sisiJalan, sirkuit: usSemua.map(function (us) {
         var o = {};
         TIANG_ISIAN_SIRKUIT_.forEach(function (x) { o[x[0]] = us[x[1]]; });
         return o;

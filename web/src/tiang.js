@@ -77,3 +77,29 @@ export function payloadSegmen(i) {
   if (i.segmenId) { p.segmenId = i.segmenId; p.revision = i.revision; p.aktif = !!i.aktif; }
   return p;
 }
+
+/** Status satu tiang untuk tampilan web: kunci saringan, label, kelas lencana k-status (ok / draf / tolak / belum). Mirror Tiang.statusTampil HP. */
+export function statusTiang(t) {
+  const s = t?.statusVerifikasi || 'BELUM';
+  if (s === 'TERVERIFIKASI') return (t.kurang || []).length ? { kunci: 'DILENGKAPI', label: 'Perlu Dilengkapi', kelas: 'draf' } : { kunci: 'TERVERIFIKASI', label: 'Terverifikasi', kelas: 'ok' };
+  if (s === 'PERLU_PERBAIKAN') return { kunci: 'PERLU_PERBAIKAN', label: 'Perlu Perbaikan', kelas: 'tolak' };
+  if (s === 'TIDAK_DITEMUKAN') return { kunci: 'TIDAK_DITEMUKAN', label: 'Tidak Ditemukan', kelas: 'belum' };
+  return { kunci: 'BELUM', label: 'Belum Diverifikasi', kelas: 'belum' };
+}
+
+/** Pilihan saringan rincian jalur ('' = semua, CEK = bertanda cek). */
+export const SARING_TIANG = [['', 'Semua'], ['BELUM', 'Belum'], ['TERVERIFIKASI', 'Terverifikasi'], ['DILENGKAPI', 'Perlu Dilengkapi'],
+  ['PERLU_PERBAIKAN', 'Perlu Perbaikan'], ['TIDAK_DITEMUKAN', 'Tidak Ditemukan'], ['CEK', 'Bertanda Cek']];
+
+const cocokStatus = (t, status) => !status || (status === 'CEK' ? !!teks(t.tandaCek) : statusTiang(t).kunci === status);
+
+/** Saring tiang satu jalur menurut status dan teks cari (nama / id), urut nama. */
+export const saringTiang = (daftar, { status = '', cari = '' } = {}) => {
+  const q = teks(cari).toLowerCase();
+  return (daftar || [])
+    .filter((t) => cocokStatus(t, status) && (!q || teks(t.nama).toLowerCase().includes(q) || teks(t.tiangId).toLowerCase().includes(q)))
+    .sort((a, b) => teks(a.nama).localeCompare(teks(b.nama), 'id', { numeric: true }));
+};
+
+/** Jumlah tiang per pilihan saringan (untuk angka di chip). */
+export const hitungStatusTiang = (daftar) => Object.fromEntries(SARING_TIANG.map(([k]) => [k, (daftar || []).filter((t) => cocokStatus(t, k)).length]));

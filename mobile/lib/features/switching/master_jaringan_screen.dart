@@ -17,7 +17,7 @@ class MasterJaringanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final swc = SwitchingRepository(deps.api), tiang = TiangRepository(deps.api);
+    final swc = SwitchingRepository(deps.api, deps.tiangApi), tiang = TiangRepository(deps.tiangApi, draf: deps.drafTiang);
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -25,7 +25,7 @@ class MasterJaringanScreen extends StatelessWidget {
         body: TabBarView(
           physics: const NeverScrollableScrollPhysics(), // geser peta tidak boleh pindah tab
           children: [
-            SwitchingScreen(deps: deps, sesi: sesi, repo: swc, embedded: true),
+            SwitchingScreen(deps: deps, sesi: sesi, repo: swc, tiangRepo: tiang, embedded: true),
             JaringanScreen(sesi: sesi, repo: swc),
             SegmenScreen(sesi: sesi, repo: tiang, embedded: true),
           ],

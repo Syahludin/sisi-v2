@@ -33,7 +33,7 @@ class AngkaRingkas {
         const Color(0xFF835800),
         AppColors.accent100
       ),
-    'non-teknik' || 'non - teknik' => (const Color(0xFFE2E8F0), const Color(0x2E94A3B8), AppColors.neutral700, AppColors.neutral150),
+    'non-teknik' || 'non - teknik' => (const Color(0xFFDBE4DE), const Color(0x2E94A3B8), AppColors.neutral700, AppColors.neutral150),
     'tebang besar' => (const Color(0xFFFECACA), const Color(0x33EF4444), AppColors.red700, AppColors.red100),
     'total pekerjaan' || 'total' || 'total tiang' || 'total eksekusi' => (
         const Color(0xFF86EFAC),
@@ -383,7 +383,7 @@ class PanelAngkaRingkas extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, height: 1.2, color: Color(0xFF4F656D))),
+                          style: const TextStyle(fontSize: 12, height: 1.2, color: Color(0xFF5C6F65))),
                     ]),
                   ),
                 ),
@@ -393,7 +393,7 @@ class PanelAngkaRingkas extends StatelessWidget {
             const SizedBox(height: 12),
             const Divider(height: 1, color: AppColors.neutral200),
             const SizedBox(height: 10),
-            Text(keterangan!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: Color(0xFF4F656D))),
+            Text(keterangan!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: Color(0xFF5C6F65))),
           ],
         ]),
       );

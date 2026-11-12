@@ -11,6 +11,7 @@ import '../features/row/foto_repository.dart';
 import '../features/row/laporan_repository.dart';
 import '../features/row/row_outbox.dart';
 import '../features/row/sync_service.dart';
+import '../features/tiang/draf_tiang.dart';
 import '../features/wo/wo_store.dart';
 import '../features/yandal/p0_sync.dart';
 import 'api_client.dart';
@@ -29,6 +30,7 @@ class SyncController extends ChangeNotifier {
       InsDuStore? insdu,
       WoStore? wo,
       AntreanTemuanAdmin? temuanAdmin,
+      DrafTiang? drafTiang,
       AntreanAbsensi? absensi,
       Future<void> Function()? probeOnline})
       : _p0 = p0,
@@ -38,6 +40,7 @@ class SyncController extends ChangeNotifier {
         _insdu = insdu,
         _wo = wo,
         _temuanAdmin = temuanAdmin,
+        _drafTiang = drafTiang,
         _absensi = absensi,
         _probeOnline = probeOnline;
 
@@ -51,6 +54,7 @@ class SyncController extends ChangeNotifier {
   final InsJarStore? _insjar; // v1.0.0: Inspeksi Jaringan lokal + kirim otomatis
   final InsDuStore? _insdu; // v1.0.12: Inspeksi Gardu lokal + kirim otomatis
   final WoStore? _wo; // v1.0.16: WO tindak lanjut tim offline + kirim otomatis
+  final DrafTiang? _drafTiang; // 11 Nov 2026: draf verifikasi tiang / segmen di HP, dikirim berurutan di latar (dihitung sebagai data belum terkirim)
   final AntreanTemuanAdmin? _temuanAdmin; // v1.0.29: temuan inspeksi admin, kirim di latar (tanpa hitungan / pesan)
   final AntreanAbsensi? _absensi; // v1.0.51: absensi safety briefing, kirim di latar (dihitung sebagai data belum terkirim)
   final Future<void> Function()? _probeOnline; // v1.0.3: cek koneksi tanpa menunggu ada data antrean
@@ -152,6 +156,19 @@ class SyncController extends ChangeNotifier {
     return a != null && sesi.bisaUbah(AntreanAbsensi.menu) ? await a.jumlahTertunda(sesi.userId) : 0;
   }
 
+  Future<int> _jumlahTiang(Sesi s) async {
+    final a = _drafTiang;
+    return a != null && s.bisaUbah(DrafTiang.menu) ? await a.jumlahTertunda(s.userId) : 0;
+  }
+
+  /// Kirim draf verifikasi tiang di latar (penjaga jalan-ganda ada di DrafTiang), lalu hitung ulang.
+  Future<void> _sinkronTiang(Sesi s) async {
+    final a = _drafTiang;
+    if (a == null || !s.bisaUbah(DrafTiang.menu)) return;
+    await a.kirimSemua(s);
+    if (_sesi?.token == s.token) await hitungUlang();
+  }
+
   /// v1.0.51: kirim antrean absensi di latar (punya penjaga jalan-ganda sendiri), terpisah dari sinkron modul tim.
   Future<void> _sinkronAbsensi(Sesi s) async {
     final a = _absensi;
@@ -214,7 +231,8 @@ class SyncController extends ChangeNotifier {
         await _jumlahInsJar(s) +
         await _jumlahInsDu(s) +
         await _jumlahWo(s) +
-        await _jumlahAbsensi(s);
+        await _jumlahAbsensi(s) +
+        await _jumlahTiang(s);
     final tindakan = await _outbox.jumlahPerluTindakan(s.userId);
     final gagal = await _foto.jumlahGagal(s.userId);
     if (_sesi?.userId != s.userId) return; // v0.62.5: sesi berganti selama menghitung
@@ -255,6 +273,7 @@ class SyncController extends ChangeNotifier {
     }
     unawaited(_sinkronWo(s)); // v1.0.16
     unawaited(_sinkronAbsensi(s)); // v1.0.51
+    unawaited(_sinkronTiang(s)); // v1.0.71
     final ta = _temuanAdmin;
     if (ta != null && s.bisaUbah(AntreanTemuanAdmin.menu)) unawaited(ta.kirim(s)); // v1.0.29: penjaga jalan-ganda sendiri
     if (_jalan) {

@@ -8,13 +8,13 @@ export const MENU_SWITCHING = 'OPS_MASTER_SWITCHING';
 /** Jenis peralatan: label + warna titik peta / lencana (sama dengan HP). bisaTrip = bawaan isian. */
 export const JENIS_SWITCHING = [
   { kode: 'PMT', label: 'PMT', nama: 'Pemutus (PMT)', warna: '#7c3aed', bisaTrip: true },
-  { kode: 'ACR', label: 'ACR', nama: 'Recloser (ACR)', warna: '#a8433f', bisaTrip: true },
+  { kode: 'ACR', label: 'ACR', nama: 'Recloser (ACR)', warna: '#c04a4a', bisaTrip: true },
   { kode: 'SSO', label: 'SSO', nama: 'Sectionalizer (SSO)', warna: '#ea580c', bisaTrip: false },
-  { kode: 'LBS', label: 'LBS', nama: 'Load Break Switch (LBS)', warna: '#1d6a73', bisaTrip: false },
-  { kode: 'FCO', label: 'FCO', nama: 'Fuse Cut Out (FCO)', warna: '#3a6f1f', bisaTrip: true },
-  { kode: 'DS', label: 'DS', nama: 'Disconnecting Switch (DS)', warna: '#5b6f6b', bisaTrip: false },
+  { kode: 'LBS', label: 'LBS', nama: 'Load Break Switch (LBS)', warna: '#2f6fb3', bisaTrip: false },
+  { kode: 'FCO', label: 'FCO', nama: 'Fuse Cut Out (FCO)', warna: '#1f6b45', bisaTrip: true },
+  { kode: 'DS', label: 'DS', nama: 'Disconnecting Switch (DS)', warna: '#5c6f65', bisaTrip: false },
 ];
-export const infoJenis = (kode) => JENIS_SWITCHING.find((j) => j.kode === kode) || { kode, label: kode || '-', nama: kode || '-', warna: '#5b6f6b', bisaTrip: false };
+export const infoJenis = (kode) => JENIS_SWITCHING.find((j) => j.kode === kode) || { kode, label: kode || '-', nama: kode || '-', warna: '#5c6f65', bisaTrip: false };
 
 export const STATUS_VERIFIKASI = {
   TERVERIFIKASI: { label: 'Terverifikasi', kelas: 'ok' },

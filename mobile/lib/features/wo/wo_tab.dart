@@ -25,8 +25,8 @@ class TabStatusWo extends StatelessWidget {
   final String? keteranganAktif;
   final String keteranganSelesai;
 
-  static const gradasiAktif = [Color(0xFF0788AA), Color(0xFF086D8A)];
-  static const gradasiSelesai = [Color(0xFF219064), Color(0xFF167451)];
+  static const gradasiAktif = [Color(0xFF28804F), Color(0xFF1F6B45)];
+  static const gradasiSelesai = [Color(0xFF28804F), Color(0xFF1F6B45)];
 
   @override
   Widget build(BuildContext context) {

@@ -131,7 +131,7 @@ class _LaporanYandalTimScreenState extends State<LaporanYandalTimScreen> {
     final bisaMaju = tgl != null && maks != null && tgl.isBefore(maks);
     final judulTgl = tgl == null ? 'Memuat...' : DateFormat('EEEE, d MMMM y', 'id_ID').format(tgl);
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Yandal • ULP ${widget.sesi.ulp}', actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: () => _muat(beriTahu: true)),
       ]),

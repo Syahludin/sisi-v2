@@ -102,7 +102,7 @@ class KotakFoto extends StatelessWidget {
               width: 96,
               height: 72,
               child: Image.file(File(p),
-                  fit: BoxFit.cover, cacheWidth: 300, errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFE2E8F0), child: Icon(Icons.image_outlined, color: AppColors.neutral400))),
+                  fit: BoxFit.cover, cacheWidth: 300, errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFDBE4DE), child: Icon(Icons.image_outlined, color: AppColors.neutral400))),
             ),
           ),
           const SizedBox(width: 12),

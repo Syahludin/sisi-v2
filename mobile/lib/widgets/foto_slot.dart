@@ -61,7 +61,7 @@ class _Kotak extends StatelessWidget {
       AspectRatio(
         aspectRatio: 1,
         child: Material(
-          color: const Color(0xFFF8FAFC),
+          color: const Color(0xFFF1F5F2),
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),

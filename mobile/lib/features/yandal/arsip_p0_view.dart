@@ -306,7 +306,7 @@ class KartuShiftArsip extends StatelessWidget {
     final petugas = [for (final p in (shift['petugas'] as List<dynamic>?) ?? const <dynamic>[]) '$p'];
     final sudahFinal = '${shift['rekapFinal'] ?? ''}'.isNotEmpty;
     return Material(
-      color: const Color(0xFFFCFDFF),
+      color: const Color(0xFFFFFFFF),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -382,7 +382,7 @@ class ArsipShiftScreen extends StatelessWidget {
           ]),
         );
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Shift ${shift['shift'] ?? '-'}',
           subjudul: tgl == null ? '${shift['tanggal']}' : DateFormat('EEEE, d MMMM y', 'id_ID').format(tgl)),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 40), children: [

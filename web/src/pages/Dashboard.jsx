@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BATAS_WAKTU_MS, panggil } from '../api.js';
-import { bacaMysql, bolehBacaMysql, lupakanTiket, tiketBaca } from '../apiBaca.js';
+import { bacaMysql, bacaTiang, bolehBacaMysql, bolehBacaTiang, lupakanTiket, tiangDiHostinger, tiketBaca } from '../apiBaca.js';
 import { SESI_HABIS } from '../pesan.js';
 import { aset, navigasi, useRute } from '../rute.js';
 import { bacaTembolok, bolehTembolok, kosongkanTembolok, kunciSesi, tulisTembolok } from '../tembolok.js';
@@ -84,7 +84,18 @@ export default function Dashboard({ sesi, env, config, onKeluar, onSesiHabis }) 
       try {
         let j = null;
         // v1.0.38: baca berat lewat API MySQL Hostinger bila diatur; gagal apa pun = Apps Script seperti biasa
-        if (config.apiBacaUrl && !langsung && bolehBacaMysql(action, data)) {
+        // modul tiang: dari Hostinger bila backend sudah memakainya (tiket bertanda tiang); "langsung" tidak perlu, MySQL selalu terkini
+        if (config.apiBacaUrl && bolehBacaTiang(action)) {
+          try {
+            const t = await tiketBaca(sesi.token, async () => (await panggil(config.apiUrl, 'getTiketApi', { token: sesi.token })).data);
+            if (tiangDiHostinger(sesi.token)) j = await bacaTiang(config.apiBacaUrl, action, data, t, lain);
+          } catch (e) {
+            if (e && SESI_HABIS.has(e.kode)) throw e;
+            if (e && /^TIKET_/.test(e.kode)) lupakanTiket();
+            console.warn('API tiang Hostinger tidak dipakai (' + ((e && e.kode) || 'galat') + '), membaca lewat Apps Script.');
+          }
+        }
+        if (!j && config.apiBacaUrl && !langsung && bolehBacaMysql(action, data)) {
           try {
             const t = await tiketBaca(sesi.token, async () => (await panggil(config.apiUrl, 'getTiketApi', { token: sesi.token })).data);
             j = await bacaMysql(config.apiBacaUrl, action, data, t, lain);

@@ -202,7 +202,7 @@ class _PetugasYandalScreenState extends State<PetugasYandalScreen> {
         if (await _bolehBuang(context) && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Pindah Tim Petugas', actions: [
           TombolSegarkan(
             sibuk: _memuat,
@@ -346,7 +346,7 @@ class _TimYandalScreen extends StatelessWidget {
         final jumlah = timId == null ? anggota.length : (d.jumlahPerTim()[timId] ?? 0);
         final diLuar = timId != null && (jumlah < d.data.min || jumlah > d.data.maks);
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F8FC),
+          backgroundColor: const Color(0xFFF1F5F2),
           appBar: sisiAppBar(judul, subjudul: '$jumlah petugas'),
           floatingActionButton: induk._bisaUbah && timId != null
               ? FloatingActionButton.extended(

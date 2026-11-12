@@ -279,7 +279,7 @@ class _EksekusiDetailScreenState extends State<EksekusiDetailScreen> {
     return PopScope(
       canPop: !_proses, // v0.65.6: jangan keluar selagi foto galeri disimpan
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Detail Eksekusi', subjudul: e?.kode, actions: [
           TombolSegarkan(sibuk: _menyegarkan || sibuk || widget.deps.syncCtl.sedangSync, onPressed: _segarkan),
           MenuDataRow(

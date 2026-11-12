@@ -348,7 +348,7 @@ class DetailShiftScreenState extends State<DetailShiftScreen> {
     final y = widget.sesi.yandal ?? const <String, dynamic>{};
     final sh = (y['shift'] as Map<dynamic, dynamic>?) ?? const <dynamic, dynamic>{};
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Pekerjaan Shift', subjudul: '${widget.sesi.timNama} • Shift ${sh['no'] ?? '-'}', actions: [
         TombolSegarkan(sibuk: _menyegarkan, onPressed: _segarkan),
       ]),

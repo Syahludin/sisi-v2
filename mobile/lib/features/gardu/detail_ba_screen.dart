@@ -492,7 +492,7 @@ class _DetailBaScreenState extends State<DetailBaScreen> {
         if (!didPop) Navigator.pop(context, _berubah);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Detail BA', subjudul: b.noGardu, actions: [
           if (!b.batal && jenisBaForm.contains(b.jenis))
             IconButton(tooltip: 'Edit BA', onPressed: bisa ? () => unawaited(_edit()) : null, icon: const Icon(Icons.edit_note_rounded)),

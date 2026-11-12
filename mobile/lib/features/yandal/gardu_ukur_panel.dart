@@ -688,7 +688,7 @@ class _GarduUkurPanelState extends State<GarduUkurPanel> {
       onTap: _proses || (f == null && !boleh) ? null : () => unawaited(_foto(slotKondisiGardu)),
       child: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.neutral200)),
+        decoration: BoxDecoration(color: const Color(0xFFF1F5F2), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.neutral200)),
         child: Row(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
@@ -888,7 +888,7 @@ class _BadgeFasa extends StatelessWidget {
       width: 46,
       height: 46,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.neutral200)),
+      decoration: BoxDecoration(color: const Color(0xFFF1F5F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.neutral200)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         for (var i = 0; i < bagian.length; i++) ...[
           if (i > 0) const Text('-', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.neutral400)),

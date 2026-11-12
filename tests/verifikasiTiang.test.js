@@ -1,50 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { buatKonteks } = require('./harness');
 const { sheetPalsu, kodeError, j } = require('./gudangUji');
-
-const PROPS = { ENV: 'staging', MASTER_SHEET_ID: 'm', AUTH_SHEET_ID: 'a', KODE_ULP: '16130', ADMIN_EMAIL: 'x@y.z', TIANG_SHEET_ID: 't', MASTER_ITB_SHEET_ID: 'i', TIANG_FOTO_FOLDER_ID: 'f' };
-const KONS = '11111111-1111-4111-8111-111111111111';
-const lng = (n) => 106.5 + n * 0.0005;
-const itb = (id, nama, lat, x) => [id, 'TIANG TM ' + nama, 'Tiang TM', 'OPERATING', 'SEGMEN A - B', lat, x];
-
-/** Dunia uji: jaringan 2 penyulang, 1 konstruksi, 1 switching, 4 tiang TM hasil migrasi ITB (PLS0001-0003 + cabang PLS0002.C0001). */
-function dunia() {
-  const g = buatKonteks(PROPS);
-  const buat = sheetPalsu([]);
-  const sk = g.skemaHeader_();
-  const sheets = {
-    m: {
-      db_Jaringan: buat('db_Jaringan', [sk.MASTER_SHEET_ID.db_Jaringan.slice(), ['s1', 'TOBOALI 1', 'PMT TOBOALI 1', '', 10, true, 1, '', ''],
-        ['s2', 'TOBOALI 1', 'LBS AIR BARA', 's1', 20, true, 1, '', ''], ['s3', 'PAYUNG', 'PMT PAYUNG', '', 10, true, 1, '', '']]),
-    },
-    a: { log_Audit: buat('log_Audit', [['waktu', 'user_id', 'username', 'role', 'aksi', 'target', 'detail', 'platform', 'device_id']]) },
-    t: {},
-    i: { db_TiangMaster: buat('db_TiangMaster', [['ASSETNUM', 'DESCRIPTION', 'SUBCLASS', 'STATUS', 'PARENT', 'LATITUDEY', 'LONGITUDEX'],
-      itb('1001', 'PLS0001', -3, lng(0)), itb('1002', 'PLS0002', -3, lng(1)), itb('1003', 'PLS0003', -3, lng(2)), itb('1004', 'PLS0002.C0001', -3.0005, lng(1))]) },
-  };
-  g.SpreadsheetApp = { openById: (id) => ({ getName: () => 'ITB ULP Toboali November 2026', getSheetByName: (n) => (sheets[id] || {})[n], insertSheet: (n) => { sheets[id][n] = buat(n, [[]]); return sheets[id][n]; } }) };
-  g.Session = { getActiveUser: () => ({ getEmail: () => 'x@y.z' }) };
-  const diam = (fn) => { const a = [console.log, console.warn, console.error]; console.log = console.warn = console.error = () => {}; try { return fn(); } finally { [console.log, console.warn, console.error] = a; } };
-  diam(() => { g.ADMIN_siapkanSheetTiang(); g.ADMIN_migrasiTiangItb(); });
-  sheets.m.db_Konstruksi.data.push([1, KONS, 'TM1', 'TM1', '', '', '', 10, true, 1, '', '']);
-  const admin = { userId: 'u-admin', username: '16130.admin', role: 'ADMIN' };
-  const swc = j(g.simpanSwitching_(admin, { jenis: 'LBS', nama: 'LBS Air Bara', penyulang: 'TOBOALI 1', posisiNormal: 'NC', statusOperasi: 'OPERASI', koordinat: '-3, 106.5' }, 'MOBILE')).switching;
-  const H = sk.TIANG_SHEET_ID;
-  const baris = (n) => sheets.t[n].data.slice(1).map((b) => Object.fromEntries(H[n].map((h, i) => [h, b[i]])));
-  const segmen = (o = {}) => j(g.simpanSegmen_(admin, { nama: 'LBS Air Bara - TB0011', penyulang: 'toboali 1', sectionId: 's2', awalJenis: 'SWITCHING', awalNama: 'LBS Air Bara',
-    awalSwitchingId: swc.switchingId, akhirJenis: 'GARDU', akhirNama: 'TB0011', ...o }, 'MOBILE')).segmen;
-  const jalur = (kode = 'PLS') => j(g.getTiangJalur_(admin, { kode })).tiang;
-  const verif = (o) => j(g.simpanVerifikasiTiang_(admin, o, 'MOBILE'));
-  // sirkuit lengkap (semua kolom wajib Terverifikasi); o menimpa
-  const lengkap = (segmenId, o = {}) => ({ penyulang: 'TOBOALI 1', posisi: 'KIRI', segmenId, peranTitik: 'biasa', jenisKabel: 'AAAC', ukuranMm2: 150,
-    switchingKeterangan: 'Tidak ada switching', ...o });
-  const fisik = { jenisTiang: 'BETON', ukuranTiang: '12 Meter 200 daN', konstruksiId: KONS };
-  // 1001 = tiang awal jalur (Tiang Awal SKTM), supaya tiang berikutnya bisa memakainya sebagai induk terverifikasi
-  const awal = (segmenId) => { const t = jalur()[0]; return verif({ tiangId: t.tiangId, revision: t.revision, statusVerifikasi: 'TERVERIFIKASI', koordinat: '-3, 106.5', ...fisik,
-    sirkuit: [{ sirkuitId: t.sirkuit[0].sirkuitId, ...lengkap(segmenId, { indukStatus: 'TITIK_AWAL', indukKeterangan: 'Tiang Awal SKTM' }) }] }); };
-  return { g, sheets, admin, swc, baris, segmen, jalur, verif, diam, lengkap, fisik, awal };
-}
+const { dunia, PROPS, KONS, lng, itb } = require('./duniaTiang');
 
 test('ukuran tiang: hanya baris aktif ber-nama dari db_Ukuran_Tiang, urut kolom urutan', () => {
   const x = dunia();
@@ -132,19 +89,19 @@ test('tiang: verifikasi = GPS lapangan + data fisik + sirkuit; sirkuit kedua dit
   const t = x.jalur()[1];
   const h = x.verif({ tiangId: t.tiangId, revision: t.revision, statusVerifikasi: 'TERVERIFIKASI', koordinat: '-3.000100, 106.500500', akurasiM: 4, dasarKoordinat: 'LAPANGAN', ...x.fisik,
     sirkuit: [{ sirkuitId: t.sirkuit[0].sirkuitId, ...x.lengkap(sg.segmenId, { penyulang: 'toboali 1', indukTiangId: '1001', indukStatus: 'BENAR', switchingId: x.swc.switchingId, switchingKeterangan: undefined }) },
-      x.lengkap(sgP.segmenId, { penyulang: 'PAYUNG', posisi: 'KANAN', indukTiangId: '1001', indukStatus: 'DIGANTI' })] });
+      x.lengkap(sgP.segmenId, { penyulang: 'PAYUNG', posisi: 'BAWAH', indukTiangId: '1001', indukStatus: 'DIGANTI' })] });
   assert.ok(h.selisihM > 5 && h.selisihM < 20, 'selisih dari koordinat aset ' + h.selisihM);
   const r = x.baris('db_Tiang').find((b) => String(b.tiang_id) === '1002');
-  assert.deepStrictEqual([r.lat, r.lng, r.sumber_koordinat, r.akurasi_m, r.jenis_tiang, r.konstruksi_lapangan, r.jumlah_sirkuit, r.status_verifikasi, r.tanda_cek, r.diverifikasi_oleh],
-    [-3.0001, 106.5005, 'lapangan', 4, 'BETON', KONS, 2, 'TERVERIFIKASI', '', 'u-admin']);
+  assert.deepStrictEqual([r.lat, r.lng, r.sumber_koordinat, r.akurasi_m, r.jenis_tiang, r.sisi_jalan, r.jumlah_sirkuit, r.status_verifikasi, r.tanda_cek, r.diverifikasi_oleh],
+    [-3.0001, 106.5005, 'lapangan', 4, 'BETON', 'KIRI', 2, 'TERVERIFIKASI', '', 'u-admin']);
   assert.deepStrictEqual([r.lat_aset, r.lng_aset], [-3, lng(1)], 'kolom aset tidak diubah');
   const s = x.baris('db_Tiang_Sirkuit').filter((b) => String(b.tiang_id) === '1002');
   assert.strictEqual(s.length, 2);
   assert.deepStrictEqual([s[0].penyulang, s[0].posisi, s[0].segmen_id, s[0].section_id, s[0].switching_id, s[0].ukuran_mm2, s[0].status_verifikasi],
-    ['TOBOALI 1', 'KIRI', 'SGM-0001', 's2', x.swc.switchingId, 150, 'TERVERIFIKASI'], 'section diisi dari segmen');
-  assert.deepStrictEqual([s[0].induk_status, s[1].induk_status, h.tiang.kurang], ['BENAR', 'DIGANTI', ['Foto Tiang Utuh', 'Foto Kepala Tiang']], 'foto menyusul sesudah simpan');
+    ['TOBOALI 1', 'ATAS', 'SGM-0001', 's2', x.swc.switchingId, 150, 'TERVERIFIKASI'], 'section diisi dari segmen');
+  assert.deepStrictEqual([s[0].induk_status, s[1].induk_status, h.tiang.kurang], ['BENAR', 'DIGANTI', ['Foto Full Tiang', 'Foto Konstruksi SUTM']], 'foto menyusul sesudah simpan');
   assert.ok(Number(s[0].gawang_m) > 50 && Number(s[0].gawang_m) < 62, 'gawang dari koordinat lapangan ' + s[0].gawang_m);
-  assert.deepStrictEqual([s[1].penyulang, s[1].posisi, s[1].aktif], ['PAYUNG', 'KANAN', true]);
+  assert.deepStrictEqual([s[1].penyulang, s[1].posisi, s[1].aktif], ['PAYUNG', 'BAWAH', true]);
   assert.deepStrictEqual(h.tiang.sirkuit.map((c) => c.penyulang), ['TOBOALI 1', 'PAYUNG']);
   // ubah lagi: kirim hanya sirkuit pertama = sirkuit kedua dinonaktifkan
   x.verif({ tiangId: '1002', revision: h.tiang.revision, statusVerifikasi: 'PERLU_PERBAIKAN', koordinat: '-3.0001, 106.5005', dasarKoordinat: 'LAPANGAN', sirkuit: [{ sirkuitId: s[0].sirkuit_id, penyulang: 'TOBOALI 1' }] });
@@ -168,7 +125,7 @@ test('tiang: validasi master + revision + gagal tanpa menulis', () => {
   assert.strictEqual(kodeError(() => x.verif(sir({ indukTiangId: '9999' }))), 'DATA_TIDAK_DITEMUKAN');
   assert.strictEqual(kodeError(() => x.verif(sir({ switchingId: 'SWC-0042' }))), 'DATA_TIDAK_DITEMUKAN');
   assert.strictEqual(kodeError(() => x.verif(sir({ sirkuitId: '22222222-2222-4222-8222-222222222222' }))), 'DATA_TIDAK_DITEMUKAN');
-  assert.strictEqual(kodeError(() => x.verif({ ...sir({}), konstruksiId: '33333333-3333-4333-8333-333333333333' })), 'DATA_TIDAK_DITEMUKAN');
+  assert.strictEqual(kodeError(() => x.verif(sir({ konstruksiId: '33333333-3333-4333-8333-333333333333' }))), 'DATA_TIDAK_DITEMUKAN');
   assert.strictEqual(kodeError(() => x.verif({ ...dasar, sirkuit: [] })), 'FIELD_WAJIB');
   assert.strictEqual(kodeError(() => x.verif({ ...dasar, sirkuit: [{}, {}, {}, {}] })), 'TERLALU_BANYAK');
   assert.strictEqual(kodeError(() => x.verif({ ...sir({}), koordinat: undefined })), 'FIELD_WAJIB');
@@ -187,9 +144,9 @@ test('tiang: Terverifikasi hanya bila data wajib lengkap + induk dikonfirmasi; T
   x.awal(sg.segmenId);
   t = x.jalur()[1];
   const sebelum = JSON.stringify(x.sheets.t.db_Tiang_Sirkuit.data);
-  assert.strictEqual(galat(() => kirim({ jenisTiang: undefined, ukuranTiang: undefined, konstruksiId: undefined })), 'FIELD_WAJIB: Jenis Tiang, Ukuran Tiang, Konstruksi');
-  assert.strictEqual(galat(() => kirim({}, { jenisKabel: undefined, ukuranMm2: undefined, posisi: undefined })), 'FIELD_WAJIB: Posisi, Jenis Kabel, Ukuran mm²');
-  assert.strictEqual(galat(() => kirim({}, { indukStatus: undefined })), 'FIELD_WAJIB: Konfirmasi Induk Tiang');
+  assert.strictEqual(galat(() => kirim({ jenisTiang: undefined, ukuranTiang: undefined, sisiJalan: undefined })), 'FIELD_WAJIB: Jenis Tiang, Ukuran Tiang, Sisi Jalan');
+  assert.strictEqual(galat(() => kirim({}, { jenisKabel: undefined, ukuranMm2: undefined, konstruksiId: undefined, posisi: undefined })), 'FIELD_WAJIB: Konstruksi, Jenis Kabel, Ukuran mm²', 'penyulang tunggal: posisi otomatis Atas');
+  assert.strictEqual(galat(() => kirim({}, { indukStatus: undefined })), 'FIELD_WAJIB: Konfirmasi Tiang Hulu');
   assert.strictEqual(galat(() => kirim({}, { switchingKeterangan: undefined })), 'FIELD_WAJIB: Switching Hulu atau Keterangan Tanpa Switching');
   assert.strictEqual(galat(() => kirim({}, { indukTiangId: undefined, indukStatus: 'TITIK_AWAL' })), 'FIELD_WAJIB: Keterangan Tiang Awal SKTM');
   assert.strictEqual(galat(() => kirim({}, { indukTiangId: '1001', indukStatus: 'TITIK_AWAL', indukKeterangan: 'Tiang Awal SKTM' })), 'FIELD_WAJIB: Tiang Awal Tidak Boleh Punya Induk');
@@ -208,14 +165,14 @@ test('tiang: yang sudah Terverifikasi sebelum aturan ini tampil dengan daftar ke
   const rT = x.sheets.t.db_Tiang.data, H = x.g.TIANG_HEADER_.db_Tiang;
   rT[1][H.indexOf('status_verifikasi')] = 'TERVERIFIKASI';
   const lama = x.jalur()[0];
-  assert.ok(lama.kurang.includes('Jenis Tiang') && lama.kurang.includes('Konfirmasi Induk Tiang') && lama.kurang.includes('Foto Tiang Utuh'));
+  assert.ok(lama.kurang.includes('Jenis Tiang') && lama.kurang.includes('Konfirmasi Tiang Hulu') && lama.kurang.includes('Foto Full Tiang'));
   assert.strictEqual(x.jalur()[1].kurang, undefined, 'yang belum terverifikasi tidak dinilai');
   // tab db_Tiang_Sirkuit versi lama (tanpa 3 kolom konfirmasi): siapkan menambah kolom, data utuh
   const sh = x.sheets.t.db_Tiang_Sirkuit, n = x.g.TIANG_HEADER_.db_Tiang_Sirkuit.length;
-  sh.data.forEach((b) => b.splice(n - 3));
+  sh.data.forEach((b) => b.splice(n - 4));
   assert.strictEqual(x.diam(() => x.g.ADMIN_cekSheetTiang()), 1);
   assert.strictEqual(x.diam(() => x.g.ADMIN_siapkanSheetTiang()), 0);
-  assert.deepStrictEqual(sh.data[0].slice(-3), ['induk_status', 'induk_keterangan', 'switching_keterangan']);
+  assert.deepStrictEqual(sh.data[0].slice(-4), ['induk_status', 'induk_keterangan', 'switching_keterangan', 'konstruksi_id']);
   assert.strictEqual(x.diam(() => x.g.ADMIN_cekSheetTiang()), 0);
 });
 
@@ -282,4 +239,72 @@ test('tiang: foto TIANG / KEPALA ke Drive privat per kode jalur', () => {
   assert.deepStrictEqual(j(drive[0]), { akar: 'f', bagian: ['Tiang', 'PLS'], nama: '1001_TIANG.jpg' });
   assert.strictEqual(x.baris('db_Tiang').find((b) => String(b.tiang_id) === '1001').foto_tiang_id, 'ft1');
   assert.deepStrictEqual(x.jalur()[0].foto, { TIANG: true, KEPALA: false });
+});
+
+test('tiang: penyulang ganda = konstruksi per penyulang + posisi Atas / Tengah / Bawah tidak kembar; tunggal selalu Atas; sisi jalan KIRI / KANAN', () => {
+  const x = dunia();
+  const sg = x.segmen();
+  const sgP = x.segmen({ nama: 'PMT Payung - TP0001', penyulang: 'payung', sectionId: 's3', awalJenis: 'GI', awalNama: 'GI Toboali', awalSwitchingId: undefined });
+  x.awal(sg.segmenId);
+  const KONS2 = '44444444-4444-4444-8444-444444444444';
+  x.sheets.m.db_Konstruksi.data.push([2, KONS2, 'TM3', 'TM3', '', '', '', 20, true, 1, '', '']);
+  const t = x.jalur()[1];
+  const kirim = (o = {}, a = {}, b = {}) => x.verif({ tiangId: t.tiangId, revision: x.jalur()[1].revision, statusVerifikasi: 'TERVERIFIKASI', koordinat: '-3, 106.5005', dasarKoordinat: 'LAPANGAN', ...x.fisik, ...o,
+    sirkuit: [{ sirkuitId: t.sirkuit[0].sirkuitId, ...x.lengkap(sg.segmenId, { indukTiangId: '1001', indukStatus: 'BENAR', ...a }) },
+      x.lengkap(sgP.segmenId, { penyulang: 'PAYUNG', posisi: 'BAWAH', konstruksiId: KONS2, indukTiangId: '1001', indukStatus: 'DIGANTI', ...b })] });
+  const kode = (fn) => { try { fn(); } catch (e) { return e.kode; } return 'tidak galat'; };
+  assert.strictEqual(kode(() => kirim({}, { posisi: 'BAWAH' })), 'DATA_TIDAK_VALID', 'posisi kembar');
+  assert.strictEqual(kode(() => kirim({}, { posisi: 'KIRI' })), 'PILIHAN_TIDAK_VALID', 'kiri / kanan bukan posisi penyulang');
+  assert.strictEqual(kode(() => kirim({ sisiJalan: 'ATAS' })), 'PILIHAN_TIDAK_VALID');
+  const h = kirim();
+  assert.deepStrictEqual(h.tiang.sirkuit.map((c) => [c.posisi, c.konstruksiId]), [['ATAS', KONS], ['BAWAH', KONS2]]);
+  assert.strictEqual(h.tiang.sisiJalan, 'KIRI');
+  assert.strictEqual(x.baris('db_Tiang_Sirkuit').filter((b) => String(b.tiang_id) === t.tiangId).map((b) => b.konstruksi_id).join(), KONS + ',' + KONS2);
+  // ganda tanpa posisi = kurang lengkap; tunggal tidak perlu memilih posisi
+  assert.strictEqual(kode(() => kirim({}, {}, { posisi: undefined })), 'FIELD_WAJIB');
+  // kiriman lama: konstruksiId satu per tiang dipakai bagi penyulang yang belum membawa konstruksi
+  const h2 = kirim({ konstruksiId: KONS2 }, { konstruksiId: undefined }, { konstruksiId: undefined });
+  assert.deepStrictEqual(h2.tiang.sirkuit.map((c) => c.konstruksiId), [KONS2, KONS2]);
+});
+
+test('tiang: data lama dibaca dengan konstruksi tiang disalin ke penyulang; posisi lama Kiri / Kanan dikosongkan; tunggal tampil Atas; sisi jalan kosong = belum lengkap', () => {
+  const x = dunia();
+  const H = x.g.TIANG_HEADER_.db_Tiang, HS = x.g.TIANG_HEADER_.db_Tiang_Sirkuit;
+  const rT = x.sheets.t.db_Tiang.data[1], rS = x.sheets.t.db_Tiang_Sirkuit.data[1];
+  rT[H.indexOf('konstruksi_lapangan')] = KONS;
+  rT[H.indexOf('status_verifikasi')] = 'TERVERIFIKASI';
+  rS[HS.indexOf('posisi')] = 'KIRI';
+  const lama = x.jalur()[0];
+  assert.deepStrictEqual([lama.sisiJalan, lama.sirkuit[0].konstruksiId, lama.sirkuit[0].posisi], ['', KONS, 'ATAS']);
+  assert.ok(lama.kurang.includes('Sisi Jalan') && !lama.kurang.includes('Konstruksi'));
+});
+
+test('peta tiang: hanya Terverifikasi ber-koordinat; garis = sirkuit ke induk per penyulang; admin saja', () => {
+  const x = dunia();
+  assert.strictEqual(kodeError(() => x.g.getPetaTiang_({ userId: 'u', role: 'USER' }, {})), 'AKSES_DITOLAK');
+  assert.deepStrictEqual(j(x.g.getPetaTiang_(x.admin, {})), { titik: [], garis: [], tanpaKoordinat: 0 });
+  const seg = x.segmen();
+  x.awal(seg.segmenId);
+  const t = x.jalur();
+  x.verif({ tiangId: t[1].tiangId, revision: t[1].revision, statusVerifikasi: 'TERVERIFIKASI', koordinat: '-3, ' + lng(1), ...x.fisik,
+    sirkuit: [{ sirkuitId: t[1].sirkuit[0].sirkuitId, ...x.lengkap(seg.segmenId, { indukTiangId: t[0].tiangId, indukStatus: 'BENAR' }) }] });
+  const p = j(x.g.getPetaTiang_(x.admin, {}));
+  assert.deepStrictEqual(p.titik.map((k) => k.tiangId), [t[0].tiangId, t[1].tiangId]);
+  assert.deepStrictEqual(p.titik[0].penyulang, ['TOBOALI 1']);
+  assert.strictEqual(typeof p.titik[1].lat, 'number');
+  assert.deepStrictEqual(p.garis, [{ tiangId: t[1].tiangId, indukTiangId: t[0].tiangId, penyulang: 'TOBOALI 1' }]);
+});
+
+test('tiang: koordinat dari peta dicatat sumber "peta" tanpa akurasi; tanpa sumberKoordinat tetap "lapangan"; sumber lain ditolak', () => {
+  const x = dunia();
+  const seg = x.segmen();
+  const t = x.jalur()[0];
+  const isi = (o) => ({ tiangId: t.tiangId, revision: x.jalur()[0].revision, statusVerifikasi: 'PERLU_PERBAIKAN', koordinat: '-3, 106.5', akurasiM: 4, ...x.fisik,
+    sirkuit: [{ sirkuitId: t.sirkuit[0].sirkuitId, ...x.lengkap(seg.segmenId, { indukStatus: 'TITIK_AWAL', indukKeterangan: 'Tiang Awal SKTM' }) }], ...o });
+  assert.strictEqual(x.verif(isi({ sumberKoordinat: 'PETA' })).tiang.sumberKoordinat, 'peta');
+  assert.strictEqual(x.jalur()[0].sumberKoordinat, 'peta');
+  assert.strictEqual(x.baris('db_Tiang')[0].akurasi_m, '');
+  assert.strictEqual(x.verif(isi({ sumberKoordinat: 'GPS' })).tiang.sumberKoordinat, 'lapangan');
+  assert.strictEqual(x.verif(isi({})).tiang.sumberKoordinat, 'lapangan');
+  assert.strictEqual(kodeError(() => x.verif(isi({ sumberKoordinat: 'TEBAK' }))), 'PILIHAN_TIDAK_VALID');
 });

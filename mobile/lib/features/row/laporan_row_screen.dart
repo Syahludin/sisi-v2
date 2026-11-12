@@ -713,7 +713,7 @@ class _KartuArsip extends StatelessWidget {
     final siap = l['siapKirim'] == true;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFCFDFF),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.neutral200),
       ),

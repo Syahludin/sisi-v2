@@ -46,3 +46,22 @@ test('segmen kabel tanah: data kabel hanya dikirim bila KABEL_TANAH, angka dicek
   assert.equal(isianSegmenDari({ segmenId: 'SGM-0002', jenisSegmen: '', ukuranMm2: 240 }).jenisSegmen, 'UDARA');
   assert.equal(isianSegmenDari({ segmenId: 'SGM-0002', ukuranMm2: 240 }).ukuranMm2, '240');
 });
+
+test('tiang: status tampil web = warna + label + kelas lencana; terverifikasi tetapi kurang lengkap = Perlu Dilengkapi', async () => {
+  const { statusTiang, saringTiang, hitungStatusTiang } = await import('../src/tiang.js');
+  assert.deepEqual(statusTiang({ statusVerifikasi: 'TERVERIFIKASI', kurang: [] }), { kunci: 'TERVERIFIKASI', label: 'Terverifikasi', kelas: 'ok' });
+  assert.deepEqual(statusTiang({ statusVerifikasi: 'TERVERIFIKASI', kurang: ['Foto Kepala'] }), { kunci: 'DILENGKAPI', label: 'Perlu Dilengkapi', kelas: 'draf' });
+  assert.deepEqual(statusTiang({ statusVerifikasi: 'PERLU_PERBAIKAN' }), { kunci: 'PERLU_PERBAIKAN', label: 'Perlu Perbaikan', kelas: 'tolak' });
+  assert.deepEqual(statusTiang({ statusVerifikasi: 'TIDAK_DITEMUKAN' }), { kunci: 'TIDAK_DITEMUKAN', label: 'Tidak Ditemukan', kelas: 'belum' });
+  assert.deepEqual(statusTiang({}), { kunci: 'BELUM', label: 'Belum Diverifikasi', kelas: 'belum' });
+  const daftar = [
+    { tiangId: '2', nama: 'PLS0002', statusVerifikasi: 'BELUM' },
+    { tiangId: '1', nama: 'PLS0001', statusVerifikasi: 'TERVERIFIKASI', kurang: [] },
+    { tiangId: '3', nama: 'PLS0003', statusVerifikasi: 'PERLU_PERBAIKAN', tandaCek: 'x' },
+  ];
+  assert.deepEqual(saringTiang(daftar, { status: '' }).map((t) => t.nama), ['PLS0001', 'PLS0002', 'PLS0003'], 'urut nama');
+  assert.deepEqual(saringTiang(daftar, { status: 'PERLU_PERBAIKAN' }).map((t) => t.tiangId), ['3']);
+  assert.deepEqual(saringTiang(daftar, { status: 'CEK' }).map((t) => t.tiangId), ['3'], 'bertanda cek');
+  assert.deepEqual(saringTiang(daftar, { cari: 'pls0002' }).map((t) => t.tiangId), ['2']);
+  assert.deepEqual(hitungStatusTiang(daftar), { '': 3, BELUM: 1, TERVERIFIKASI: 1, DILENGKAPI: 0, PERLU_PERBAIKAN: 1, TIDAK_DITEMUKAN: 0, CEK: 1 });
+});

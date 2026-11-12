@@ -1,6 +1,6 @@
 /// Versi app yang tampil di Pengaturan (sejak v0.62.4). WAJIB sama dengan `version:` di pubspec.yaml (tanpa +build)
 /// DAN dengan VERSI_BACKEND_ di backend/src/09_Versi.js (v0.81.0); test backend gagal kalau lupa diubah.
-const String versiApp = '1.0.70';
+const String versiApp = '1.0.78';
 
 /// "0.81.0" -> [0, 81, 0]. Tidak valid = null.
 List<int>? pecahVersi(String v) {
@@ -23,11 +23,17 @@ enum StatusVersi { sama, updateTersedia, wajibUpdate, serverLama, tidakDiketahui
 
 /// Info versi dari ping (backend infoVersi_).
 class InfoVersi {
-  const InfoVersi({required this.server, required this.minimum, this.linkUnduh = '', this.catatan = ''});
+  const InfoVersi({required this.server, required this.minimum, this.linkUnduh = '', this.catatan = '', this.notifikasi = true, this.tiangApi = ''});
   final String server;
   final String minimum;
   final String linkUnduh;
   final String catatan;
+
+  /// false (Script Property NOTIFIKASI_UPDATE_APP = TIDAK): update opsional dan info server lama disenyapkan; wajib update tetap tampil.
+  final bool notifikasi;
+
+  /// Alamat API tiang di Hostinger (Script Property TIANG_API_URL, https). Kosong = HP memakai jalur Apps Script lama.
+  final String tiangApi;
 
   static InfoVersi? dariJson(Object? j) {
     if (j is! Map) return null;
@@ -39,14 +45,18 @@ class InfoVersi {
       minimum: pecahVersi(min) == null ? server : min,
       linkUnduh: '${j['linkUnduh'] ?? ''}'.startsWith('https://') ? '${j['linkUnduh']}' : '',
       catatan: '${j['catatan'] ?? ''}',
+      notifikasi: j['notifikasi'] != false,
+      tiangApi: '${j['tiangApi'] ?? ''}'.startsWith('https://') ? '${j['tiangApi']}'.replaceAll(RegExp(r'/+$'), '') : '',
     );
   }
 
   /// app < minimum = wajib; app < server = tersedia; app > server = server belum diperbarui.
-  StatusVersi statusUntuk(String app) {
+  /// [abaikanSenyap] = cek manual (Pengaturan): tampilkan status sebenarnya walau notifikasi dimatikan.
+  StatusVersi statusUntuk(String app, {bool abaikanSenyap = false}) {
     final keServer = bandingVersi(app, server), keMin = bandingVersi(app, minimum);
     if (keServer == null || keMin == null) return StatusVersi.tidakDiketahui;
     if (keMin < 0) return StatusVersi.wajibUpdate;
+    if (!notifikasi && !abaikanSenyap) return StatusVersi.sama;
     if (keServer < 0) return StatusVersi.updateTersedia;
     if (keServer > 0) return StatusVersi.serverLama;
     return StatusVersi.sama;

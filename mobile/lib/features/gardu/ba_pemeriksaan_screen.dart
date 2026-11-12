@@ -565,7 +565,7 @@ class _BaPemeriksaanScreenState extends State<BaPemeriksaanScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar(_edit ? 'Edit BA Pemeriksaan' : 'BA Pemeriksaan Trafo',
             subjudul: _edit ? '${_detail?['noGardu'] ?? 'Memuat'} · ${_detail?['idBa'] ?? ''}' : 'Pilih dari Master Gardu'),
         body: _edit && _detail == null

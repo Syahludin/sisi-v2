@@ -588,7 +588,7 @@ class _BaPengoperasianScreenState extends State<BaPengoperasianScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar(_edit ? 'Edit BA Pengoperasian' : 'BA Pengoperasian Trafo',
             subjudul: _edit ? '${_detail?['noGardu'] ?? 'Memuat'} · ${_detail?['idBa'] ?? ''}' : 'Gardu baru · nomor otomatis'),
         body: _edit && _detail == null

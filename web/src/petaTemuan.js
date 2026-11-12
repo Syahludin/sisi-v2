@@ -9,10 +9,10 @@ export const MENU_PETA = 'OPS_PETA_TEMUAN';
 
 /** Status peta = status WO, label + warna sama legenda v1 (Belum Ada Tim / Penugasan Tim / Progress Pekerjaan / Selesai). */
 export const STATUS_PETA = [
-  { kode: 'BELUM', wo: '', label: 'Belum Ada Tim', warna: '#a8433f' },
-  { kode: 'TERKIRIM', wo: 'TERKIRIM', label: 'Penugasan Tim', warna: '#c9861f' },
-  { kode: 'DIKERJAKAN', wo: 'DIKERJAKAN', label: 'Progress Pekerjaan', warna: '#1d6a73' },
-  { kode: 'SELESAI', wo: 'SELESAI', label: 'Selesai', warna: '#3a6f1f' },
+  { kode: 'BELUM', wo: '', label: 'Belum Ada Tim', warna: '#c04a4a' },
+  { kode: 'TERKIRIM', wo: 'TERKIRIM', label: 'Penugasan Tim', warna: '#e0b400' },
+  { kode: 'DIKERJAKAN', wo: 'DIKERJAKAN', label: 'Progress Pekerjaan', warna: '#2f6fb3' },
+  { kode: 'SELESAI', wo: 'SELESAI', label: 'Selesai', warna: '#1f6b45' },
 ];
 
 /** Info status peta satu temuan (status WO tak dikenal = Belum Ada Tim). */

@@ -231,7 +231,7 @@ class _PengukuranGarduScreenState extends State<PengukuranGarduScreen> {
         ? 'Master belum diunduh'
         : '${dasar.length} gardu · master ${DateFormat('dd MMM HH:mm', 'id_ID').format(_diambil!.toLocal())}';
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Pengukuran Gardu', subjudul: sub, actions: [TombolSegarkan(sibuk: _unduh, onPressed: _segarkan)]),
       body: _muat
           ? const SisiLoading()

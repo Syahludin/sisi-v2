@@ -146,7 +146,7 @@ class _TimAbsensiScreen extends StatelessWidget {
         final staf = d.stafDi(timId);
         final h = induk._hitung(staf);
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F8FC),
+          backgroundColor: const Color(0xFFF1F5F2),
           appBar: sisiAppBar(tim?.nama ?? '-', subjudul: '${staf.length - h.belum} dari ${staf.length} petugas sudah diabsen'),
           bottomNavigationBar: induk._barSimpan(ctx, tutup: ctx),
           body: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(16, 14, 16, 24), children: [

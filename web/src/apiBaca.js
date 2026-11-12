@@ -42,8 +42,15 @@ const AKSI_BACA = {
 };
 export const bolehBacaMysql = (action, data) => !!AKSI_BACA[action] && AKSI_BACA[action](data || {});
 
+/**
+ * Modul tiang di Hostinger (tiang.php, POST { action, data }): dipakai bila tiket bertanda tiang = true (TIANG_API_URL terisi di backend).
+ * Selalu dari server (tanpa "langsung"): data MySQL tidak punya salinan basi seperti Sheet. Gagal = Apps Script seperti biasa.
+ */
+const AKSI_TIANG = new Set(['getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'getSegmen', 'getMasterSwitching']);
+export const bolehBacaTiang = (action) => AKSI_TIANG.has(action);
+
 const SISA_MS = 60000;   // tiket diperbarui bila sisa < 1 menit
-let tiket = null;        // { token (sesi), tiket, sampaiMs }
+let tiket = null;        // { token (sesi), tiket, sampaiMs, tiang }
 let diminta = null;      // { token, janji }: beberapa baca bersamaan = SATU getTiketApi
 
 export function lupakanTiket() { tiket = null; diminta = null; }
@@ -52,9 +59,12 @@ export function lupakanTiket() { tiket = null; diminta = null; }
 export function simpanTiket(token, d) {
   const sampaiMs = Date.parse(d && d.sampai);
   if (!d || typeof d.tiket !== 'string' || !Number.isFinite(sampaiMs)) return false;
-  tiket = { token, tiket: d.tiket, sampaiMs };
+  tiket = { token, tiket: d.tiket, sampaiMs, tiang: d.tiang === true };
   return true;
 }
+
+/** Tiket sesi ini bertanda tiang di Hostinger (TIANG_API_URL terisi)? Dipanggil sesudah tiketBaca. */
+export const tiangDiHostinger = (token) => !!(tiket && tiket.token === token && tiket.tiang);
 
 /** Tiket untuk token sesi ini; minta baru lewat ambilTiket (getTiketApi) bila belum ada / hampir habis. */
 export async function tiketBaca(token, ambilTiket, sekarang = Date.now()) {
@@ -100,5 +110,27 @@ export async function bacaMysql(dasar, action, data, tiketTeks, { batasMs = 3000
   if (j.ok !== true || !j.data) throw new GalatApi(typeof j.kode === 'string' && j.kode ? j.kode : 'KESALAHAN_SERVER');
   // belum pernah disinkron (tabel kosong) = jangan tampilkan kosong, baca dari Apps Script
   if (action === 'getHistoriGangguan' && !j.data.sinkron) throw new GalatApi('MYSQL_BELUM_SINKRON');
+  return j;
+}
+
+/** POST tiang.php. Hasil amplop sama dengan Apps Script ({ ok, data }). Gagal = GalatApi (kode server bila ada). */
+export async function bacaTiang(dasar, action, data, tiketTeks, { batasMs = 30000 } = {}, fetchFn = globalThis.fetch) {
+  const henti = new AbortController();
+  const jam = setTimeout(() => henti.abort(), batasMs);
+  let res;
+  try {
+    res = await fetchFn(dasar + '/tiang.php', {
+      method: 'POST', headers: { 'X-SiSi-Tiket': tiketTeks, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, data: data || {} }),
+      cache: 'no-store', credentials: 'omit', signal: henti.signal,
+    });
+  } catch (e) {
+    throw new GalatApi(e && e.name === 'AbortError' ? 'WAKTU_HABIS' : 'JARINGAN');
+  } finally {
+    clearTimeout(jam);
+  }
+  let j = null;
+  try { j = await res.json(); } catch { j = null; }
+  if (!j || typeof j !== 'object') throw new GalatApi(res && res.ok ? 'JAWABAN_TIDAK_VALID' : 'JARINGAN');
+  if (j.ok !== true || !j.data) throw new GalatApi(typeof j.kode === 'string' && j.kode ? j.kode : 'KESALAHAN_SERVER');
   return j;
 }

@@ -1003,7 +1003,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   const epJp = Object.keys(ep).filter((k) => /JadwalPadam/.test(ep[k].fn.name)).sort();
   assert.deepStrictEqual(epJp.filter((k) => ep[k].tulis), ['hapusJadwalPadam', 'simpanJadwalPadam', 'ubahJadwalPadam', 'ubahStatusJadwalPadam']);
   for (const k of epJp) assert.strictEqual(ep[k].menu, 'OPS_JADWAL_PADAM', k);
-  assert.deepStrictEqual(tulis, ['batalkanPemakaian', 'buatPdfBaGardu', 'kirimEamBaGardu', 'kirimGaspolUp3', 'kirimStokTim', 'koreksiPemakaian', 'koreksiStok', 'lepasNomorGardu', 'pesanNomorGardu', 'selesaikanSelisih', 'setAktifPenyulang', 'simpanAbsensi', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanIzinMaterial', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPemakaianMcb', 'simpanPemakaianSusulan', 'simpanPemeriksaanStok', 'simpanPetugasYandal', 'simpanSection', 'simpanSegmen', 'simpanSwitching', 'simpanVerifikasiTiang', 'sinkronDataAset', 'sinkronHistoriGangguan', 'syncRow', 'tambahStokGudang', 'tarikStokTim', 'ubahBaGardu', 'ubahJenisP0', 'updateHiGardu', 'updateMasterGarduBa', 'updateUkurMasterGardu', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadFotoSwitching', 'uploadFotoTiang', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
+  assert.deepStrictEqual(tulis, ['batalkanPemakaian', 'buatPdfBaGardu', 'kirimEamBaGardu', 'kirimGaspolUp3', 'kirimStokTim', 'koreksiPemakaian', 'koreksiStok', 'lepasNomorGardu', 'pesanNomorGardu', 'selesaikanSelisih', 'setAktifPenyulang', 'simpanAbsensi', 'simpanApprovalP0', 'simpanAturanYandal', 'simpanBaGardu', 'simpanIzinMaterial', 'simpanLaporanUiw', 'simpanLaporanUp3', 'simpanPemakaianMcb', 'simpanPemakaianSusulan', 'simpanPemeriksaanStok', 'simpanPetugasYandal', 'simpanSection', 'simpanSegmen', 'simpanSwitching', 'simpanVerifikasiTiang', 'sinkronDataAset', 'sinkronHistoriGangguan', 'sinkronTiang', 'syncRow', 'tambahStokGudang', 'tarikStokTim', 'ubahBaGardu', 'ubahJenisP0', 'updateHiGardu', 'updateMasterGarduBa', 'updateUkurMasterGardu', 'uploadFotoBaGardu', 'uploadFotoRow', 'uploadFotoSwitching', 'uploadFotoTiang', 'uploadTtdBaGardu'], 'endpoint tulis butuh UBAH');
   // data ROW: fungsi wajib membatasi ke tim sesi (PETUGAS) sendiri
   const cekMilik = { getKodeRow: /wajibPetugasRow_\(sesi\)[\s\S]*sesi\.timId/, syncRow: /wajibPetugasRow_\(sesi\)/,
     uploadFotoRow: /wajibPetugasRow_\(sesi\)[\s\S]*BUKAN_MILIK_TIM/,
@@ -1114,7 +1114,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   cekMilik.getDataAset = /^function getDataAset_\(sesi, data\) \{\s*wajibAdminAset_\(sesi\)/;   // v1.0.56
   cekMilik.sinkronDataAset = /^function sinkronDataAset_\(sesi, data\) \{\s*wajibAdminAset_\(sesi\)/;
   // 8 Nov 2026: Master Switching (OPS_MASTER_SWITCHING), peran admin dicek paling awal
-  for (const k of ['getSegmen', 'simpanSegmen', 'getVerifikasiTiang', 'getTiangJalur', 'simpanVerifikasiTiang', 'uploadFotoTiang', 'getFotoTiang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi(, data(, platform)?)?\\) \\{\\s*wajibAdminTiang_\\(sesi\\)');
+  for (const k of ['getSegmen', 'simpanSegmen', 'getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'simpanVerifikasiTiang', 'sinkronTiang', 'uploadFotoTiang', 'getFotoTiang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi(, data(, platform)?)?\\) \\{\\s*wajibAdminTiang_\\(sesi\\)');
   for (const k of ['getMasterSwitching', 'simpanSwitching', 'uploadFotoSwitching', 'getFotoSwitching', 'getJaringan', 'simpanSection', 'setAktifPenyulang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi, data(, platform)?\\) \\{\\s*wajibAdminSwitching_\\(sesi\\)');
   cekMilik.updateUkurMasterGardu = /^function updateUkurMasterGardu_\(sesi, data, platform\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;   // v1.0.22, v1.0.34 web
   // v1.0.17: Jadwal Padam = admin paling awal; v1.0.34 web: fungsi tulis + platform
@@ -3938,8 +3938,8 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     getHistoriGangguan: [], sinkronHistoriGangguan: [],   // v1.0.37: OPS_REKAP_GANGGUAN tidak ada di db_Menu uji
     getDataAset: [], sinkronDataAset: [],   // v1.0.56: OPS_DATA_ASET tidak ada di db_Menu uji
     getMasterSwitching: [], simpanSwitching: [], uploadFotoSwitching: [], getFotoSwitching: [], getJaringan: [], simpanSection: [], setAktifPenyulang: [],
-    getSegmen: [], simpanSegmen: [], getVerifikasiTiang: [], getTiangJalur: [], simpanVerifikasiTiang: [], uploadFotoTiang: [], getFotoTiang: [],   // OPS_VERIFIKASI_TIANG tidak ada di db_Menu uji   // 8 Nov 2026: OPS_MASTER_SWITCHING tidak ada di db_Menu uji
-    getTiketApi: ['admin/WEB'],   // v1.0.38: tiket API MySQL khusus website admin
+    getSegmen: [], simpanSegmen: [], getVerifikasiTiang: [], getTiangJalur: [], getPetaTiang: [], simpanVerifikasiTiang: [], sinkronTiang: [], uploadFotoTiang: [], getFotoTiang: [],   // OPS_VERIFIKASI_TIANG tidak ada di db_Menu uji   // 8 Nov 2026: OPS_MASTER_SWITCHING tidak ada di db_Menu uji
+    getTiketApi: ['admin/MOBILE', 'admin/WEB'],   // v1.0.38: tiket API MySQL khusus website admin; 11 Nov 2026: HP admin (modul tiang Hostinger)
     // v0.75.0: OPS_VERIFIKASI_P0 tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test approval)
     getApprovalP0: [], getFotoApprovalP0: [], simpanApprovalP0: [], ubahJenisP0: [], simpanAturanYandal: [],
     getArsipYandal: ['yandal/MOBILE'], getRankYandal: ['yandal/MOBILE', 'admin/MOBILE', 'admin/WEB'],
@@ -5580,7 +5580,7 @@ test('v0.81.0: ping membawa info versi (server, minimum, link, catatan), semua j
   const gv = buatKonteks(PROPS);
   const props = gv.PropertiesService.getScriptProperties();
   const v0 = JSON.parse(JSON.stringify(gv.proses_({ action: 'ping' }, 'MOBILE')));
-  assert.deepStrictEqual([v0.ok, v0.versi, v0.data.versi], [true, gv.VERSI_BACKEND_, { server: gv.VERSI_BACKEND_, minimum: gv.VERSI_BACKEND_, linkUnduh: '', catatan: '' }]);
+  assert.deepStrictEqual([v0.ok, v0.versi, v0.data.versi], [true, gv.VERSI_BACKEND_, { server: gv.VERSI_BACKEND_, minimum: gv.VERSI_BACKEND_, linkUnduh: '', catatan: '', notifikasi: true, tiangApi: '' }]);
   props.setProperty('VERSI_APP_MINIMUM', '0.75.0');
   props.setProperty('LINK_UPDATE_APP', 'https://drive.google.com/drive/folders/abc');
   props.setProperty('CATATAN_UPDATE_APP', 'Notifikasi update\nversi');
@@ -5591,6 +5591,10 @@ test('v0.81.0: ping membawa info versi (server, minimum, link, catatan), semua j
   assert.deepStrictEqual([gv.infoVersi_().minimum, gv.infoVersi_().linkUnduh], [gv.VERSI_BACKEND_, ''], 'minimum > server dipotong, link non-https dibuang');
   props.setProperty('VERSI_APP_MINIMUM', 'satu');
   assert.strictEqual(gv.infoVersi_().minimum, gv.VERSI_BACKEND_);
+  props.setProperty('NOTIFIKASI_UPDATE_APP', 'tidak');
+  assert.strictEqual(gv.infoVersi_().notifikasi, false, 'NOTIFIKASI_UPDATE_APP = TIDAK mematikan notifikasi');
+  props.setProperty('NOTIFIKASI_UPDATE_APP', 'YA');
+  assert.strictEqual(gv.infoVersi_().notifikasi, true);
   assert.deepStrictEqual(['0.80.0', '0.81.0', '0.81.1', '1.0.0', '0.100.0', 'x'].map((v) => gv.bandingVersi_(v, '0.81.0')), [-1, 0, 1, 1, 1, null]);
 });
 
@@ -5662,12 +5666,12 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (nama === 'getKalenderTim_') awal[k] = 'wajibSesiKalender_(sesi)';   // v1.0.17, v1.0.18 semua akun
     if (['getNotifikasi_', 'tandaiNotifikasi_'].includes(nama)) awal[k] = 'wajibSesiLonceng_(sesi)';   // v1.0.19
     if (nama === 'getUpdateApp_') awal[k] = 'wajibSesiUpdate_(sesi)';   // v1.0.19
-    if (nama === 'getTiketApi_') awal[k] = 'wajibWebTiket_(sesi, platform)';   // v1.0.38
+    if (nama === 'getTiketApi_') awal[k] = 'wajibTiketApi_(sesi, platform)';   // v1.0.38
     if (['getRiwayatGardu_', 'updateUkurMasterGardu_', 'getHiGardu_', 'updateHiGardu_'].indexOf(nama) !== -1) awal[k] = 'wajibAdminRiwayatGardu_(sesi)';   // v1.0.17, v1.0.22, v1.0.35
     if (['getHistoriGangguan_', 'sinkronHistoriGangguan_', 'getCoverGardu_', 'getCheckpoint_'].includes(nama)) awal[k] = 'wajibAdminGgn_(sesi)';   // v1.0.37, v1.0.51
     if (['getDataAset_', 'sinkronDataAset_'].includes(nama)) awal[k] = 'wajibAdminAset_(sesi)';   // v1.0.56
     if (['getMasterSwitching_', 'simpanSwitching_', 'uploadFotoSwitching_', 'getFotoSwitching_', 'getJaringan_', 'simpanSection_', 'setAktifPenyulang_'].includes(nama)) awal[k] = 'wajibAdminSwitching_(sesi)';
-    if (['getSegmen_', 'simpanSegmen_', 'getVerifikasiTiang_', 'getTiangJalur_', 'simpanVerifikasiTiang_', 'uploadFotoTiang_', 'getFotoTiang_'].includes(nama)) awal[k] = 'wajibAdminTiang_(sesi)';   // 8 Nov 2026
+    if (['getSegmen_', 'simpanSegmen_', 'getVerifikasiTiang_', 'getTiangJalur_', 'getPetaTiang_', 'simpanVerifikasiTiang_', 'sinkronTiang_', 'uploadFotoTiang_', 'getFotoTiang_'].includes(nama)) awal[k] = 'wajibAdminTiang_(sesi)';   // 8 Nov 2026
     if (['getApprovalP0', 'getFotoApprovalP0', 'simpanApprovalP0', 'ubahJenisP0', 'simpanAturanYandal'].includes(k)) awal[k] = 'wajibAdminP0_(sesi)';
   }
   const bebasAwal = ['ping', 'login', 'mulaiShiftYandal', 'getUpdateAppPublik', 'cekSesi', 'logout', 'getMaster'];   // publik / milik sesi sendiri (modul dicek per modul)
@@ -10067,6 +10071,31 @@ test('v1.0.37 History Gangguan: waktu, angka, normalisasi 3 sumber', () => {
   assert.strictEqual(pu.length, 2);
   assert.notStrictEqual(pu[0].pickup_id, pu[1].pickup_id, 'baris kembar tetap beda id');
   assert.strictEqual(JSON.stringify(pu.map((o) => o.foto_temuan).sort()), '["","https://x.y/a.jpg"]');
+  const sl = g.susunTabGgn_('penyulang_sl', [
+    ['ID', 'ULP', 'Penyulang', 'Nama PMT/OG/LBS/ACR', 'Jenis Peralatan', 'Tanggal/Jam Padam', 'Tanggal/Jam Nyala', 'Durasi Padam', 'Indikasi', 'R', 'ENS (kWh)', 'Kode FGTM', 'Penyebab Gangguan'],
+    ['0d15ea54', 'TOBOALI', 'tungkal', 'OG SEBAGIN (GH PAYUNG)', 'OG', '2023-07-25 09:04:00', '2023-07-25 09:07:00', '3', 'GFR', '43', '47', 'Pohon - E1', 'Dahan'],
+    ['x2', 'KOBA', 'LAIN', 'ACR X', 'ACR', '2023-07-25 09:04:00', '', '', '', '', '', '', ''],
+  ], alias);
+  assert.strictEqual(sl.length, 1, 'ULP lain dibuang');
+  assert.strictEqual(sl[0].penyulang, 'TUNGKAL');
+  assert.strictEqual(sl[0].waktu_padam, '2023-07-25 09:04');
+  assert.strictEqual(sl[0].waktu_nyala, '2023-07-25 09:07');
+  assert.strictEqual(sl[0].durasi_menit, 3);
+  assert.strictEqual(sl[0].jenis_peralatan, 'OG');
+  assert.strictEqual(sl[0].kode_fgtm, 'Pohon - E1');
+  const arSl = g.susunTabGgn_('ar_sl', [
+    ['ID', 'ULP', 'Penyulang', 'Nama PMT/OG/ACR', 'Tanggal/Jam AR', 'Indikasi', 'Scada', 'Kode FGTM'],
+    ['a4077ccd', 'TOBOALI', 'PALAS', 'ACR BEDENGUNG', '2026-01-01 05:33:00', 'GFR', 'ONLINE', 'Pekerjaan Pihak III Binatang E3'],
+  ], alias);
+  assert.strictEqual(arSl[0].waktu_ar, '2026-01-01 05:33');
+  assert.strictEqual(arSl[0].ar_id, 'a4077ccd');
+  assert.ok(g.GGN_JENIS_.includes('penyulang_sl') && g.GGN_JENIS_.includes('ar_sl'), 'SiMonLang ikut disinkron');
+  // sel tanggal-jam Sheets (Date) tetap membawa jam ke jawaban; tepat 00:00 = hanya tanggal
+  assert.strictEqual(g.waktuKeluarGgn_(new Date('2026-11-06T14:24:00Z')), '2026-11-06 21:24');
+  assert.strictEqual(g.waktuKeluarGgn_(new Date('2026-11-12T22:57:00Z')), '2026-11-13 05:57', 'lewat tengah malam WIB');
+  assert.strictEqual(g.waktuKeluarGgn_(new Date('2026-11-05T17:00:00Z')), '2026-11-06', '00:00 WIB = hanya tanggal');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.keluarGgn_({ penyulang: 'TUNGKAL', waktu_ar: new (g.waktuKeluarGgn_.constructor)("return new Date('2026-11-06T14:24:00Z')")(), indikasi: 'OCR' }, ['penyulang', 'waktu_ar', 'indikasi']))),
+    { penyulang: 'TUNGKAL', waktu_ar: '2026-11-06 21:24', indikasi: 'OCR' });
   const ep = g.endpoints_();
   assert.strictEqual(ep.getHistoriGangguan.menu, 'OPS_REKAP_GANGGUAN');
   assert.ok(ep.getHistoriGangguan.cache && !ep.getHistoriGangguan.tulis);
@@ -10293,9 +10322,10 @@ test('v1.0.38 MySQL: tiket web bertanda (website admin saja), sinkron History Ga
   const [p, tanda] = t.tiket.split('.');
   assert.strictEqual(tanda, crypto.createHmac('sha256', RHS).update('tiket.' + p).digest('hex'));
   const isi = JSON.parse(Buffer.from(p.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
-  assert.deepStrictEqual([isi.u, isi.m, isi.env], ['u1', ['OPS_REKAP_GANGGUAN'], 'staging']);
+  assert.deepStrictEqual([isi.u, isi.m, isi.env, isi.role], ['u1', ['OPS_REKAP_GANGGUAN'], 'staging', 'ADMIN']);   // role: tiang.php
+  assert.strictEqual(t.tiang, false, 'TIANG_API_URL kosong = web memakai Apps Script');
   assert.ok(Math.abs(isi.exp - (Date.now() / 1000 + 900)) < 5);
-  assert.strictEqual(kodeError(() => gx.getTiketApi_({ role: 'ADMIN', userId: 'u1' }, {}, 'MOBILE')), 'AKSES_DITOLAK');
+  assert.strictEqual(kodeError(() => gx.getTiketApi_({ role: 'PETUGAS', userId: 'u1' }, {}, 'MOBILE')), 'AKSES_DITOLAK');
   assert.strictEqual(kodeError(() => gx.getTiketApi_({ role: 'PETUGAS', userId: 'u2' }, {}, 'WEB')), 'AKSES_DITOLAK');
   // tiket ikut cekSesi website (bukan HP / petugas); API belum diatur = tanpa tiket
   assert.match(gx.tiketCekSesiMysql_({ role: 'ADMIN', userId: 'u1' }, 'WEB', [{ kode: 'OPS_REKAP_GANGGUAN' }]).tiket, /^[A-Za-z0-9_-]+\.[0-9a-f]{64}$/);
@@ -10309,11 +10339,11 @@ test('v1.0.38 MySQL: tiket web bertanda (website admin saja), sinkron History Ga
     kirim.push({ url, body: JSON.parse(o.payload), waktu: o.headers['X-SiSi-Waktu'], tanda: o.headers['X-SiSi-Tanda'], payload: o.payload });
     return { getResponseCode: () => jawab.kode, getContentText: () => JSON.stringify(jawab.isi) };
   } };
-  const baris = { ggn_Penyulang: [{ penyulang: 'PALAS', waktu_padam: '2026-03-02 10:00', kode_fgtm: '' }], ggn_AR: [], ggn_PickUp: [{ penyulang: 'KOTA', waktu_event: 'rusak' }] };
+  const baris = { ggn_Penyulang: [{ penyulang: 'PALAS', waktu_padam: '2026-03-02 10:00', kode_fgtm: '' }], ggn_AR: [], ggn_PickUp: [{ penyulang: 'KOTA', waktu_event: 'rusak' }], ggn_Penyulang_SiMonLang: [], ggn_AR_SiMonLang: [] };
   gx.tabel_ = (_, sh) => ({ rows: baris[sh] });
-  const info = { waktu: '2026-10-27T10:00:00.000Z', sumber: 'PEMICU', jumlah: { penyulang: 1, ar: 0, pickup: 1 }, sidik: { penyulang: 'a', ar: 'b', pickup: 'c' } };
+  const info = { waktu: '2026-10-27T10:00:00.000Z', sumber: 'PEMICU', jumlah: { penyulang: 1, ar: 0, pickup: 1, penyulang_sl: 0, ar_sl: 0 }, sidik: { penyulang: 'a', ar: 'b', pickup: 'c', penyulang_sl: 'd', ar_sl: 'e' } };
   const h1 = gx.sinkronMysqlGgn_(info, false);
-  assert.deepStrictEqual(Array.from(h1.dikirim), ['penyulang', 'ar', 'pickup']);
+  assert.deepStrictEqual(Array.from(h1.dikirim), ['penyulang', 'ar', 'pickup', 'penyulang_sl', 'ar_sl']);
   const k1 = kirim[0];
   assert.strictEqual(k1.url, 'https://contoh.id/sisi-api-staging/sinkron.php');
   const sha = crypto.createHash('sha256').update(k1.payload).digest('hex');
@@ -10376,8 +10406,9 @@ test('v1.0.44 GASPOL UP3: rekap 38 kolom per penyulang + tanggal, section pangka
     a: { penyulang: 'PALAS', section: 'PMT PALAS', parent: '', urutan: 1, baris: 2, aktif: true },
     b: { penyulang: 'PALAS', section: 'LBS X', parent: 'a', urutan: 0, baris: 3, aktif: true },
     c: { penyulang: 'KOTA', section: 'LAMA', parent: '', urutan: 1, baris: 4, aktif: false },
+    d: { penyulang: 'BIKANG', section: 'PMT BIKANG - ACR PARIT TUJUH', parent: '', urutan: 1, baris: 5, aktif: true },
   });
-  assert.deepStrictEqual({ ...pangkal }, { palas: 'PMT PALAS' });
+  assert.deepStrictEqual({ ...pangkal }, { palas: 'PMT PALAS', bikang: 'PMT BIKANG - ACR PARIT TUJUH' });
   const h = g.susunGaspol_({
     insJar: [{ tanggal: '2026-10-02', penyulang: 'PALAS', tier: 'Tier 1', tiang: 30 },
              { tanggal: '2026-10-02', penyulang: 'PALAS', tier: 'Tier 2', tiang: 3 }],
@@ -10389,6 +10420,15 @@ test('v1.0.44 GASPOL UP3: rekap 38 kolom per penyulang + tanggal, section pangka
     yandal: [{ tanggal: '2026-10-02', penyulang: 'PALAS' }],
   }, pangkal);
   assert.strictEqual(h.length, 2);
+  // pekerjaan tersebar di beberapa section: dipilih urutan terkecil di master, bagian awal saja (A); tanpa section realisasi = pangkal
+  const jarBk = { s1: { penyulang: 'BIKANG', section: 'PMT BIKANG - ACR PARIT TUJUH', urutan: 1 }, s2: { penyulang: 'BIKANG', section: 'ACR PARIT TUJUH - LBS X', urutan: 2 }, s3: { penyulang: 'BIKANG', section: 'LBS X - ACR Y', urutan: 3 } };
+  const tersebar = g.susunGaspol_({ insJar: [{ tanggal: '2026-10-05', penyulang: 'BIKANG', tier: 'Tier 1', tiang: 2, section: 'LBS X - ACR Y' }],
+    row: [{ tanggal: '2026-10-05', penyulang: 'BIKANG', rabas: 1, sedang: 0, besar: 0, section: 'ACR PARIT TUJUH - LBS X' }], hartek: [], gardu: [], yandal: [] }, pangkal, jarBk);
+  assert.strictEqual(tersebar[0].baris[2], 'ACR PARIT TUJUH', 'urutan terkecil di antara section yang dikerjakan, bukan pangkal penyulang');
+  assert.strictEqual(g.pilihSectionGaspol_([], 'BIKANG', jarBk), '');
+  // nama section master "A - B": GASPOL hanya menerima bagian awal (A)
+  const bk = g.susunGaspol_({ insJar: [{ tanggal: '2026-10-03', penyulang: 'BIKANG', tier: 'Tier 1', tiang: 4 }], row: [], hartek: [], gardu: [], yandal: [] }, pangkal);
+  assert.strictEqual(bk[0].baris[2], 'PMT BIKANG');
   const [k, p] = h.map((x) => x.baris);
   assert.deepStrictEqual([k[0], k[1], k[2], k[3], k[7], k[8], k[9]], [1, '2026-10-01', 'SEED', 'TBL', 5, 1, 2]);
   assert.strictEqual(h[1].penyulang, 'PALAS');
@@ -10920,4 +10960,67 @@ test('review 8 Nov 2026 MySQL: jawaban jadi menu admin lain (grup, penghapus per
     assert.ok(m && r, a + ' terdaftar di PHP dan router');
     assert.ok(m[1].split(',').every((x) => x.trim().replace(/'/g, '') === r[1]), a + ': menu PHP = menu router ' + r[1]);
   });
+});
+
+test('kirimGaspolUp3: tulis per BLOK baris berurutan (bukan 2 panggilan per baris); baris lama ditimpa, baru ditambah, kolom A dinomori ulang', () => {
+  const gx = buatKonteks({ ...PROPS, GASPOL_SHEET_ID: 'gs' });
+  const sel = (kolomN = 40) => Array.from({ length: kolomN }, () => '');
+  const data = [sel(), sel(), sel()];   // baris 1 = header; baris 2 = lama (TBL1 | 2026-11-01); baris 3 kosong berumus
+  data[0][1] = 'Tanggal';
+  data[1][1] = '2026-11-01'; data[1][38] = 'TBL1';
+  const tulis = [];
+  const sh = {
+    getMaxRows: () => 50,
+    getRange: (r, c, nr = 1, nc = 1) => ({
+      getDataValidation: () => null,
+      getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (__, k) => (data[r - 1 + i] || [])[c - 1 + k] ?? '')),
+      setValues: (v) => { tulis.push([r, c, nr, nc]); v.forEach((b, i) => { data[r - 1 + i] = data[r - 1 + i] || sel(); b.forEach((x, k) => { data[r - 1 + i][c - 1 + k] = x; }); }); },
+    }),
+  };
+  gx.peranLaporanUp3_ = () => {};
+  gx.bukaSpreadsheet_ = () => ({ getSheetByName: () => sh });
+  gx.rentangGaspol_ = (d) => d;
+  const baris = (tgl, ang) => { const b = Array.from({ length: 38 }, () => 0); b[1] = tgl; b[2] = 'SECTION'; b[5] = ang; b[6] = 0; return b; };
+  gx.rekapGaspol_ = () => [
+    { penyulang: 'TBL1', baris: baris('2026-11-01', 7) },   // menimpa baris 2
+    { penyulang: 'TBL1', baris: baris('2026-11-02', 8) },   // baru -> baris 3
+    { penyulang: 'TBL2', baris: baris('2026-11-02', 9) },   // baru -> baris 4
+    { penyulang: 'TBL2', baris: baris('2026-11-03', 0) },   // baru -> baris 5
+  ];
+  const h = gx.kirimGaspolUp3_({ role: 'ADMIN' }, { dari: '2026-11-01', sampai: '2026-11-03' });
+  assert.deepStrictEqual([h.total, h.tambah, h.timpa], [4, 3, 1]);
+  assert.deepStrictEqual(tulis.filter((t) => t[1] !== 1 || t[3] !== 1).map((t) => t.join(',')), ['2,1,4,3', '2,6,4,33'], 'satu blok A:C dan satu blok F.. untuk 4 baris berurutan');
+  assert.deepStrictEqual([data[1][5], data[2][5], data[3][5], data[4][5], data[4][6]], [7, 8, 9, '', ''], 'nilai 0 = sel kosong');
+  assert.deepStrictEqual([data[1][0], data[2][0], data[3][0], data[4][0]], [1, 2, 3, 4], 'kolom A dinomori ulang');
+});
+
+test('kirimGaspolUp3: Section di luar daftar pemeriksaan data kolom C dilewati + dilaporkan (tidak menolak seluruh tulis); beda huruf besar memakai tulisan daftar', () => {
+  const gx = buatKonteks({ ...PROPS, GASPOL_SHEET_ID: 'gs' });
+  const g2 = gx;
+  const data = [Array(40).fill(''), Array(40).fill('')];
+  const tulis = [];
+  const daftar = ['PMT TANJUNG LABU', 'ACR PALAS'];
+  const sh = {
+    getMaxRows: () => 50,
+    getRange: (r, c, nr = 1, nc = 1) => ({
+      getDataValidation: () => ({ getCriteriaType: () => 'VALUE_IN_RANGE', getCriteriaValues: () => [{ getValues: () => daftar.map((x) => [x]) }] }),
+      getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (__, k) => (data[r - 1 + i] || [])[c - 1 + k] ?? '')),
+      setValues: (v) => { tulis.push([r, c]); v.forEach((b, i) => { data[r - 1 + i] = data[r - 1 + i] || Array(40).fill(''); b.forEach((x, k) => { data[r - 1 + i][c - 1 + k] = x; }); }); },
+    }),
+  };
+  gx.peranLaporanUp3_ = () => {};
+  gx.bukaSpreadsheet_ = () => ({ getSheetByName: () => sh });
+  gx.rentangGaspol_ = (d) => d;
+  const baris = (tgl, sec) => { const b = Array(38).fill(0); b[1] = tgl; b[2] = sec; b[5] = 3; return b; };
+  gx.rekapGaspol_ = () => [
+    { penyulang: 'TBL1', baris: baris('2026-11-01', 'pmt tanjung labu') },
+    { penyulang: 'TBL2', baris: baris('2026-11-01', 'PMT BARU BELUM ADA') },
+    { penyulang: 'TBL3', baris: baris('2026-11-01', 'ACR PALAS') },
+  ];
+  const h = gx.kirimGaspolUp3_({ role: 'ADMIN' }, { dari: '2026-11-01', sampai: '2026-11-01' });
+  assert.deepStrictEqual([h.total, h.tambah, h.timpa], [3, 3, 0], 'baris tetap ditulis walau Section tidak ada di daftar');
+  assert.deepStrictEqual(Array.from(h.dilewati), ['PMT BARU BELUM ADA (TBL2 2026-11-01)']);
+  assert.deepStrictEqual([data[1][2], data[2][2], data[3][2]], ['PMT TANJUNG LABU', '', 'ACR PALAS'], 'Section tak dikenal = sel kosong');
+  assert.deepStrictEqual([data[1][5], data[2][5], data[3][5]], [3, 3, 3], 'data lain tetap terisi');
+  assert.deepStrictEqual([g2.normSectionGaspol_('ACR Sp. Lingkup'), g2.normSectionGaspol_('FCO Jar Tj.  Limau')], ['ACR SIMPANG LINGKUP', 'FCO JAR TANJUNG LIMAU']);
 });

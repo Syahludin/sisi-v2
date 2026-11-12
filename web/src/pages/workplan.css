@@ -26,7 +26,7 @@
   font-size: 12px; font-weight: 800; white-space: nowrap;
 }
 .wp-jenis--pangkas { background: var(--success-100); color: var(--success-700); }
-.wp-jenis--tebang { background: #fde8d8; color: #a14a10; }
+.wp-jenis--tebang { background: var(--accent-100); color: var(--accent-700); }
 
 /* --- tabel: kepala + kolom identitas menempel, akhir pekan diarsir --- */
 .wp-bungkus {

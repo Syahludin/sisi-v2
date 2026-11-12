@@ -77,7 +77,7 @@ class _PilihPetugasScreenState extends State<PilihPetugasScreen> {
     return PopScope(
       canPop: !_proses,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Petugas Shift', subjudul: _t.timNama),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           Container(

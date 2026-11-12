@@ -17,7 +17,7 @@
 .pt-pilih { flex: 0 1 220px; min-width: 180px; }
 .pt-tgl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--neutral-500); }
 
-.pt-bungkus { position: relative; border: 1px solid var(--neutral-200); border-radius: 14px; overflow: hidden; background: #aadaff; }
+.pt-bungkus { position: relative; border: 1px solid var(--neutral-200); border-radius: 14px; overflow: hidden; background: #aadaff; }   /* tetap: warna air peta dasar */
 .pt-peta { height: min(640px, calc(100vh - 330px)); min-height: 380px; width: 100%; }
 .pt-bungkus--penuh { position: fixed; inset: 0; z-index: 9500; border-radius: 0; border: 0; }
 .pt-bungkus--penuh .pt-peta { height: 100vh; }
@@ -34,7 +34,7 @@
 
 .pt-panel {
   position: absolute; top: 58px; right: 10px; z-index: 950; width: min(330px, calc(100% - 20px)); max-height: calc(100% - 80px); overflow-y: auto;
-  padding: 14px; border-radius: 12px; background: var(--putih); box-shadow: 0 10px 30px rgba(15, 23, 42, .22);
+  padding: 14px; border-radius: 12px; background: var(--putih); box-shadow: 0 10px 30px rgba(12, 30, 21, .22);
 }
 .pt-panel h2 { margin: 2px 28px 8px 0; font-size: 16px; font-weight: 800; color: var(--brand-950); }
 .pt-panel-kode { font-size: 11.5px; font-weight: 700; color: var(--neutral-500); }
@@ -69,7 +69,7 @@
 .pt-tab { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 5px; border-radius: 14px; background: var(--neutral-150); width: fit-content; max-width: 100%; }
 .pt-tab button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 13.5px; font-weight: 800; color: var(--neutral-700); cursor: pointer; }
 .pt-tab button:hover { color: var(--brand-950); }
-.pt-tab button.aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(20, 32, 30, .12); }
+.pt-tab button.aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(12, 30, 21, .12); }
 /* v1.0.51 rekap jenis temuan (TabelRekapTemuan): panel putih, kartu ringkas, tabel bergaya tabel SiSi */
 .pt-panel-isi { padding: 16px 18px; border-radius: 16px; border: 1px solid var(--neutral-150); background: var(--putih); min-width: 0; }
 .pt-kartu--diam { cursor: default; }

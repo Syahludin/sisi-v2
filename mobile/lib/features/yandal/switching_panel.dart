@@ -311,7 +311,7 @@ class _SwitchingPanelState extends State<SwitchingPanel> {
           child: Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: boleh ? AppColors.brand50 : const Color(0xFFF8FAFC),
+              color: boleh ? AppColors.brand50 : const Color(0xFFF1F5F2),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: arusKosong && boleh ? AppColors.accent600 : AppColors.neutral200, width: arusKosong && boleh ? 1.6 : 1),
             ),

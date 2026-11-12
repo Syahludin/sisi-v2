@@ -4,10 +4,10 @@
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 8px 10px 8px 12px;
   border: 1px solid var(--neutral-200); border-radius: 12px; background: var(--putih); color: var(--brand-950);
   font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s, background .15s;
+  box-shadow: 0 1px 2px rgba(12, 30, 21, .04); transition: border-color .15s, box-shadow .15s, background .15s;
 }
 .pl-tombol:hover:not(:disabled) { border-color: var(--brand-500); background: var(--brand-50); }
-.pl-tombol:focus-visible, .pl--buka .pl-tombol { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(29, 106, 115, .16); }
+.pl-tombol:focus-visible, .pl--buka .pl-tombol { outline: none; border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(60, 154, 96, .16); }
 .pl-tombol:disabled { cursor: not-allowed; background: var(--neutral-50); color: var(--neutral-500); }
 .pl-tombol--kosong .pl-nilai { color: var(--neutral-500); font-weight: 600; }
 .pl-tombol--galat { border-color: var(--red-600); background: var(--red-100); }
@@ -20,7 +20,7 @@
 .pl-panel {
   position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: max-content; min-width: max(100%, 220px); max-width: min(560px, 92vw); padding: 6px;
   border: 1px solid var(--neutral-200); border-radius: 14px; background: var(--putih);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .06);
+  box-shadow: 0 16px 40px rgba(12, 30, 21, .16), 0 2px 6px rgba(12, 30, 21, .06);
   animation: pl-masuk .14s ease-out;
 }
 @keyframes pl-masuk { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

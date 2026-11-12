@@ -28,7 +28,7 @@ export default function Beranda({ sesi, feeder, rel, segera, onPilih }) {
   return (
     <div className="brd">
       <section className="brd-hero">
-        <MotifJaringan animasi={false} className="brd-motif" />
+        <MotifJaringan className="brd-motif" />
         <div className="brd-kicker"><span className="brd-percik" />SELAMAT DATANG</div>
         <h1>{p.nama || p.username}</h1>
         <p>{role}{p.timNama ? ' · ' + p.timNama : ''} · PLN ULP Toboali</p>

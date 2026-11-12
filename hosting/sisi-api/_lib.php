@@ -14,7 +14,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) { http_response_co
 
 const API_VERSI = '1';
 const SELISIH_WAKTU_DETIK = 300;
-const JENIS_GGN = ['penyulang', 'ar', 'pickup'];
+const JENIS_GGN = ['penyulang', 'ar', 'pickup', 'penyulang_sl', 'ar_sl'];
 
 date_default_timezone_set('Asia/Jakarta');
 ini_set('display_errors', '0');
@@ -80,6 +80,12 @@ function db(): PDO
         error_log('sisi-api: skema DB gagal: ' . $e->getMessage());
         galat(503, 'DB_SKEMA_GAGAL_' . kodeDb($e));
     }
+    if (function_exists('skemaTiang')) {   // tiang_lib.php dimuat hanya oleh titik masuk modul tiang
+        try { skemaTiang($pdo); } catch (PDOException $e) {
+            error_log('sisi-api: skema tiang gagal: ' . $e->getMessage());
+            galat(503, 'DB_SKEMA_TIANG_GAGAL_' . kodeDb($e));
+        }
+    }
     return $pdo;
 }
 
@@ -132,9 +138,8 @@ function base64UrlDecode(string $s): string
     return $d === false ? '' : $d;
 }
 
-/** Tiket website (getTiketApi): base64url(json) + '.' + hex HMAC(rahasia, 'tiket.' + bagian 1). Hasil isi tiket.
- *  $menu = satu kode menu, atau daftar (cukup salah satu). */
-function wajibTiket($menu): array
+/** Tiket (getTiketApi): base64url(json) + '.' + hex HMAC(rahasia, 'tiket.' + bagian 1). Hasil isi tiket; tanpa pemeriksaan menu. */
+function bacaTiket(): array
 {
     $t = $_SERVER['HTTP_X_SISI_TIKET'] ?? '';
     if (!is_string($t) || !preg_match('/^([A-Za-z0-9_-]{10,4000})\.([0-9a-f]{64})$/', $t, $m)) galat(401, 'TIKET_TIDAK_VALID');
@@ -143,6 +148,13 @@ function wajibTiket($menu): array
     if (!is_array($isi) || !is_int($isi['exp'] ?? null) || !is_array($isi['m'] ?? null)) galat(401, 'TIKET_TIDAK_VALID');
     if ($isi['exp'] <= time()) galat(401, 'TIKET_KEDALUWARSA');
     if (($isi['env'] ?? '') !== (konfig()['env'] ?? '')) galat(401, 'TIKET_TIDAK_VALID');
+    return $isi;
+}
+
+/** Tiket website: [bacaTiket] + salah satu menu. $menu = satu kode menu, atau daftar (cukup salah satu). */
+function wajibTiket($menu): array
+{
+    $isi = bacaTiket();
     if (!array_intersect((array)$menu, $isi['m'])) galat(403, 'AKSES_DITOLAK');
     return $isi;
 }

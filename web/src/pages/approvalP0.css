@@ -21,7 +21,7 @@
   border: 1px solid var(--neutral-150); background: var(--putih); color: var(--neutral-900);
   transition: border-color .12s, box-shadow .12s;
 }
-.ap-item:hover { border-color: var(--brand-100); box-shadow: 0 2px 8px rgba(20, 32, 30, .06); }
+.ap-item:hover { border-color: var(--brand-100); box-shadow: 0 2px 8px rgba(12, 30, 21, .06); }
 .ap-item--pilih { border-color: var(--brand-500); box-shadow: inset 3px 0 0 var(--brand-600); background: var(--brand-50); }
 .ap-item-atas { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ap-item-atas small { font-size: 11px; font-weight: 800; color: var(--brand-700); overflow-wrap: anywhere; }

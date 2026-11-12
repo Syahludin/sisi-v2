@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 import Dialog from '../../components/Dialog.jsx';
 import Ikon from '../../components/Ikon.jsx';
 import SisiLoader from '../../components/SisiLoader.jsx';
-import { BULAN_PENDEK, hitungKategori, JENIS_GGN, jenisGgn, kategoriAlat, kodeFgtm, perBulanRentang, perBulanTigaTahun, perTahunGgn, pieFgtm, rentangTahun, ringkasGgn, saringFilter, teksDurasi, tigaTahun, topPenyulang } from '../../gangguan.js';
+import { BULAN_PENDEK, hitungKategori, JENIS_GGN, jenisGgn, jenisUntukSumber, kategoriAlat, kodeFgtm, perBulanRentang, perBulanTigaTahun, perTahunGgn, pieFgtm, rentangTahun, ringkasGgn, saringFilter, teksDurasi, tigaTahun, topPenyulang } from '../../gangguan.js';
 import { angka, hariIniWib, TAHUN_AWAL, teksPeriode, tglId } from './bantu.js';
+import { PilihSumber } from './Sumber.jsx';
 import { Batang, GrafikBulan, GrafikBulanTigaTahun, GrafikTop, KartuGrafik, kelasBeda, LegendaAlat, teksBeda } from './Grafik.jsx';
 
 /** Judul kartu perbandingan bulanan 3 tahun: YOY <jenis> ULP Toboali. */
@@ -14,11 +15,13 @@ const judulYoy = (j) => 'YOY ' + (j.kode === 'pickup' ? 'Pickup' : j.label) + ' 
  * Tab "Top 12 Penyulang": tahun dipilih (?top=, bawaan tahun berjalan; tidak ikut filter tab Data Gangguan), satu kartu per
  * jenis (periode, grafik PMT | Section, perbandingan 3 tahun penyulang yang sama). Bar diklik = rincian penyulang itu.
  */
-export function TabTop({ tahunTop, tahunKini, tt, onTahun, onPilih }) {
+export function TabTop({ sumber, ubah, tahunTop, tahunKini, tt, onTahun, onPilih }) {
+  const jenisAda = jenisUntukSumber(sumber), banding = sumber === 'banding';
   return (
     <section className="ggn-panel ggn-tab-isi" aria-label={'Top 12 penyulang ' + tahunTop}>
       <div className="ggn-bagian-kepala">
         <h2 className="ggn-bagian">Top 12 penyulang <small>klik bar untuk rincian</small></h2>
+        <PilihSumber sumber={sumber} ubah={ubah} kelas="ggn-pilih-tahun" />
         <label className="ggn-pilih-tahun"><span>Tahun</span>
           <select className="k-input" value={tahunTop} onChange={(e) => onTahun(Number(e.target.value))}>
             {Array.from({ length: tahunKini - TAHUN_AWAL + 1 }, (_, i) => tahunKini - i).map((t) => <option key={t} value={t}>{t}</option>)}
@@ -28,17 +31,21 @@ export function TabTop({ tahunTop, tahunKini, tt, onTahun, onPilih }) {
       </div>
       {tt.galat && <p className="k-pesan k-pesan--galat">{tt.galat}</p>}
       <div className="ggn-top-grid">
-        {JENIS_GGN.map((j) => (
+        {jenisAda.map((j) => (banding ? [
+          <KartuTop key={j.kode} j={{ ...j, label: j.label + ' · Wilayah' }} tahun={tahunTop} baris={tt.data?.[j.kode]} onPilih={(n) => onPilih({ jenis: j.kode, penyulang: n })} />,
+          <KartuTop key={j.kode + '_sl'} j={{ ...j, label: j.label + ' · SiMonLang' }} tahun={tahunTop} baris={tt.data?.[j.kode + '_sl']} onPilih={() => {}} />,
+        ] : (
           <KartuTop key={j.kode} j={j} tahun={tahunTop} baris={tt.data?.[j.kode]} onPilih={(n) => onPilih({ jenis: j.kode, penyulang: n })} />
-        ))}
+        )))}
       </div>
 
+      {!banding && <>
       <div className="ggn-bagian-kepala">
         <h2 className="ggn-bagian">Per bulan <small>{teksPeriode(rentangTahun(tahunTop, hariIniWib()))}</small></h2>
         <LegendaAlat />
       </div>
       <div className="ggn-grafik-grid" aria-label={'Gangguan per bulan ' + tahunTop}>
-        {JENIS_GGN.map((j) => {
+        {jenisAda.map((j) => {
           const periode = rentangTahun(tahunTop, hariIniWib()), baris = tt.data?.[j.kode];
           return (
             <KartuGrafik key={j.kode} className={'ggn-panel ggn-w--' + j.warna} judul={j.label + ' per bulan'} sub={teksPeriode(periode)}>
@@ -54,13 +61,14 @@ export function TabTop({ tahunTop, tahunKini, tt, onTahun, onPilih }) {
         <LegendaAlat />
       </div>
       <div className="ggn-top-grid" aria-label="Perbandingan bulanan 3 tahun">
-        {JENIS_GGN.map((j) => (
+        {jenisAda.map((j) => (
           <KartuGrafik key={j.kode} className={'ggn-panel ggn-w--' + j.warna} judul={judulYoy(j)} sub={tigaTahun(tahunTop).join(' · ')}>
             <h3><span className="ggn-titik" />{judulYoy(j)}</h3>
             {tt.data?.[j.kode] ? <GrafikBulanTigaTahun isi={perBulanTigaTahun(tt.data[j.kode], j.kode, tahunTop)} onPilih={(bulan) => onPilih({ jenis: j.kode, bulan })} /> : <div className="k-tengah"><SisiLoader ukuran={32} label="Memuat" /></div>}
           </KartuGrafik>
         ))}
       </div>
+      </>}
     </section>
   );
 }

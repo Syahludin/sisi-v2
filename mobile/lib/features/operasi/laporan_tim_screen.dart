@@ -298,7 +298,7 @@ class _LaporanTimScreenState extends State<LaporanTimScreen> {
       ]);
     }
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Laporan per Tim', subjudul: tgl, actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: () => _muat(beriTahu: true)),
       ]),
@@ -497,7 +497,7 @@ class _LayarLaporanHartekAdminState extends State<_LayarLaporanHartekAdmin> {
   Widget build(BuildContext context) {
     final d = _daftar ?? const [];
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('${widget.tim['nama']}', subjudul: 'Tim Hartek • ULP ${widget.sesi.ulp}', actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: _muat),
       ]),

@@ -20,11 +20,11 @@ const jenisSwitching = [
   JenisSwitching('SSO', 'Sectionalizer (SSO)', Color(0xFFEA580C), false),
   JenisSwitching('LBS', 'Load Break Switch (LBS)', Color(0xFF2563EB), false),
   JenisSwitching('FCO', 'Fuse Cut Out (FCO)', Color(0xFF16A34A), true),
-  JenisSwitching('DS', 'Disconnecting Switch (DS)', Color(0xFF64748B), false),
+  JenisSwitching('DS', 'Disconnecting Switch (DS)', Color(0xFF5C6F65), false),
 ];
 
 JenisSwitching infoJenis(String kode) =>
-    jenisSwitching.firstWhere((j) => j.kode == kode, orElse: () => JenisSwitching(kode, kode.isEmpty ? '-' : kode, const Color(0xFF64748B), false));
+    jenisSwitching.firstWhere((j) => j.kode == kode, orElse: () => JenisSwitching(kode, kode.isEmpty ? '-' : kode, const Color(0xFF5C6F65), false));
 
 /// Pilihan isian (kode server, label). Urutan = urutan tampil.
 const pilihanSwitching = <String, List<(String, String)>>{

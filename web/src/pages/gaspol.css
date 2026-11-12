@@ -27,6 +27,7 @@
 .gs-c3 { left: 148px; min-width: 120px; text-align: left !important; box-shadow: 2px 0 0 var(--neutral-200); }
 
 .gs-tabel thead .gs-id { background: var(--brand-100); color: var(--brand-800); }
+/* tetap: warna kategori pekerjaan (pembeda antar-kategori grafik, bukan warna merek) */
 .gs-g-sutm { background: #dcfce7 !important; color: #15803d !important; }
 .gs-g-row { background: #ecfccb !important; color: #4d7c0f !important; }
 .gs-g-harkom { background: #dbeafe !important; color: #1d4ed8 !important; }

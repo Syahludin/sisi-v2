@@ -48,7 +48,15 @@ function wajibAdminTiang_(sesi) {
 /** Tab SiSi_Tiang dengan header dicek. */
 function tabelTiangSisi_(nama) {
   wajibKonfigTiang_();
-  return cekHeaderSkema_(tabel_('TIANG_SHEET_ID', nama), 'TIANG_SHEET_ID', nama);
+  var b = TIANG_BATCH_; // v1.0.71: dalam sinkronTiang tabel dibaca sekali per kelompok (memori diperbarui tulisBlokTunda_)
+  if (b && b.tabel[nama]) return b.tabel[nama];
+  var t = cekHeaderSkema_(tabel_('TIANG_SHEET_ID', nama), 'TIANG_SHEET_ID', nama);
+  if (b) {
+    t.batch = b;
+    t.akhirAsal = t.akhirMemori = Math.max(t.sheet.getLastRow(), 1);
+    b.tabel[nama] = t;
+  }
+  return t;
 }
 
 /** ID berikutnya <awalan>-nnnn (4 digit, lebih panjang bila lewat 9999) dari kolom [kolom]. */

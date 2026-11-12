@@ -1,8 +1,11 @@
 /** Catat aksi penting ke SiSi_Auth > log_Audit (tidak disinkron ke HP). */
 /** tLog opsional: hasil headerTabel_ yang sudah dibaca lebih dulu (agar tidak ada baca setelah tulis). */
+/** v1.0.71: bukan null = baris audit dikumpulkan (sinkronTiang) lalu ditulis sekali; [{ t, o }]. */
+var AUDIT_TUNDA_ = null;
+
 function auditLog_(siapa, aksi, target, detail, platform, tLog) {
   var t = tLog || headerTabel_('AUTH_SHEET_ID', 'log_Audit');   // header saja, bukan seluruh log
-  tambahBaris_(t, {
+  var baris = {
     waktu: sekarangIso_(),
     user_id: siapa ? siapa.userId || '' : '',
     username: siapa ? siapa.username || '' : '',
@@ -12,5 +15,7 @@ function auditLog_(siapa, aksi, target, detail, platform, tLog) {
     detail: detail ? String(detail).slice(0, 500) : '',
     platform: platform || '',
     device_id: siapa ? siapa.deviceId || '' : ''
-  });
+  };
+  if (AUDIT_TUNDA_) AUDIT_TUNDA_.push({ t: t, o: baris });
+  else tambahBaris_(t, baris);
 }

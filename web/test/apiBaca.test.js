@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { bacaMysql, bolehBacaMysql, kanon, lupakanTiket, simpanTiket, tiketBaca, urlBaca } from '../src/apiBaca.js';
+import { bacaMysql, bacaTiang, bolehBacaMysql, bolehBacaTiang, kanon, lupakanTiket, simpanTiket, tiangDiHostinger, tiketBaca, urlBaca } from '../src/apiBaca.js';
 import { bacaConfig } from '../src/config.js';
 
 const res = (status, isi) => ({ ok: status === 200, status, json: async () => isi });
@@ -67,4 +67,26 @@ test('baca MySQL: header tiket, amplop ok, galat API / belum sinkron / jaringan 
   await assert.rejects(bacaMysql('/a', 'getHistoriGangguan', {}, 'T', {}, async () => res(200, { ok: true, data: { sinkron: null } })), { kode: 'MYSQL_BELUM_SINKRON' });
   await assert.rejects(bacaMysql('/a', 'getHistoriGangguan', {}, 'T', {}, async () => { throw new Error('putus'); }), { kode: 'JARINGAN' });
   await assert.rejects(bacaMysql('/a', 'getHistoriGangguan', {}, 'T', {}, async () => ({ ok: false, status: 502, json: async () => { throw new Error('html'); } })), { kode: 'JARINGAN' });
+});
+
+test('tiang Hostinger: hanya aksi baca tiang; tiket bertanda tiang menentukan; bacaTiang POST tiang.php dengan tiket + { action, data }', async () => {
+  assert.deepEqual(['getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'getSegmen', 'getMasterSwitching', 'simpanSegmen', 'getWoAdmin'].map(bolehBacaTiang),
+    [true, true, true, true, true, false, false]);
+  lupakanTiket();
+  simpanTiket('tk', { tiket: 'abc', sampai: new Date(Date.now() + 900000).toISOString() });
+  assert.equal(tiangDiHostinger('tk'), false, 'tanpa tanda tiang = Apps Script');
+  simpanTiket('tk', { tiket: 'abc', sampai: new Date(Date.now() + 900000).toISOString(), tiang: true });
+  assert.equal(tiangDiHostinger('tk'), true);
+  assert.equal(tiangDiHostinger('lain'), false, 'tiket sesi lain tidak dipakai');
+  let minta;
+  const f = async (url, o) => { minta = { url, ...o }; return res(200, { ok: true, data: { jalur: [] } }); };
+  const j = await bacaTiang('/sisi-api-staging', 'getTiangJalur', { kode: 'PLS' }, 'abc', {}, f);
+  assert.deepEqual(j.data, { jalur: [] });
+  assert.equal(minta.url, '/sisi-api-staging/tiang.php');
+  assert.equal(minta.method, 'POST');
+  assert.equal(minta.headers['X-SiSi-Tiket'], 'abc');
+  assert.deepEqual(JSON.parse(minta.body), { action: 'getTiangJalur', data: { kode: 'PLS' } });
+  await assert.rejects(bacaTiang('/x', 'getTiangJalur', {}, 'abc', {}, async () => res(403, { ok: false, kode: 'AKSES_DITOLAK' })), { kode: 'AKSES_DITOLAK' });
+  await assert.rejects(bacaTiang('/x', 'getTiangJalur', {}, 'abc', {}, async () => { throw new Error('putus'); }), { kode: 'JARINGAN' });
+  lupakanTiket();
 });

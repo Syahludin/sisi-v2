@@ -232,3 +232,128 @@ export function teksDurasi(menit) {
   const m = Math.round(menit), j = Math.floor(m / 60);
   return j ? j + ' j' + (m % 60 ? ' ' + (m % 60) + ' m' : '') : m + ' m';
 }
+
+/* ===== Sumber data (v1.0.71): wilayah | simonlang | banding ===== */
+export const SUMBER_GGN = [['wilayah', 'Gangguan Wilayah'], ['simonlang', 'SiMonLang'], ['banding', 'Perbandingan']];
+export const pilihSumber = (v) => (SUMBER_GGN.some(([k]) => k === v) ? v : 'wilayah');
+/** Jenis yang ada per sumber: pick up hanya ada di SiMonLang, jadi Gangguan Wilayah dan Perbandingan tanpa pick up. */
+export const jenisUntukSumber = (sumber) => (sumber === 'simonlang' ? JENIS_GGN : JENIS_GGN.filter((j) => j.kode !== 'pickup'));
+
+/* ===== Pencocokan kejadian SiMonLang vs Gangguan Wilayah (v1.0.71, murni, diuji) ===== */
+// selisih jam yang masih dianggap kejadian yang sama (lebih dari ini = berbeda), dalam menit
+export const TOLERANSI_JAM_MENIT = 60;
+// [kolom, label, toleransi angka]; kolom tanpa toleransi dibandingkan sebagai teks (huruf besar, spasi dirapikan)
+export const MEDAN_BANDING = {
+  penyulang: [['peralatan', 'Peralatan'], ['waktu_nyala', 'Waktu nyala', TOLERANSI_JAM_MENIT], ['durasi_menit', 'Durasi (menit)', 1], ['indikasi', 'Indikasi'],
+    ['arus_r', 'Arus R (A)'], ['arus_s', 'Arus S (A)'], ['arus_t', 'Arus T (A)'], ['arus_n', 'Arus N (A)'], ['ens_kwh', 'ENS (kWh)', 1],
+    ['cuaca', 'Cuaca'], ['kode_fgtm', 'Kode FGTM']],
+  ar: [['peralatan', 'Peralatan'], ['indikasi', 'Indikasi'], ['arus_r', 'Arus R (A)'], ['arus_s', 'Arus S (A)'], ['arus_t', 'Arus T (A)'],
+    ['arus_n', 'Arus N (A)'], ['cuaca', 'Cuaca'], ['kode_fgtm', 'Kode FGTM']],
+};
+const teksBanding = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+/** 'yyyy-MM-dd[ H:mm]' -> menit sejak epoch (WIB dianggap UTC, hanya untuk selisih). Tanpa jam = 00:00 (data lama hanya memuat tanggal). */
+const menitDari = (w) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(String(w ?? ''));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) / 6e4 : NaN;
+};
+
+// kata yang dianggap satu makna di nama peralatan (kiri = bentuk baku). Tambah di sini bila ada singkatan lain.
+const SINONIM_PERALATAN = { SIMPANG: 'SP', SMP: 'SP', GANG: 'GG' };   // 'GG.' / 'GG' / 'GANG' (ACR GANG MAWAR = ACR GG. MAWAR)
+
+/**
+ * Nama peralatan untuk dibandingkan (hanya perangkat yang dinilai, bukan keterangan section):
+ *  - teks di dalam tanda kurung dibuang: SiMonLang "OG PERMIS (GH PAYUNG)" = wilayah "OG PERMIS - UJUNG";
+ *  - bagian sesudah " - " dibuang: wilayah "PMT A - B" / "ACR POLSEK SIMBA - UJUNG" = SiMonLang "PMT A" / "ACR POLSEK SIMBA"
+ *    (tanda hubung tanpa spasi, mis. "SP-3", tetap bagian nama);
+ *  - tanda baca dan huruf besar-kecil diabaikan; "SP." / "SP" / "SIMPANG" satu makna, begitu juga "GG." / "GG" / "GANG"; akhiran "UJUNG" tanpa tanda hubung dibuang.
+ */
+export function normalPeralatan(nama) {
+  const inti = String(nama ?? '').replace(/\([^)]*\)?/g, ' ').split(/\s[-–—]\s/)[0];
+  const kata = inti.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean).map((k) => SINONIM_PERALATAN[k] || k);
+  if (kata.length > 2 && kata[kata.length - 1] === 'UJUNG') kata.pop();
+  return kata.join(' ');
+}
+
+
+/**
+ * Cuaca untuk dibandingkan: penghubung ("DISERTAI", "DENGAN", "DAN", "+", "&", "/", ",") diabaikan, jadi "HUJAN DISERTAI PETIR" =
+ * "HUJAN + PETIR" = "hujan petir". Urutan kata tetap dihitung ("HUJAN PETIR" != "PETIR").
+ */
+export function normalCuaca(teks) {
+  return String(teks ?? '').toUpperCase().replace(/\b(DISERTAI|DENGAN|DAN)\b|[+&,/]/g, ' ').replace(/[^A-Z0-9]+/g, ' ').trim();
+}
+
+/** Nilai satu kolom untuk dibandingkan: Kode FGTM dibandingkan kodenya saja ('Pohon - E1' = 'Pohon E1'). */
+function nilaiBanding(o, kolom) {
+  if (kolom === 'kode_fgtm') return kodeFgtm(o.kode_fgtm).kode;
+  if (kolom === 'peralatan') return normalPeralatan(o.peralatan);
+  if (kolom === 'cuaca') return normalCuaca(o.cuaca);
+  if (kolom === 'waktu_nyala') { const m = menitDari(o.waktu_nyala); return Number.isFinite(m) ? m : ''; }   // menit, supaya bisa bertoleransi
+  const v = o[kolom];
+  return typeof v === 'number' ? v : teksBanding(v);
+}
+
+/** Kolom yang nilainya beda antara dua kejadian: [{ medan, label, sl, wil }] (nilai asli, kosong = ''). */
+export function bedaKejadian(sl, wil, kode) {
+  return (MEDAN_BANDING[kode] || []).filter(([kolom, , toleransi]) => {
+    const a = nilaiBanding(sl, kolom), b = nilaiBanding(wil, kolom);
+    if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) > (toleransi || 0);
+    return String(a) !== String(b);
+  }).map(([kolom, label]) => ({ medan: kolom, label, sl: sl[kolom] ?? '', wil: wil[kolom] ?? '' }));
+}
+
+/**
+ * Cocokkan kejadian SiMonLang (sl) dengan Gangguan Wilayah (wil) satu jenis ('penyulang' | 'ar'). Kunci = penyulang + waktu
+ * dan indikasi sampai menit (kembar dihitung berurutan). Sisa (termasuk yang sama-sama muncul tetapi indikasinya beda) yang penyulangnya sama dan waktunya berselisih <= toleranMenit dipasangkan
+ * juga (menit != 0, "waktu berbeda"). Hasil { sama, pasangan: [{ sl, wil, menit, beda }], hanyaSl, hanyaWil };
+ * sama = jumlah pasangan tanpa selisih (samaDaftar = pasangannya), pasangan = yang punya selisih kolom.
+ */
+export function cocokkanKejadian(sl, wil, kode, { toleranMenit = TOLERANSI_JAM_MENIT } = {}) {
+  const j = jenisGgn(kode);
+  const indikasi = (o) => teksBanding(o.indikasi);
+  // indikasi ikut kunci: dua kejadian di penyulang + menit yang sama tetapi GFR dan OCR adalah dua kejadian, bukan kembar
+  const kunci = (o) => String(o.penyulang ?? '').trim().toUpperCase() + ' | ' + String(o[j.waktu] || '').slice(0, 16) + ' | ' + indikasi(o);
+  const antre = new Map();
+  (wil || []).forEach((o) => { const k = kunci(o); if (!antre.has(k)) antre.set(k, []); antre.get(k).push(o); });
+  const pasangan = [], sisaSl = [];
+  let sama = 0;
+  const samaDaftar = [];   // pasangan cocok sempurna (untuk rincian per penyulang)
+  const catat = (a, b, menit) => {
+    const beda = bedaKejadian(a, b, kode);   // selisih jam <= toleransi bukan perbedaan: hanya dicatat di `menit`
+    if (beda.length) pasangan.push({ sl: a, wil: b, menit, beda }); else { sama += 1; samaDaftar.push({ sl: a, wil: b, menit }); }
+  };
+  (sl || []).forEach((o) => {
+    const q = antre.get(kunci(o));
+    if (q && q.length) catat(o, q.shift(), 0); else sisaSl.push(o);
+  });
+  const sisaWil = [...antre.values()].flat();
+  // sisa: pasangkan yang waktunya berdekatan (penyulang sama), selisih terkecil dulu
+  const calon = [];
+  const adaJam = (o) => /\d{1,2}:\d{2}/.test(String(o[j.waktu] || '').slice(10));
+  const tgl = (o) => String(o[j.waktu] || '').slice(0, 10);
+  sisaSl.forEach((a, i) => sisaWil.forEach((b, k) => {
+    if (String(a.penyulang ?? '').trim().toUpperCase() !== String(b.penyulang ?? '').trim().toUpperCase()) return;
+    if (!adaJam(a) || !adaJam(b)) {
+      // salah satu tidak mencatat jam trip: tidak bisa diukur selisih jamnya, jadi dipasangkan bila tanggal dan section (peralatan) sama
+      if (tgl(a) && tgl(a) === tgl(b) && normalPeralatan(a.peralatan) === normalPeralatan(b.peralatan)) calon.push({ i, k, m: 0, tanpaJam: true });
+      return;
+    }
+    const m = menitDari(b[j.waktu]) - menitDari(a[j.waktu]);
+    if (Number.isFinite(m) && Math.abs(m) <= toleranMenit) calon.push({ i, k, m });
+  }));
+  const bedaInd = (c) => (indikasi(sisaSl[c.i]) === indikasi(sisaWil[c.k]) ? 0 : 1);
+  // tanggal acuan utama: tanggal yang sama didahulukan, lalu yang jamnya tercatat, lalu selisih waktu terkecil, lalu indikasi yang sama
+  const bedaTgl = (c) => (String(sisaSl[c.i][j.waktu]).slice(0, 10) === String(sisaWil[c.k][j.waktu]).slice(0, 10) ? 0 : 1);
+  calon.sort((x, y) => bedaTgl(x) - bedaTgl(y) || (x.tanpaJam ? 1 : 0) - (y.tanpaJam ? 1 : 0) || Math.abs(x.m) - Math.abs(y.m) || bedaInd(x) - bedaInd(y));
+  const pakaiSl = new Set(), pakaiWil = new Set();
+  calon.forEach(({ i, k, m }) => {
+    if (pakaiSl.has(i) || pakaiWil.has(k)) return;
+    pakaiSl.add(i); pakaiWil.add(k);
+    catat(sisaSl[i], sisaWil[k], m);
+  });
+  return {
+    sama, samaDaftar, pasangan,
+    hanyaSl: sisaSl.filter((_, i) => !pakaiSl.has(i)),
+    hanyaWil: sisaWil.filter((_, k) => !pakaiWil.has(k)),
+  };
+}

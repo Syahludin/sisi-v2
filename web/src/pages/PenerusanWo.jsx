@@ -164,13 +164,13 @@ export default function PenerusanWo({ sesi, api, rute, keRute }) {
       ) : !data ? null : !tampil.length ? (
         <p className="k-kosong pw-kosong">{cari || adaFilter ? 'Tidak ada temuan yang cocok. Coba kata lain atau ubah filter.' : status === 'BARU' ? 'Semua temuan sudah diteruskan ke tim.' : 'Belum ada temuan dengan status ini.'}</p>
       ) : (
-        <div className={'pw-grid' + (memuat ? ' pw-grid--muat' : '')}>
+        <div className={'pw-grid' + (memuat ? ' pw-grid--muat' : '') + (dipilih ? ' pw-grid--rincian' : '')}>
           <div className="pw-daftar" role="list" aria-label="Daftar temuan">
             {tampil.map((t) => <ItemTemuan key={t.temuanId} t={t} api={api} aktif={t.temuanId === pilihId} onPilih={() => pilih(t.temuanId)} />)}
             {semua.length >= 500 && <p className="pw-catatan">Daftar dibatasi 500 temuan terbaru. Persempit dengan filter tanggal.</p>}
           </div>
           {dipilih
-            ? <Detail t={dipilih} api={api} bolehUbah={bolehUbah} onTeruskan={() => setTeruskan(dipilih)} onFoto={setFoto} />
+            ? <Detail t={dipilih} api={api} bolehUbah={bolehUbah} onTeruskan={() => setTeruskan(dipilih)} onFoto={setFoto} onKembali={() => pilih('')} />
             : <div className="hlm-kartu pw-detail pw-detail--kosong"><Ikon nama="kiri" ukuran={20} /><p>Pilih temuan di daftar untuk melihat detail dan meneruskannya ke tim.</p></div>}
         </div>
       )}
@@ -225,14 +225,20 @@ function Baris({ label, children }) {
   return <div><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-function Detail({ t, api, bolehUbah, onTeruskan, onFoto }) {
+function Detail({ t, api, bolehUbah, onTeruskan, onFoto, onKembali }) {
+  const el = useRef(null);
+  // layar sempit (dua langkah): rincian langsung terlihat, tidak tertinggal di bawah filter
+  useEffect(() => {
+    if (globalThis.matchMedia?.('(max-width: 1000px)').matches) el.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [t.temuanId]);
   const wo = t.wo || {};
   const s = statusWo(t);
   const peta = urlPeta(t.koordinat);
   const fotoTemuan = SLOT_FOTO_TEMUAN.filter(([k]) => t.foto?.[k]).map(([slot, label]) => ({ temuanId: t.temuanId, slot, label }));
   const pekerjaan = t.pekerjaanWo || [];
   return (
-    <article className="hlm-kartu pw-detail" aria-label={'Detail ' + t.kodeTemuan}>
+    <article className="hlm-kartu pw-detail" ref={el} aria-label={'Detail ' + t.kodeTemuan}>
+      <button type="button" className="k-tombol k-tombol--teks pw-kembali" onClick={onKembali}><Ikon nama="kiri" ukuran={16} />Semua temuan</button>
       <div className="pw-detail-kepala">
         <div>
           <small>{t.kodeTemuan}</small>

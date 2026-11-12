@@ -88,6 +88,28 @@ class _BerandaScreenState extends State<BerandaScreen> with SingleTickerProvider
               // data KONFLIK / DITOLAK tidak terkirim sendiri: petugas tetap harus melihat dan memilih tindakan
               if (ctl.perluTindakan > 0) ...[_PerluTindakan(deps: deps, sesi: sesi, jumlah: ctl.perluTindakan), const SizedBox(height: 6)],
               const SizedBox(height: 16),
+              PopMasuk(animasi: _masuk, urut: 4, child: const JudulSeksiSisi('Akses cepat', keterangan: 'sesuai role')),
+              PopMasuk(
+                animasi: _masuk,
+                urut: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (sesi.modeAdmin)
+                      _AksesCepat(ikon: Icons.dashboard_customize_outlined, judul: 'Operasi', sub: 'Laporan per tim & modul teknik', onTap: widget.keLaporan)
+                    else if (sesi.petugasYandal)
+                      _AksesCepat(ikon: Icons.badge_outlined, judul: 'Shift Yandal', sub: 'Shift ini, Arsip P0, History Gardu', onTap: widget.keLaporan)
+                    else if (sesi.petugasHartek)
+                      _AksesCepat(
+                          ikon: Icons.handyman_rounded, judul: 'Laporan Hartek', sub: 'Laporan Utama, pekerjaan, material, foto', onTap: widget.keLaporan)
+                    else if (sesi.petugasInsJar) // v1.0.0
+                      _AksesCepat(ikon: Icons.travel_explore_rounded, judul: 'Inspeksi Jaringan', sub: 'Penyulang utama, temuan, foto', onTap: widget.keLaporan)
+                    else if (sesi.aksiMenu('ROW_EKSEKUSI') != null)
+                      _AksesCepat(ikon: Icons.forest_outlined, judul: 'Laporan ROW', sub: 'Header, penyulang, eksekusi', onTap: widget.keLaporan),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
               PopMasuk(
                 animasi: _masuk,
                 urut: 3,
@@ -104,33 +126,6 @@ class _BerandaScreenState extends State<BerandaScreen> with SingleTickerProvider
                     child: PanelKalenderTim(key: _kalender, deps: deps, sesi: sesi, ringkas: true),
                   ),
                 ]),
-              ),
-              const SizedBox(height: 22),
-              PopMasuk(animasi: _masuk, urut: 4, child: const JudulSeksiSisi('Akses cepat', keterangan: 'sesuai role')),
-              PopMasuk(
-                animasi: _masuk,
-                urut: 5,
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.25,
-                  children: [
-                    if (sesi.modeAdmin)
-                      _AksesCepat(ikon: Icons.dashboard_customize_outlined, judul: 'Operasi', sub: 'Laporan per tim & modul teknik', onTap: widget.keLaporan)
-                    else if (sesi.petugasYandal)
-                      _AksesCepat(ikon: Icons.badge_outlined, judul: 'Shift Yandal', sub: 'Shift ini, Arsip P0, History Gardu', onTap: widget.keLaporan)
-                    else if (sesi.petugasHartek)
-                      _AksesCepat(
-                          ikon: Icons.handyman_rounded, judul: 'Laporan Hartek', sub: 'Laporan Utama, pekerjaan, material, foto', onTap: widget.keLaporan)
-                    else if (sesi.petugasInsJar) // v1.0.0
-                      _AksesCepat(ikon: Icons.travel_explore_rounded, judul: 'Inspeksi Jaringan', sub: 'Penyulang utama, temuan, foto', onTap: widget.keLaporan)
-                    else if (sesi.aksiMenu('ROW_EKSEKUSI') != null)
-                      _AksesCepat(ikon: Icons.forest_outlined, judul: 'Laporan ROW', sub: 'Header, penyulang, eksekusi', onTap: widget.keLaporan),
-                  ],
-                ),
               ),
             ],
           ),
@@ -245,26 +240,28 @@ class _AksesCepat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.neutral200)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.neutral200)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(gradient: SisiMotif.gradien, borderRadius: BorderRadius.circular(12)),
-                child: Icon(ikon, size: 21, color: Colors.white),
-              ),
-              const Spacer(),
-              const Icon(Icons.arrow_outward_rounded, size: 18, color: AppColors.brand600),
-            ]),
-            const Spacer(),
-            Text(judul, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy900)),
-            Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
+          child: Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(gradient: SisiMotif.gradien, borderRadius: BorderRadius.circular(12)),
+              child: Icon(ikon, size: 22, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(judul, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy900)),
+                const SizedBox(height: 2),
+                Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.brand600),
           ]),
         ),
       ),

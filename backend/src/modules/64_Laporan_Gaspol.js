@@ -8,7 +8,9 @@
  *   - Inspeksi Gardu (db_insdu_realisasi, header AKTIF, bukan BATAL): No Gardu (teks), Tier 1 / Tier 2 = jumlah gardu.
  *   - Yandal (yan_P0): CFA = P0 Yantek seperti Laporan UP3 (p0YantekMasuk_: pekerjaan ROW, atau non-ROW berbobot 4 / 5;
  *     tidak BATAL / Rejected), dirinci per penyulang.
- * Section = section pangkal penyulang di db_Jaringan; tidak ada = bagian awal section data sumber.
+ * Section = dari REALISASI pekerjaan tim (kolom section tiap baris sumber hari itu): bila pekerjaan tersebar di beberapa section (A - B,
+ * B - C, C - D) dipilih section dengan urutan terkecil di master jaringan penyulang itu, lalu HANYA bagian awalnya (A, mis. "PMT BIKANG").
+ * Realisasi tanpa section = section pangkal penyulang di db_Jaringan. Nama utuh "A - B" ditolak daftar pemeriksaan data kolom C sheet GASPOL.
  * Kirim ke GASPOL: tab 'Input TBL' di spreadsheet GASPOL (Script Property GASPOL_SHEET_ID), kunci Penyulang + Tanggal
  * (baris lama ditimpa, baru ditambah setelah baris terakhir kolom B). Kolom D (ULP), E (kmS) dan AM (Penyulang) TIDAK ditulis
  * (terkunci / rumus di sheet, sama dengan v1), nilai 0 jadi sel kosong, kolom A dinomori ulang. Akses = menu sendiri OPS_GASPOL_UP3 (db_Menu + db_Akses; kirim butuh UBAH + ADMIN / SUPER), PETUGAS selalu ditolak.
@@ -45,7 +47,25 @@ function sectionPangkalGaspol_(jaringan) {
  *        yandal: [{tanggal, penyulang, section}] }
  * Hasil: baris 38 nilai (urutan GASPOL_KOLOM_) + properti penyulang, urut tanggal lalu penyulang.
  */
-function susunGaspol_(src, pangkal) {
+/** Section realisasi dengan urutan terkecil di master jaringan penyulang itu (tidak ada di master = paling akhir, urutan muncul). '' bila kosong. Murni. */
+function pilihSectionGaspol_(daftar, penyulang, jaringan) {
+  var urut = {}, kp = gsTeks_(penyulang).toLowerCase();
+  Object.keys(jaringan || {}).forEach(function (id) {
+    var s = jaringan[id];
+    if (!s || gsTeks_(s.penyulang).toLowerCase() !== kp) return;
+    var k = gsTeks_(s.section).toLowerCase(), u = Number(s.urutan);
+    if (k && (urut[k] === undefined || u < urut[k])) urut[k] = isFinite(u) ? u : 1e9;
+  });
+  var terbaik = '', nilai = Infinity;
+  (daftar || []).forEach(function (nama) {
+    var u = urut[gsTeks_(nama).toLowerCase()];
+    u = u === undefined ? 1e12 : u;
+    if (u < nilai) { nilai = u; terbaik = nama; }
+  });
+  return terbaik;
+}
+
+function susunGaspol_(src, pangkal, jaringan) {
   var idx = {};
   GASPOL_KOLOM_.forEach(function (k, i) { idx[k] = i; });
   var per = {};
@@ -56,9 +76,10 @@ function susunGaspol_(src, pangkal) {
     if (!per[k]) {
       var b = GASPOL_KOLOM_.map(function () { return 0; });
       b[idx.tanggal] = t; b[idx.ulp] = GASPOL_ULP_; b[idx.noGardu] = '';
-      per[k] = { baris: b, penyulang: p, sectionSumber: '', gardu: [] };
+      per[k] = { baris: b, penyulang: p, sections: [], gardu: [] };
     }
-    if (x.section && !per[k].sectionSumber) per[k].sectionSumber = gsTeks_(x.section);
+    var sec = gsTeks_(x.section);
+    if (sec && per[k].sections.indexOf(sec) === -1) per[k].sections.push(sec);
     return per[k];
   };
   var tambah = function (g, kolom, n) { g.baris[idx[kolom]] += Number(n) || 0; };
@@ -88,7 +109,7 @@ function susunGaspol_(src, pangkal) {
 
   var hasil = Object.keys(per).map(function (k) {
     var g = per[k], b = g.baris;
-    b[idx.section] = (pangkal || {})[g.penyulang.toLowerCase()] || bagianSection_(g.sectionSumber)[0] || '';
+    b[idx.section] = bagianSection_(pilihSectionGaspol_(g.sections, g.penyulang, jaringan) || (pangkal || {})[g.penyulang.toLowerCase()] || '')[0] || '';
     b[idx.noGardu] = g.gardu.join(', ');
     b[idx.insSutmKms] = Math.round(b[idx.insSutmKms] * 100) / 100;
     return { baris: b, penyulang: g.penyulang };
@@ -159,7 +180,8 @@ function rentangGaspol_(data) {
 }
 
 function rekapGaspol_(d) {
-  return susunGaspol_(sumberGaspol_(d.dari, d.sampai), sectionPangkalGaspol_(masterRow_().jaringan));
+  var jar = masterRow_().jaringan;
+  return susunGaspol_(sumberGaspol_(d.dari, d.sampai), sectionPangkalGaspol_(jar), jar);
 }
 
 /** getGaspolUp3 { dari, sampai } -> { dari, sampai, kolom, baris: [[38 nilai]], penyulang: [...] }. */
@@ -183,29 +205,137 @@ function tglInputGaspol_(v) { return v instanceof Date ? tglJakarta_(v) : tglSel
 /** kirimGaspolUp3 { dari, sampai }: tulis rekap ke 'Input TBL' (timpa kunci Penyulang + Tanggal, sisanya ditambah). */
 function kirimGaspolUp3_(sesi, data) {
   peranLaporanUp3_(sesi, true);
-  var c = cfg_();
+  var c = cfg_(), t0 = Date.now();
+  var jejak = function (tahap) { try { console.log('kirimGaspolUp3 ' + tahap + ' +' + (Date.now() - t0) + ' ms'); } catch (e) { /* abaikan */ } };   // eksekusi mati tanpa galat: jejak terakhir = tahap yang macet
   if (!c.GASPOL_SHEET_ID) throw new SisiError_('CONFIG_TIDAK_LENGKAP', 'GASPOL_SHEET_ID');
   var d = rentangGaspol_(data);
+  jejak('mulai ' + d.dari + ' s.d. ' + d.sampai);
   var rekap = rekapGaspol_(d);
+  jejak('rekap ' + rekap.length + ' baris');
   if (!rekap.length) throw new SisiError_('DATA_TIDAK_DITEMUKAN', 'tidak ada data pada periode ini');
   var sh = bukaSpreadsheet_(c.GASPOL_SHEET_ID).getSheetByName(GASPOL_TAB_INPUT_);
+  jejak('sheet dibuka');
   if (!sh) throw new SisiError_('SHEET_TIDAK_ADA', GASPOL_TAB_INPUT_);
   var akhir = barisTerakhirGaspol_(sh.getRange(1, 2, Math.max(sh.getMaxRows(), 1), 1).getValues());
   var berikut = Math.max(akhir, 1) + 1, idx = {}, tambah = 0, timpa = 0;
   if (akhir >= 2) {
-    sh.getRange(2, 1, akhir - 1, GASPOL_KOLOM_PENYULANG_ + 1).getValues().forEach(function (r, i) {
-      var k = gsTeks_(r[GASPOL_KOLOM_PENYULANG_]).toLowerCase() + '||' + tglInputGaspol_(r[1]);
+    // hanya kolom Tanggal (B) dan Penyulang (AM): membaca 39 kolom x ribuan baris memakan ±18 dtk
+    var tgls = sh.getRange(2, 2, akhir - 1, 1).getValues();
+    var peny = sh.getRange(2, GASPOL_KOLOM_PENYULANG_ + 1, akhir - 1, 1).getValues();
+    peny.forEach(function (r, i) {
+      var k = gsTeks_(r[0]).toLowerCase() + '||' + tglInputGaspol_(tgls[i][0]);
       if (k !== '||') idx[k] = i + 2;
     });
   }
+  // Satu setValues per blok baris berurutan (bukan 2 per baris): tiap tulis ke sheet GASPOL yang berumus berat memicu hitung ulang, jadi
+  // ratusan panggilan kecil melewati batas waktu dan meninggalkan baris setengah terisi (hanya No / Tanggal / Section).
+  jejak('indeks dibaca, baris terakhir ' + akhir);
+  // Kolom Section (C) di Input TBL berpemeriksaan data "pilih dari daftar" (sheet DB): satu nilai di luar daftar membuat SELURUH tulis ditolak
+  // saat eksekusi selesai (tanpa log, web "tidak bisa terhubung"). Yang cocok (abaikan huruf besar, titik, spasi; "Sp." = Simpang, "Tj." =
+  // Tanjung) memakai tulisan dari daftar; yang tidak ada di daftar: Section DIKOSONGKAN, data lain di baris itu tetap terisi, dan dilaporkan.
+  var daftar = daftarSectionGaspol_(sh), dilewati = [];
+  var tulis = {};
   rekap.forEach(function (x) {
+    if (daftar) {
+      var asli = gsTeks_(x.baris[2]), sah = daftar[normSectionGaspol_(asli)];
+      if (!sah && asli) dilewati.push(asli + ' (' + x.penyulang + ' ' + x.baris[1] + ')');
+      x.baris[2] = sah || '';
+    }
     var b = x.baris, k = x.penyulang.toLowerCase() + '||' + b[1], baris = idx[k];
     if (baris) timpa++;
     else { baris = idx[k] = berikut++; tambah++; }
-    sh.getRange(baris, 1, 1, 3).setValues([[b[0], b[1], b[2]]]);
-    sh.getRange(baris, 6, 1, GASPOL_KOLOM_.length - 5).setValues([b.slice(5).map(function (v) { return v === 0 || v === '' ? '' : v; })]);
+    tulis[baris] = b;
   });
+  var urutBaris = Object.keys(tulis).map(Number).sort(function (m, n) { return m - n; });
+  for (var i = 0; i < urutBaris.length;) {
+    var j = i;
+    while (j + 1 < urutBaris.length && urutBaris[j + 1] === urutBaris[j] + 1) j++;
+    var blok = urutBaris.slice(i, j + 1).map(function (r) { return tulis[r]; });
+    jejak('tulis blok baris ' + urutBaris[i] + ' x' + blok.length);
+    sh.getRange(urutBaris[i], 1, blok.length, 3).setValues(blok.map(function (b) { return [b[0], b[1], b[2]]; }));
+    sh.getRange(urutBaris[i], 6, blok.length, GASPOL_KOLOM_.length - 5).setValues(blok.map(function (b) {
+      return b.slice(5).map(function (v) { return v === 0 || v === '' ? '' : v; });
+    }));
+    i = j + 1;
+  }
+  jejak('blok data ditulis');
   var n = berikut - 2;
   if (n > 0) sh.getRange(2, 1, n, 1).setValues(Array.apply(null, Array(n)).map(function (_, i) { return [i + 1]; }));
-  return { total: rekap.length, tambah: tambah, timpa: timpa };
+  jejak('selesai' + (dilewati.length ? ', dilewati ' + dilewati.length : ''));
+  var hasil = { total: rekap.length, tambah: tambah, timpa: timpa };
+  if (dilewati.length) hasil.dilewati = dilewati.slice(0, 20);   // Section dikosongkan (tidak ada di daftar DB); barisnya tetap ditulis
+  return hasil;
+}
+
+/** Kunci pencocokan nama section: huruf besar, tanpa titik / spasi ganda, singkatan SP = SIMPANG dan TJ = TANJUNG diperluas. Murni. */
+function normSectionGaspol_(nama) {
+  return gsTeks_(nama).toUpperCase().replace(/\./g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(function (w) {
+    return w === 'SP' ? 'SIMPANG' : w === 'TJ' ? 'TANJUNG' : w;
+  }).join(' ');
+}
+
+/**
+ * Daftar Section yang boleh di kolom C Input TBL (pemeriksaan data "daftar dari rentang", sheet DB): { HURUF BESAR: tulisan asli }.
+ * null = kolom tanpa pemeriksaan daftar (semua nilai boleh).
+ */
+function daftarSectionGaspol_(sh) {
+  try {
+    var dv = sh.getRange(2, 3).getDataValidation();
+    if (!dv || String(dv.getCriteriaType()) !== 'VALUE_IN_RANGE') return null;
+    var o = {};
+    dv.getCriteriaValues()[0].getValues().forEach(function (b) {
+      var t = gsTeks_(b[0]), k = normSectionGaspol_(t);
+      if (t && !o[k]) o[k] = t;
+    });
+    return o;
+  } catch (e) { return null; }
+}
+
+/**
+ * Editor: uji kirim GASPOL tanpa web. Hasil dan galat LENGKAP (pesan + tumpukan) tampil di Execution log editor, tidak seperti eksekusi
+ * web yang mati tanpa log. Pakai: pilih ADMIN_ujiKirimGaspol lalu Run; tanggal bawaan hari ini (WIB). Ubah rentang dengan
+ * ADMIN_ujiKirimGaspol('2026-11-10', '2026-11-12'). Menulis sungguhan ke 'Input TBL' seperti tombol Kirim.
+ */
+function ADMIN_ujiKirimGaspol(dari, sampai) {
+  pastikanPemilik_();
+  var hari = tglJakarta_(new Date());
+  var mulai = Date.now();
+  try {
+    var h = kirimGaspolUp3_({ role: 'SUPER', userId: 'editor' }, { dari: dari || hari, sampai: sampai || dari || hari });
+    console.log('BERHASIL ' + JSON.stringify(h) + ' dalam ' + (Date.now() - mulai) + ' ms');
+    return h;
+  } catch (e) {
+    console.error('GAGAL setelah ' + (Date.now() - mulai) + ' ms: ' + (e && (e.kode || e.name)) + ' | ' + (e && (e.detail || e.message)) + '\n' + (e && e.stack));
+    throw e;
+  }
+}
+
+/**
+ * Editor: periksa Section yang akan ditulis ke GASPOL TANPA menulis apa pun. Per penyulang: Section hasil, asal (REALISASI TIM = section
+ * pekerjaan terawal di master; SAMA DENGAN PANGKAL = kebetulan sama dengan section pangkal penyulang) dan apakah ada di daftar
+ * pemeriksaan data kolom C sheet GASPOL. Pakai: ADMIN_cekSectionGaspol('2026-11-01', '2026-11-11'); hasil di Execution log.
+ */
+function ADMIN_cekSectionGaspol(dari, sampai) {
+  pastikanPemilik_();
+  var hari = tglJakarta_(new Date());
+  var d = rentangGaspol_({ dari: dari || hari, sampai: sampai || dari || hari });
+  var pangkal = sectionPangkalGaspol_(masterRow_().jaringan);
+  var rekap = rekapGaspol_(d);
+  var c = cfg_(), daftar = null;
+  if (c.GASPOL_SHEET_ID) {
+    var sh = bukaSpreadsheet_(c.GASPOL_SHEET_ID).getSheetByName(GASPOL_TAB_INPUT_);
+    daftar = sh ? daftarSectionGaspol_(sh) : null;
+  }
+  var per = {};
+  rekap.forEach(function (x) {
+    var sec = gsTeks_(x.baris[2]), pk = pangkal[x.penyulang.toLowerCase()];
+    var asal = pk && bagianSection_(pk)[0] === sec ? 'SAMA DENGAN PANGKAL' : 'REALISASI TIM';
+    per[x.penyulang] = { section: sec, asal: asal, ada: daftar ? !!daftar[normSectionGaspol_(sec)] : null };
+  });
+  var baris = Object.keys(per).sort().map(function (p) {
+    var o = per[p];
+    return (o.ada === false ? 'TIDAK ADA DI DAFTAR' : o.ada === null ? 'daftar tak diperiksa' : 'ok') + ' | ' + p + ' -> "' + o.section + '" (' + o.asal + ')';
+  });
+  console.log(baris.length + ' penyulang, ' + baris.filter(function (b) { return b.indexOf('TIDAK ADA') === 0; }).length + ' tidak ada di daftar:\n' + baris.join('\n'));
+  return baris;
 }

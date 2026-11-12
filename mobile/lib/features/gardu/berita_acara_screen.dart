@@ -263,7 +263,7 @@ class BeritaAcaraScreen extends StatelessWidget {
     final siap = KatalogBa.trafo.where((j) => j.siap).toList();
     final segera = KatalogBa.trafo.where((j) => !j.siap).toList();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar('Berita Acara', subjudul: 'Gardu · ULP ${sesi.ulp}'),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 120), children: [
         const _Panduan(),

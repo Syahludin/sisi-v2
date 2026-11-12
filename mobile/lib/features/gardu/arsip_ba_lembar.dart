@@ -76,7 +76,7 @@ Future<void> tampilArsipBa(BuildContext context, {required Deps deps, required S
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFFF6F8FC),
+    backgroundColor: const Color(0xFFF1F5F2),
     builder: (c) => ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * .88),
       child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 28), children: [

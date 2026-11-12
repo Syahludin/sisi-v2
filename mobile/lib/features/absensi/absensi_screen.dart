@@ -374,7 +374,7 @@ class _AbsensiPanelState extends State<AbsensiPanel> {
         if (await _bolehKeluar() && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Absensi Safety Briefing', subjudul: d == null ? null : tglIndoAbsensi(d.tanggal), actions: [
           IconButton(tooltip: 'Salin teks WhatsApp', icon: const Icon(Icons.copy_rounded), onPressed: _sinkron ? _salin : null),
           TombolSegarkan(

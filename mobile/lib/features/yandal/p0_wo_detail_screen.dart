@@ -225,7 +225,7 @@ class _P0WoDetailScreenState extends State<P0WoDetailScreen> {
         );
     final waktuFoto = {'SEBELUM': s?.waktuSebelum ?? '', 'PEKERJAAN': s?.waktuPekerjaan ?? '', 'SESUDAH': s?.waktuSesudah ?? ''};
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFF1F5F2),
       appBar: sisiAppBar(_kode.isEmpty ? 'P0 dari WO' : _kode, subjudul: _nama, actions: [
         TombolSegarkan(sibuk: _memuat, onPressed: _segarkan),
       ]),

@@ -244,20 +244,22 @@ function endpoints_() {
     // v1.0.56: Data Aset (ITB) dari master db_Aset_ITB. Lihat modules/67_AsetItb.js
     // 8 Nov 2026: Master Switching (pendataan aset switching dari lapangan, ADMIN / SUPER; modul 96_Master_Switching.js)
     getMasterSwitching: { fn: getMasterSwitching_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
-    simpanSwitching: { fn: simpanSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
-    uploadFotoSwitching: { fn: uploadFotoSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 40 },
+    simpanSwitching: { fn: simpanSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30, bekuTiang: true },
+    uploadFotoSwitching: { fn: uploadFotoSwitching_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 40, bekuTiang: true },
     getFotoSwitching: { fn: getFotoSwitching_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 60 },
     // 8 Nov 2026: Segmen + Verifikasi Tiang (ADMIN / SUPER; modul 98_Segmen.js, 99_Verifikasi_Tiang.js)
     // Master Jaringan (menu OPS_MASTER_SWITCHING): section + penyulang + segmen (100_Jaringan_Admin.js, 98_Segmen.js)
     getSegmen: { fn: getSegmen_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
-    simpanSegmen: { fn: simpanSegmen_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
+    simpanSegmen: { fn: simpanSegmen_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30, bekuTiang: true },
     getJaringan: { fn: getJaringan_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
-    simpanSection: { fn: simpanSection_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30 },
-    setAktifPenyulang: { fn: setAktifPenyulang_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 20 },
+    simpanSection: { fn: simpanSection_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 30, imporMasterTiang: true },
+    setAktifPenyulang: { fn: setAktifPenyulang_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 20, imporMasterTiang: true },
     getVerifikasiTiang: { fn: getVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
+    getPetaTiang: { fn: getPetaTiang_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
     getTiangJalur: { fn: getTiangJalur_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
-    simpanVerifikasiTiang: { fn: simpanVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60 },
-    uploadFotoTiang: { fn: uploadFotoTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60 },
+    simpanVerifikasiTiang: { fn: simpanVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60, bekuTiang: true },
+    sinkronTiang: { fn: sinkronTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 30, bekuTiang: true },
+    uploadFotoTiang: { fn: uploadFotoTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60, bekuTiang: true },
     getFotoTiang: { fn: getFotoTiang_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 60 },
     getDataAset: { fn: getDataAset_, cache: true, menu: 'OPS_DATA_ASET', batasMenit: 30 },
     sinkronDataAset: { fn: sinkronDataAset_, menu: 'OPS_DATA_ASET', tulis: true, batasMenit: 3 },
@@ -319,6 +321,7 @@ function proses_(req, platform) {
   var ep = daftar[nama];
   cekVersiHp_(req, platform, nama);   // v0.81.1: app di bawah versi minimum (opsional, WAJIB_VERSI_APP)
   var sesi = ep.publik ? null : guard_(req.token, ep, platform, nama);
+  cekBekuTiang_(ep);                  // 11 Nov 2026: tulis tiang dibekukan bila TIANG_TULIS_BEKU = YA (data tiang pindah ke Hostinger)
   cekVersiFitur_(req, platform, ep);  // v1.0.56: fitur yang butuh app tertentu (versiMinApp) saja yang ditolak, sisanya tetap jalan
   var data = req.data === undefined || req.data === null ? {} : req.data;
   if (typeof data !== 'object' || Array.isArray(data)) throw new SisiError_('DATA_TIDAK_VALID');
@@ -331,6 +334,7 @@ function proses_(req, platform) {
   catatKirimanGarduMysql_(nama, ep, data);
   catatKirimanLaporan_(ep, data);   // v1.0.36: kiriman petugas = tanggal itu ditandai kotor (v1.0.45: disusun 18:00 / saat dibuka)
   catatTulisCacheBaca_(ep);          // v1.0.36: data berubah = jawaban baca tersimpan kedaluwarsa
+  imporMasterTiangBila_(ep);         // 11 Nov 2026: master jaringan berubah di Sheet = salinan di MySQL tiang ikut diperbarui
   // v0.64.2: jam server (dicap SETELAH proses) = patokan jam terpercaya HP (jam monoton). Ada di semua jawaban.
   // v0.81.0: versi backend di setiap jawaban (HP tahu backend baru di-deploy, lalu cek update)
   // v1.0.22: revisi master (ADMIN_lengkapiMaster) di setiap jawaban: berubah = HP mengunduh ulang Master Data + Gardu

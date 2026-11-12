@@ -17,8 +17,8 @@ class WarnaGgn {
   static const naik = AppColors.red600;
   static const turun = AppColors.success700;
   static const pie = [
-    Color(0xFFD13B46), Color(0xFF0788AA), Color(0xFFE3A600), Color(0xFF219064), Color(0xFF7C4DBD),
-    Color(0xFFF07C2B), Color(0xFF135268), Color(0xFFC2185B), Color(0xFF8EA1A7), Color(0xFF5D7A2A),
+    Color(0xFFC04A4A), Color(0xFF28804F), Color(0xFFFFD21E), Color(0xFF28804F), Color(0xFF7C4DBD),
+    Color(0xFFF07C2B), Color(0xFF1A5238), Color(0xFFC2185B), Color(0xFF8A9A91), Color(0xFF5D7A2A),
   ];
 }
 

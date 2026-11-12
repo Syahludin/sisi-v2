@@ -30,8 +30,8 @@
 .pw-item--biru { --pw-w: var(--pw-biru); }
 .pw-item--kuning { --pw-w: var(--pw-kuning); }
 .pw-item--hijau { --pw-w: var(--pw-hijau); }
-.pw-item:hover { box-shadow: 0 2px 8px rgba(20, 32, 30, .08); }
-.pw-item--pilih { border-color: var(--brand-500); border-left-color: var(--pw-w); background: var(--brand-50); box-shadow: 0 0 0 1px var(--brand-500); }
+.pw-item:hover { box-shadow: 0 2px 8px rgba(12, 30, 21, .08); }
+.pw-item--pilih { border-color: var(--brand-500); border-left-color: var(--pw-w); background: var(--brand-100); box-shadow: 0 0 0 1px var(--brand-500), inset 0 -3px 0 var(--accent-600); }
 .pw-mini { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 10px; overflow: hidden; background: var(--neutral-100); color: var(--neutral-400); }
 .pw-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pw-item-isi { display: grid; gap: 2px; min-width: 0; }
@@ -43,7 +43,12 @@
 .pw-item-tanda span { padding: 1px 7px; border-radius: 6px; background: var(--neutral-100); font-size: 10.5px; font-weight: 700; color: var(--neutral-700); }
 .pw-item-tanda .pw-tanda--ganda { background: var(--red-100); color: var(--red-700); }
 
-.pw-pil { flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+/* pil status berikon (desain Hijau Rimba): ! belum diteruskan, ● terkirim / dikerjakan, ✓ selesai */
+.pw-pil { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.pw-pil::before { font-size: 10px; line-height: 1; }
+.pw-pil--merah::before { content: "!"; }
+.pw-pil--biru::before, .pw-pil--kuning::before { content: "●"; }
+.pw-pil--hijau::before { content: "✓"; }
 .pw-pil--merah { background: var(--red-100); color: var(--red-700); }
 .pw-pil--biru { background: var(--brand-100); color: var(--brand-800); }
 .pw-pil--kuning { background: var(--accent-100); color: var(--accent-700); }
@@ -101,9 +106,13 @@
 .pw-tim-pilih input { accent-color: var(--brand-700); width: 16px; height: 16px; }
 .pw-hitung { font-size: 11px; color: var(--neutral-500); text-align: right; }
 
+.pw-kembali { display: none; margin: -4px 0 8px; padding-left: 0; }
+/* layar sempit: dua langkah (daftar -> rincian, tombol "Semua temuan") */
 @media (max-width: 1000px) {
   .pw-grid { grid-template-columns: 1fr; }
-  .pw-daftar { position: static; max-height: 46vh; }
+  .pw-daftar { position: static; max-height: none; }
+  .pw-grid--rincian .pw-daftar, .pw-grid:not(.pw-grid--rincian) .pw-detail--kosong { display: none; }
+  .pw-kembali { display: inline-flex; }
   .pw-filter { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {
@@ -111,4 +120,4 @@
   .pw-foto-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .pw-wa { margin-top: 10px; }
-.pw-wa-tombol { color: #1a8c47; border-color: #1fa855; }
+.pw-wa-tombol { color: var(--brand-700); border-color: var(--brand-500); }

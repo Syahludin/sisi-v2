@@ -4,8 +4,8 @@
   display: grid; align-content: start; gap: 2px; padding: 12px 14px; text-align: left; font: inherit; cursor: pointer;
   border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); border-top: 4px solid var(--brand-600);
 }
-.msw-kpi button:hover { box-shadow: 0 6px 18px rgba(20, 32, 30, .08); }
-.msw-kpi button.aktif { border-color: var(--brand-500); box-shadow: 0 0 0 2px rgba(79, 154, 146, .25); }
+.msw-kpi button:hover { box-shadow: 0 6px 18px rgba(12, 30, 21, .08); }
+.msw-kpi button.aktif { border-color: var(--brand-500); box-shadow: 0 0 0 2px rgba(60, 154, 96, .25); }
 .msw-kpi .msw-kpi-ok { border-top-color: var(--success-600); }
 .msw-kpi .msw-kpi-kuning { border-top-color: var(--accent-600); }
 .msw-kpi .msw-kpi-merah { border-top-color: var(--red-600); }
@@ -76,7 +76,7 @@
 .msw-isian i { font-style: normal; color: var(--red-700); }
 .msw-segmen { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--neutral-150); }
 .msw-segmen button { flex: 1; height: 30px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; font-weight: 800; color: var(--neutral-700); cursor: pointer; }
-.msw-segmen button.aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(20, 32, 30, .12); }
+.msw-segmen button.aktif { background: var(--putih); color: var(--brand-950); box-shadow: 0 1px 4px rgba(12, 30, 21, .12); }
 .msw-peta-kecil { height: 220px; border-radius: 12px; border: 1px solid var(--neutral-200); cursor: crosshair; }
 .msw-lipat { border-radius: 12px; border: 1px solid var(--neutral-150); padding: 10px 12px; background: var(--neutral-50); }
 .msw-lipat > summary { cursor: pointer; font-size: 13px; font-weight: 900; color: var(--brand-900); }
@@ -102,3 +102,15 @@
 /* panel switching di dalam tab Master Jaringan */
 .msw-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
 .msw-toolbar p { margin: 0; font-size: 12.5px; color: var(--neutral-500); }
+
+/* rincian di kolom kanan (menggantikan daftar; desain Hijau Rimba pola daftar + rincian) */
+.msw-rincian { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 12px 16px 16px; border-radius: 14px; border: 1px solid var(--brand-500);
+  background: var(--putih); max-height: min(760px, calc(100vh - 240px)); overflow-y: auto; box-shadow: inset 0 3px 0 var(--accent-600); }
+.msw-kembali { justify-self: start; padding-left: 0; }
+.msw-rincian-kepala { display: flex; align-items: flex-start; gap: 10px; }
+.msw-rincian-kepala h2 { margin: 0; font-size: 18px; font-weight: 900; color: var(--brand-950); overflow-wrap: anywhere; }
+.msw-rincian-kepala p { margin: 2px 0 0; font-size: 12.5px; color: var(--neutral-500); }
+.msw-rincian .msw-foto { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.msw-rincian-aksi { position: sticky; bottom: -16px; display: flex; align-items: center; gap: 8px; margin: 6px -16px -16px; padding: 10px 16px; background: var(--putih); border-top: 1px solid var(--neutral-150); }
+.msw-baris.aktif { background: var(--brand-100); box-shadow: inset 4px 0 0 var(--accent-600); }
+@media (max-width: 1020px) { .msw-rincian { max-height: none; } }

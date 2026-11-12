@@ -28,7 +28,7 @@ class GudangAdminScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar('Material Gudang', subjudul: 'Stok MCB gudang dan tim Yandal'),
         body: GudangAdminPanel(repo: deps.gudangRepo, sesi: sesi, idBaru: _uuid.v4),
       );

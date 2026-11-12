@@ -515,7 +515,7 @@ class _BaSwitchingScreenState extends State<BaSwitchingScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFF1F5F2),
         appBar: sisiAppBar(_edit ? 'Edit BA $singkat' : 'BA $_jenis',
             subjudul: _edit ? '${_detail?['noGardu'] ?? 'Memuat'} · ${_detail?['idBa'] ?? ''}' : 'Nama switching diketik'),
         body: _edit && _detail == null

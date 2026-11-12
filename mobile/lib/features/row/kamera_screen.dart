@@ -85,6 +85,9 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
   String? _galatGps;
   bool _jepret = false;
   FlashMode _flash = FlashMode.off;
+
+  /// Zoom kamera (cubit dua jari atau tombol 1x / 2x / 4x). [_zMin]..[_zMax] dari perangkat; [_zAwal] = zoom saat cubitan mulai.
+  double _zoom = 1, _zMin = 1, _zMax = 1, _zAwal = 1;
   Timer? _jam;
   DateTime _sekarang = DateTime.now();
 
@@ -150,6 +153,13 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
       try {
         await c.initialize();
         await c.setFlashMode(_flash);
+        try {
+          _zMin = await c.getMinZoomLevel();
+          _zMax = await c.getMaxZoomLevel();
+          _zoom = _zMin;
+        } catch (_) {
+          _zMin = _zMax = _zoom = 1; // perangkat tanpa zoom: tombol zoom disembunyikan
+        }
       } catch (_) {
         await c.dispose();
         rethrow;
@@ -167,6 +177,19 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
       setState(() => _galat = e.code.startsWith('CameraAccess')
           ? 'Izin kamera ditolak. Izinkan kamera untuk SiSi di Pengaturan HP.'
           : 'Kamera tidak bisa dibuka (${e.code}).');
+    }
+  }
+
+  Future<void> _aturZoom(double z) async {
+    final c = _c;
+    if (c == null || !c.value.isInitialized || _zMax <= _zMin) return;
+    final baru = z.clamp(_zMin, _zMax).toDouble();
+    if ((baru - _zoom).abs() < 0.01) return;
+    setState(() => _zoom = baru);
+    try {
+      await c.setZoomLevel(baru);
+    } catch (_) {
+      // zoom gagal diterapkan: preview tetap di zoom sebelumnya
     }
   }
 
@@ -498,6 +521,25 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
     ]);
   }
 
+  /// Zoom: label saat ini + pilihan cepat 1x / 2x / 4x (yang masih di dalam jangkauan perangkat).
+  Widget _tombolZoom() {
+    final pilih = <double>{for (final z in const [1.0, 2.0, 4.0]) if (z >= _zMin && z <= _zMax) z};
+    Widget chip(String teks, bool aktif, VoidCallback? onTap) => GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: aktif ? Colors.white : Colors.black45, borderRadius: BorderRadius.circular(99)),
+            child: Text(teks, style: TextStyle(color: aktif ? Colors.black87 : Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+          ),
+        );
+    String fmt(double z) => '${z.toStringAsFixed(z == z.roundToDouble() ? 0 : 1)}x';
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      for (final z in pilih) chip(fmt(z), (_zoom - z).abs() < 0.05, () => _aturZoom(z)),
+      if (!pilih.any((z) => (_zoom - z).abs() < 0.05)) chip(fmt(_zoom), true, null),
+    ]);
+  }
+
   Widget _layarKamera(CameraController? c, bool siap) {
     return Row(children: [
         Expanded(
@@ -511,10 +553,18 @@ class _KameraRowScreenState extends State<KameraRowScreen> with WidgetsBindingOb
                     ? const SisiLoader(warna: Colors.white)
                     : AspectRatio(
                         aspectRatio: c.value.aspectRatio > 1 ? c.value.aspectRatio : 1 / c.value.aspectRatio,
-                        child: Stack(fit: StackFit.expand, children: [
-                          CameraPreview(c),
-                          WatermarkPratinjau(data: _data),
-                        ]),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onScaleStart: (_) => _zAwal = _zoom,
+                          onScaleUpdate: (d) {
+                            if (d.pointerCount >= 2) unawaited(_aturZoom(_zAwal * d.scale));
+                          },
+                          child: Stack(fit: StackFit.expand, children: [
+                            CameraPreview(c),
+                            WatermarkPratinjau(data: _data),
+                            if (_zMax > _zMin) Positioned(right: 10, top: 0, bottom: 0, child: Center(child: _tombolZoom())),
+                          ]),
+                        ),
                       ),
           ),
         ),

@@ -19,6 +19,24 @@ void main() {
     expect(i.statusUntuk('x'), StatusVersi.tidakDiketahui);
   });
 
+  test('notifikasi mati: update opsional dan server lama senyap, wajib tetap, manual jujur', () {
+    const i = InfoVersi(server: '0.82.0', minimum: '0.81.0', notifikasi: false);
+    expect(i.statusUntuk('0.80.5'), StatusVersi.wajibUpdate);
+    expect(i.statusUntuk('0.81.0'), StatusVersi.sama);
+    expect(i.statusUntuk('0.83.0'), StatusVersi.sama);
+    expect(i.statusUntuk('0.81.0', abaikanSenyap: true), StatusVersi.updateTersedia);
+    expect(InfoVersi.dariJson({'server': '0.82.0', 'notifikasi': false})!.notifikasi, isFalse);
+    expect(InfoVersi.dariJson({'server': '0.82.0'})!.notifikasi, isTrue);
+  });
+
+  test('tiangApi dari ping: hanya https, garis miring akhir dibuang; kosong / http = jalur lama', () {
+    expect(InfoVersi.dariJson({'server': '1.0.69', 'tiangApi': 'https://contoh.id/sisi-api/'})!.tiangApi, 'https://contoh.id/sisi-api');
+    expect(InfoVersi.dariJson({'server': '1.0.69', 'tiangApi': 'http://contoh.id/sisi-api'})!.tiangApi, '');
+    expect(InfoVersi.dariJson({'server': '1.0.69', 'tiangApi': ''})!.tiangApi, '');
+    expect(InfoVersi.dariJson({'server': '1.0.69'})!.tiangApi, '');
+    expect(const InfoVersi(server: '1.0.69', minimum: '1.0.69').tiangApi, '');
+  });
+
   test('dariJson: minimum tidak valid = server, link non-https dibuang', () {
     final i = InfoVersi.dariJson({'server': '0.81.0', 'minimum': 'abc', 'linkUnduh': 'http://x', 'catatan': 'a | b'})!;
     expect([i.minimum, i.linkUnduh, i.catatan], ['0.81.0', '', 'a | b']);

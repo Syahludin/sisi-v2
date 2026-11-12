@@ -113,7 +113,7 @@ function PanelSwitching({ api, sesi, kirim }) {
       const k = titikSwitching(s);
       if (!k) return;
       const j = infoJenis(s.jenis);
-      L.circleMarker(k, { radius: 8, color: s.statusVerifikasi === 'PERLU_PERBAIKAN' ? '#c9861f' : '#fff', weight: 3, fillColor: j.warna, fillOpacity: 0.95 })
+      L.circleMarker(k, { radius: 8, color: s.statusVerifikasi === 'PERLU_PERBAIKAN' ? '#e0b400' : '#fff', weight: 3, fillColor: j.warna, fillOpacity: 0.95 })
         .bindTooltip(j.label + ' · ' + s.nama, { direction: 'top', offset: [0, -6] })
         .on('click', () => setPilih(s))
         .addTo(g);
@@ -191,6 +191,14 @@ function PanelSwitching({ api, sesi, kirim }) {
           {ringkas.tanpaTitik > 0 && <p className="msw-catatan-peta">{ringkas.tanpaTitik} switching tanpa koordinat tidak tampil di peta.</p>}
         </div>
 
+        {pilih ? (
+          <Rincian s={pilih} api={api} bolehUbah={bolehUbah} namaPerId={namaPerId} onTutup={() => setPilih(null)}
+            onUbah={(s) => { setPilih(null); setForm(isianDari(s)); }}
+            onFotoBaru={(s) => {
+              setPilih(s);
+              setData((d) => (d ? { ...d, switching: d.switching.map((x) => (x.switchingId === s.switchingId ? s : x)) } : d));
+            }} />
+        ) : (
         <div className="msw-daftar" aria-label="Daftar switching">
           <div className="msw-daftar-kepala"><b>{tampil.length}</b> switching{filter.penyulang ? ' · ' + filter.penyulang : ''}</div>
           {!data && memuat && <div className="k-tengah"><SisiLoader ukuran={40} label="Memuat switching" /></div>}
@@ -215,11 +223,9 @@ function PanelSwitching({ api, sesi, kirim }) {
             })}
           </ul>
         </div>
+        )}
       </div>
 
-      <Rincian s={pilih} api={api} bolehUbah={bolehUbah} namaPerId={namaPerId} onTutup={() => setPilih(null)}
-        onUbah={(s) => { setPilih(null); setForm(isianDari(s)); }}
-        onFotoBaru={(s) => setData((d) => (d ? { ...d, switching: d.switching.map((x) => (x.switchingId === s.switchingId ? s : x)) } : d))} />
       {form && (
         <FormSwitching awal={form} jaringan={jaringan} penyulang={penyulang} daftar={semua} onTutup={() => setForm(null)} onKirim={kirimSwitching} />
       )}
@@ -231,11 +237,19 @@ function PanelSwitching({ api, sesi, kirim }) {
 const Baris = ({ label, v }) => (v === '' || v === null || v === undefined ? null : <div><dt>{label}</dt><dd>{v}</dd></div>);
 const ya = (b) => (b ? 'Ya' : 'Tidak');
 
+/** Rincian switching di kolom kanan (pola daftar + rincian, desain Hijau Rimba): menggantikan daftar sampai "Daftar switching" ditekan. */
 function Rincian({ s, api, bolehUbah, namaPerId, onTutup, onUbah, onFotoBaru }) {
-  if (!s) return <Dialog buka={false} onTutup={onTutup} />;
   const j = infoJenis(s.jenis), st = infoStatus(s.statusVerifikasi), k = titikSwitching(s);
   return (
-    <Dialog buka judul={j.label + ' · ' + s.nama} sub={s.switchingId + ' · ' + s.penyulang + (s.aktif ? '' : ' · NONAKTIF')} onTutup={onTutup} lebar="min(760px, 96vw)">
+    <section className="msw-rincian" aria-label={'Rincian ' + s.nama}>
+      <button type="button" className="k-tombol k-tombol--teks msw-kembali" onClick={onTutup}><Ikon nama="kiri" ukuran={16} />Daftar switching</button>
+      <header className="msw-rincian-kepala">
+        <span className="msw-lencana" style={{ background: j.warna }}>{j.label}</span>
+        <div>
+          <h2>{s.nama}</h2>
+          <p>{s.switchingId + ' · ' + s.penyulang + (s.aktif ? '' : ' · NONAKTIF')}</p>
+        </div>
+      </header>
       <div className="msw-rinc-status">
         <span className={'k-badge k-badge--' + st.kelas}>{st.label}</span>
         <span>Verifikasi terakhir {waktuSingkat(s.verifikasiTerakhir)}</span>
@@ -280,13 +294,12 @@ function Rincian({ s, api, bolehUbah, namaPerId, onTutup, onUbah, onFotoBaru }) 
         <Baris label="Kondisi" v={labelPilihan('kondisi', s.kondisi)} />
         <Baris label="Catatan" v={s.catatan} />
       </dl>
-      <div className="k-dialog-aksi">
+      <div className="msw-rincian-aksi">
         {k && <a className="k-tombol k-tombol--garis" href={'https://www.google.com/maps?q=' + k[0] + ',' + k[1]} target="_blank" rel="noreferrer"><Ikon nama="lokasi" ukuran={16} />Google Maps</a>}
         <span className="k-spasi" />
-        <button type="button" className="k-tombol k-tombol--teks" onClick={onTutup}>Tutup</button>
-        {bolehUbah && <button type="button" className="k-tombol k-tombol--utama" onClick={() => onUbah(s)}>Ubah</button>}
+        {bolehUbah && <button type="button" className="k-tombol k-tombol--utama" onClick={() => onUbah(s)}><Ikon nama="edit" ukuran={16} />Ubah</button>}
       </div>
-    </Dialog>
+    </section>
   );
 }
 
@@ -355,7 +368,7 @@ function PetaTitik({ koordinat, onPilih }) {
     if (tanda.current) { tanda.current.remove(); tanda.current = null; }
     if (!t) return;
     const k = [Number(t[1]), Number(t[2])];
-    tanda.current = L.circleMarker(k, { radius: 9, color: '#fff', weight: 3, fillColor: '#a8433f', fillOpacity: 1 }).addTo(p);
+    tanda.current = L.circleMarker(k, { radius: 9, color: '#fff', weight: 3, fillColor: '#c04a4a', fillOpacity: 1 }).addTo(p);
     p.setView(k, Math.max(p.getZoom(), 16));
   }, [koordinat]);
   return <div ref={el} className="msw-peta-kecil" aria-label="Klik peta untuk memilih koordinat" />;
