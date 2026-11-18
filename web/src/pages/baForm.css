@@ -44,6 +44,8 @@
 
 @media (max-width: 640px) {
   .baf-kartu { padding: 12px; }
+  /* tombol Buat BA ada di kiri bilah pada layar sempit: menu rata kiri supaya tidak keluar layar */
+  .baf-buat-menu { right: auto; left: 0; max-width: calc(100vw - 32px); }
   .baf-aksi { flex-direction: column-reverse; }
   .baf-aksi .k-tombol { justify-content: center; }
 }

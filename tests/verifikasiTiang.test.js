@@ -196,6 +196,25 @@ test('tiang: selisih koordinat > 10 m dari koordinat terdaftar wajib memilih das
   assert.ok(sg.segmenId);
 });
 
+test('tiang: koordinat terdaftar = GIS bila ada; jadi dasar selisih, TERDAFTAR, dan latAset ke klien', () => {
+  const x = dunia();
+  const sg = x.segmen();
+  const H = x.g.TIANG_HEADER_.db_Tiang, b1 = x.sheets.t.db_Tiang.data[1];
+  assert.deepStrictEqual([x.jalur()[0].latAset, x.jalur()[0].lngAset], [-3, 106.5], 'tanpa GIS: koordinat ITB');
+  b1[H.indexOf('lat_gis')] = -3.001; b1[H.indexOf('lng_gis')] = 106.5;   // GIS ±111 m di selatan koordinat ITB
+  const t = x.jalur()[0];
+  assert.deepStrictEqual([t.latAset, t.lngAset], [-3.001, 106.5], 'GIS menggantikan ITB di latAset / lngAset');
+  const kirim = (koordinat, o = {}) => x.verif({ tiangId: t.tiangId, revision: x.jalur()[0].revision, statusVerifikasi: 'PERLU_PERBAIKAN', koordinat, ...o,
+    sirkuit: [{ sirkuitId: t.sirkuit[0].sirkuitId, penyulang: 'TOBOALI 1' }] });
+  const baris = () => x.baris('db_Tiang').find((b) => String(b.tiang_id) === '1001');
+  assert.strictEqual(kodeError(() => kirim('-3.0001, 106.5')), 'FIELD_WAJIB', 'dekat koordinat ITB tapi jauh dari GIS');
+  assert.strictEqual(kirim('-3.00105, 106.5').selisihM, 6, 'dekat GIS: dalam toleransi');
+  kirim('-3.0001, 106.5', { dasarKoordinat: 'TERDAFTAR', akurasiM: 4 });
+  assert.deepStrictEqual([baris().lat, baris().lng, baris().sumber_koordinat], [-3.001, 106.5, 'aset'], 'TERDAFTAR memakai GIS');
+  assert.deepStrictEqual([baris().lat_aset, baris().lng_aset], [-3, 106.5], 'koordinat ITB tidak diubah');
+  assert.ok(sg.segmenId);
+});
+
 test('tiang: progres jalur hanya menghitung Terverifikasi yang lengkap (data wajib + foto)', () => {
   const x = dunia();
   const sg = x.segmen();
@@ -293,6 +312,18 @@ test('peta tiang: hanya Terverifikasi ber-koordinat; garis = sirkuit ke induk pe
   assert.deepStrictEqual(p.titik[0].penyulang, ['TOBOALI 1']);
   assert.strictEqual(typeof p.titik[1].lat, 'number');
   assert.deepStrictEqual(p.garis, [{ tiangId: t[1].tiangId, indukTiangId: t[0].tiangId, penyulang: 'TOBOALI 1' }]);
+});
+
+test('peta koordinat tiang: semua tiang aktif, larik 15 kolom, admin saja; induk / gawang dari sirkuit pertama', () => {
+  const x = dunia();
+  assert.strictEqual(kodeError(() => x.g.getPetaKoordinatTiang_({ userId: 'u', role: 'USER' }, {})), 'AKSES_DITOLAK');
+  const p = j(x.g.getPetaKoordinatTiang_(x.admin, {}));
+  const aktif = x.baris('db_Tiang').filter((b) => b.aktif === true || String(b.aktif).toUpperCase() === 'TRUE' || b.aktif === 1).length;
+  assert.strictEqual(p.tiang.length, aktif);
+  assert.ok(p.tiang.length >= 3 && p.tiang.every((t) => t.length === 15));
+  const t0 = x.baris('db_Tiang')[0], r = p.tiang.find((t) => t[0] === String(t0.tiang_id));
+  assert.deepStrictEqual([r[1], r[2], r[3]], [t0.nama, Number(t0.lat_aset), Number(t0.lng_aset)]);
+  assert.deepStrictEqual([r[4], r[5], r[6], r[7]], ['', '', '', ''], 'tanpa GIS / taksiran = kosong');
 });
 
 test('tiang: koordinat dari peta dicatat sumber "peta" tanpa akurasi; tanpa sumberKoordinat tetap "lapangan"; sumber lain ditolak', () => {

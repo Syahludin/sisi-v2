@@ -47,7 +47,7 @@ var TIANG_KOLOM_LOGIS_ = {
 
 /** Kolom db_Tiang yang dikelola migrasi (kolom aset + turunan). Selain ini tidak pernah disentuh sinkron. */
 var TIANG_KOLOM_KELOLA_ = ['ssot_number', 'nama', 'kode_nama_aset', 'lat_aset', 'lng_aset', 'konstruksi_aset', 'jenis_tiang_aset', 'ukuran_tiang_aset',
-  'kelas_area', 'status_aset', 'bulan_sumber', 'keterangan_sumber', 'lat', 'lng', 'sumber_koordinat', 'tanda_cek', 'aktif'];
+  'kelas_area', 'status_aset', 'bulan_sumber', 'keterangan_sumber', 'lat_taksir', 'lng_taksir', 'lat', 'lng', 'sumber_koordinat', 'tanda_cek', 'aktif'];
 var TIANG_KOLOM_KELOLA_SIRKUIT_ = ['induk_tiang_id', 'gawang_m', 'peran_titik', 'tanda_cek_gawang'];
 
 /* ===== pembacaan sumber (murni, diuji) ===== */
@@ -69,6 +69,20 @@ function angkaKoordTiang_(v) {
   if (s === '') return null;
   var n = Number(s.replace(',', '.'));
   return isFinite(n) ? n : null;
+}
+
+/**
+ * Koordinat terdaftar sebuah tiang: GIS (lat_gis / lng_gis, paling akurat) bila keduanya ada, kalau tidak taksiran dari tetangga
+ * (lat_taksir / lng_taksir, 109_Tiang_Gis.js), kalau tidak koordinat aset ITB. Hasil { lat, lng } angka, atau null bila tidak ada
+ * koordinat. Koordinat verifikasi lapangan (lat / lng) tidak termasuk.
+ */
+function koordinatTerdaftarTiang_(o) {
+  var la, ln;
+  ['gis', 'taksir', 'aset'].some(function (j) {
+    la = angkaKoordTiang_(o['lat_' + j]); ln = angkaKoordTiang_(o['lng_' + j]);
+    return la !== null && ln !== null;
+  });
+  return la === null || ln === null ? null : { lat: la, lng: ln };
 }
 
 /**
@@ -320,7 +334,22 @@ function barisSirkuitBaru_(s, topo, ctx, no) {
  * Kolom verifikasi tidak disentuh; baris lama hanya berubah bila kolom yang dikelola berubah (revision + 1).
  */
 function gabungMigrasiTiang_(sumber, lamaTiang, lamaSirkuit, ctx) {
-  var topo = hitungTopologiTiang_(sumber), tanda = tandaCekTiang_(sumber);
+  // jarak gawang + tanda cek + koordinat berlaku memakai koordinat terdaftar (GIS dulu); kolom lat_aset / lng_aset tetap koordinat ITB
+  var gisLama = {};
+  lamaTiang.forEach(function (o) { gisLama[String(o.tiang_id)] = o; });
+  var gisPeta = {}, terdaftar = {}, sumberTerdaftar = sumber.map(function (s) {
+    var o = gisLama[s.tiang_id], k = o ? koordinatTerdaftarTiang_({ lat_gis: o.lat_gis, lng_gis: o.lng_gis, lat_aset: s.lat_aset, lng_aset: s.lng_aset }) : null;
+    if (k && angkaKoordTiang_(o.lat_gis) !== null && angkaKoordTiang_(o.lng_gis) !== null) gisPeta[s.tiang_id] = k;
+    return k ? Object.assign({}, s, { lat_aset: k.lat, lng_aset: k.lng }) : s;
+  });
+  // tiang tanpa GIS meminjam selisih GIS - ITB dari tetangga satu jalur (taksiran; lat_taksir / lng_taksir, bukan lat_gis)
+  var taksir = taksirKoordinatTiang_(sumber, gisPeta, hitungTopologiTiang_(sumber));
+  sumberTerdaftar = sumberTerdaftar.map(function (t) {
+    var k = taksir[t.tiang_id], u = k ? Object.assign({}, t, { lat_aset: k.lat, lng_aset: k.lng }) : t;
+    terdaftar[t.tiang_id] = u;
+    return u;
+  });
+  var topo = hitungTopologiTiang_(sumberTerdaftar), tanda = tandaCekTiang_(sumberTerdaftar);
   var r = { tiangBaru: 0, tiangUbah: 0, tiangSama: 0, tiangHilang: 0, tiangPulih: 0, sirkuitBaru: 0, sirkuitUbah: 0,
     tandaCek: {}, gawang: {}, invalid: 0 };
   var masuk = {};
@@ -345,10 +374,12 @@ function gabungMigrasiTiang_(sumber, lamaTiang, lamaSirkuit, ctx) {
       var t = tanda[s.tiang_id], belum = String(o.status_verifikasi || 'BELUM') === 'BELUM';
       ['ssot_number', 'nama', 'kode_nama_aset', 'lat_aset', 'lng_aset', 'konstruksi_aset', 'jenis_tiang_aset', 'ukuran_tiang_aset', 'kelas_area', 'status_aset']
         .forEach(function (k) { o[k] = s[k]; });
+      o.lat_taksir = taksir[s.tiang_id] ? taksir[s.tiang_id].lat : '';
+      o.lng_taksir = taksir[s.tiang_id] ? taksir[s.tiang_id].lng : '';
       o.bulan_sumber = ctx.bulan;
       o.keterangan_sumber = '';
       var sumberKoord = String(o.sumber_koordinat || 'aset');
-      if (sumberKoord === 'aset') { o.lat = s.lat_aset; o.lng = s.lng_aset; o.sumber_koordinat = 'aset'; }
+      if (sumberKoord === 'aset') { o.lat = terdaftar[s.tiang_id].lat_aset; o.lng = terdaftar[s.tiang_id].lng_aset; o.sumber_koordinat = 'aset'; }
       o.tanda_cek = String(o.status_verifikasi) === 'TERVERIFIKASI' ? '' : t;
       if (belum) o.aktif = s.status_aset !== 'INVALID';
     }

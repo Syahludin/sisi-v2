@@ -72,6 +72,7 @@ Tahap kedua (8 Nov 2026, versi 1.0.63): **Master Switching** end-to-end. Backend
 | | kelas_area | Pedesaan / perkotaan / CBD |
 | | status_aset | OPERATING / INVALID |
 | Lokasi | lat_aset, lng_aset | Koordinat dari data aset (kolom aset, tidak diubah verifikasi) |
+| | lat_gis, lng_gis | Koordinat dari ekspor GIS "Tiang TBL" (17 Nov 2026, lebih akurat daripada koordinat ITB: ±6.000 tiang ITB bergeser tetap ±795 m). Dicocokkan lewat **nama** tiang (kolom GIS `ido_juru_5`), diisi `109_Tiang_Gis.js`; tiang tanpa pasangan nama kosong. Tidak mengubah `lat_aset` / `lng_aset` / `lat` / `lng`. **Koordinat terdaftar** = GIS bila lat_gis dan lng_gis lengkap, kalau tidak taksiran (lat_taksir / lng_taksir), kalau tidak ITB; dipakai untuk gawang_m, tanda cek, koordinat berlaku (sumber `aset`), dan verifikasi (kunci API `latAset` / `lngAset` berisi koordinat terdaftar) |
 | | lat, lng | Koordinat yang berlaku (awalnya = koordinat aset, diganti GPS lapangan saat verifikasi) |
 | | sumber_koordinat | aset / lapangan |
 | | akurasi_m | Akurasi GPS saat diverifikasi |

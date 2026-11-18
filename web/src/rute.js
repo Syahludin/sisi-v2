@@ -27,6 +27,25 @@ export function alamatRute({ halaman = '', id = '', query = {} } = {}, base = BA
 }
 
 function sekarang() { return bacaRute(window.location.pathname, window.location.search); }
+export const ruteSekarang = sekarang;
+
+/** Halaman tanpa isi sendiri: alamat kosong (/sisi/), login, dan beranda. Bukan tujuan yang diingat sebelum login. */
+const HALAMAN_UMUM = ['', 'login', 'beranda'];
+
+/** Tujuan sesudah login: halaman yang tadinya dibuka (alamat / sesi habis), selain itu beranda. Murni (diuji). */
+export function tujuanMasuk(rute) {
+  return rute && !HALAMAN_UMUM.includes(rute.halaman) ? { halaman: rute.halaman, id: rute.id || '', query: rute.query || {} } : { halaman: 'beranda' };
+}
+
+/**
+ * Alamat harus dialihkan? masuk = sudah login. Sudah login di alamat kosong / login = beranda; belum login di alamat selain login = login.
+ * null = alamat sudah benar. Murni (diuji).
+ */
+export function alihkanRute(rute, masuk) {
+  const h = (rute && rute.halaman) || '';
+  if (masuk) return h === '' || h === 'login' ? { halaman: 'beranda' } : null;
+  return h === 'login' ? null : { halaman: 'login' };
+}
 
 /** Pindah alamat. ganti = replaceState (mis. filter berubah, tidak menambah riwayat Back). */
 export function navigasi(rute, { ganti = false } = {}) {

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Ikon from '../../components/Ikon.jsx';
 import SisiLoader from '../../components/SisiLoader.jsx';
 import {
-  GRUP_FGTM, grupBulanGgn, JENIS_GGN, jenisGgn, jenisUntukSumber, KODE_FGTM, perBulanRentang, perTahunGgn, pieFgtm, ringkasGgn, samaPenyulang, saringFilter, tigaTahun,
+  GRUP_FGTM, grupBulanGgn, hitungKategori, teksDurasi, JENIS_GGN, jenisGgn, jenisUntukSumber, KODE_FGTM, perBulanRentang, perTahunGgn, pieFgtm, ringkasGgn, samaPenyulang, saringFilter, tigaTahun,
 } from '../../gangguan.js';
 import { angka, TAB_PIE, TAMPIL_AWAL, teksPeriode } from './bantu.js';
 import { GrafikBulan, GrafikTahun, KartuGrafik, LegendaAlat, Pie } from './Grafik.jsx';
@@ -21,6 +21,7 @@ export function TabData({ sumber, data, memuat, q, ubah, ubahTanggal, banding, t
   const tabPie = TAB_PIE.some(([k]) => k === q.pie) ? q.pie : 'SEMUA';
   const [sumberPie, setSumberPie] = useState('penyulang');
   const [cari, setCari] = useState('');
+  const [tertutup, setTertutup] = useState(() => new Set());   // bulan yang diminimalkan (bawaan: semua expand)
   const [tampil, setTampil] = useState(TAMPIL_AWAL);
   useEffect(() => { setTampil(TAMPIL_AWAL); }, [jenis, penyulang, fgtm, cari, dari, sampai]);
 
@@ -128,14 +129,34 @@ export function TabData({ sumber, data, memuat, q, ubah, ubahTanggal, banding, t
         </div>
         {jenis === 'penyulang' && baris.length > 0 && <RingkasPadam r={ringkasGgn(baris, 'penyulang')} />}
         {!baris.length && <p className="k-kosong">Tidak ada kejadian untuk pilihan ini.</p>}
-        {grup.map((g) => (
-          <div key={g.kunci} className="ggn-grup">
-            <h3 className="ggn-grup-judul">{g.label}<span>{g.isi.length}</span></h3>
-            <ul>
-              {g.isi.map((o, i) => <KartuKejadian key={(o.gangguan_id || o.ar_id || o.pickup_id || '') + i} o={o} jenis={jenis} onBuka={() => onBuka({ o, jenis })} />)}
-            </ul>
+        {grup.length > 0 && (
+          <div className="ggn-sk-alat">
+            <button type="button" className="k-tombol k-tombol--garis" onClick={() => setTertutup(new Set())}><Ikon nama="kanan" ukuran={14} />Expand</button>
+            <button type="button" className="k-tombol k-tombol--garis" onClick={() => setTertutup(new Set(grup.map((g) => g.kunci)))}><Ikon nama="kanan" ukuran={14} />Minimize</button>
+            <small>{grup.length} bulan</small>
           </div>
-        ))}
+        )}
+        {grup.map((g) => {
+          const tutup = tertutup.has(g.kunci), k = hitungKategori(g.isi, jenis);
+          const padam = jenis === 'penyulang' ? ringkasGgn(g.isi, 'penyulang').durasiMenit : 0;
+          return (
+            <section key={g.kunci} className={'ggn-grup ggn-grup--kartu' + (tutup ? ' ggn-grup--tutup' : '')} aria-label={'Kejadian ' + g.label}>
+              <button type="button" className="ggn-grup-kepala" aria-expanded={!tutup}
+                onClick={() => setTertutup((s) => { const n = new Set(s); if (n.has(g.kunci)) n.delete(g.kunci); else n.add(g.kunci); return n; })}>
+                <Ikon nama="kanan" ukuran={15} />
+                <b>{g.label}</b>
+                <span className="ggn-grup-n">{g.isi.length} kejadian</span>
+                <small>PMT {k.pmt} · Section {k.section}{padam ? ' · padam ' + teksDurasi(padam) : ''}</small>
+                <em>{tutup ? 'Expand' : 'Minimize'}</em>
+              </button>
+              {!tutup && (
+                <ul>
+                  {g.isi.map((o, i) => <KartuKejadian key={(o.gangguan_id || o.ar_id || o.pickup_id || '') + i} o={o} jenis={jenis} onBuka={() => onBuka({ o, jenis })} />)}
+                </ul>
+              )}
+            </section>
+          );
+        })}
         {baris.length > tampil && (
           <button type="button" className="k-tombol k-tombol--garis ggn-lagi" onClick={() => setTampil((n) => n + TAMPIL_AWAL)}>
             Tampilkan {Math.min(TAMPIL_AWAL, baris.length - tampil)} lagi

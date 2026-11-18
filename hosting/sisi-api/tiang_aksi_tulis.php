@@ -237,16 +237,15 @@ function aksiSimpanVerifikasiTiang(array $data, array $tiket): array
         $pakaiAset = false;
         if (!$hilang) {
             $jarak = null;
-            if ($lama && angka($lama['lat_aset']) !== null && angka($lama['lng_aset']) !== null) {
-                $jarak = jarakMeter((float)angka($lama['lat_aset']), (float)angka($lama['lng_aset']), $d['koordinat']['lat'], $d['koordinat']['lng']);
-            }
+            $terdaftar = $lama ? koordinatTerdaftar($lama) : null;
+            if ($terdaftar) $jarak = jarakMeter($terdaftar[0], $terdaftar[1], $d['koordinat']['lat'], $d['koordinat']['lng']);
             if ($jarak !== null && $jarak > TIANG_TOLERANSI_M) {
                 if (empty($d['dasarKoordinat'])) $g->tambah('dasar', 'Selisih koordinat lebih dari ' . TIANG_TOLERANSI_M . ' m: pilih koordinat yang dipakai.');
                 $pakaiAset = ($d['dasarKoordinat'] ?? '') === 'TERDAFTAR';
             }
             $selisih = $jarak === null ? null : (int)round($jarak);
-            $u['lat'] = $pakaiAset ? angka($lama['lat_aset']) : $d['koordinat']['lat'];
-            $u['lng'] = $pakaiAset ? angka($lama['lng_aset']) : $d['koordinat']['lng'];
+            $u['lat'] = $pakaiAset ? $terdaftar[0] : $d['koordinat']['lat'];
+            $u['lng'] = $pakaiAset ? $terdaftar[1] : $d['koordinat']['lng'];
             $dariPeta = !$pakaiAset && ($d['sumberKoordinat'] ?? '') === 'PETA';
             $u['sumber_koordinat'] = $pakaiAset ? 'aset' : ($dariPeta ? 'peta' : 'lapangan');
             $u['akurasi_m'] = $pakaiAset || $dariPeta || !isset($d['akurasiM']) ? null : $d['akurasiM'];

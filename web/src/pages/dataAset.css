@@ -18,8 +18,13 @@
 .das-pil i { width: 9px; height: 9px; border-radius: 2px; }
 .das-pil.aktif { background: var(--pil-aktif); border-color: var(--pil-aktif); color: #fff; }
 .das-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.das-kartu { display: grid; align-content: start; gap: 8px; padding: 12px 14px; text-align: left; font: inherit; border-radius: 14px; border: 1px solid var(--neutral-150); border-top: 4px solid var(--brand-600); background: var(--putih); cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.das-kartu { display: grid; align-content: start; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--neutral-150); border-top: 4px solid var(--brand-600); background: var(--putih); transition: box-shadow .15s, transform .15s; }
 .das-kartu:hover { box-shadow: 0 6px 18px rgba(12, 30, 21, .09); transform: translateY(-1px); }
+.das-kartu-isi { display: grid; gap: 8px; padding: 0; text-align: left; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.das-gardu { justify-self: start; padding: 4px 10px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--brand-950); background: var(--neutral-100, #f1f5f3); border: 1px solid var(--neutral-150); border-radius: 999px; font-variant-numeric: tabular-nums; }
+button.das-gardu { cursor: pointer; }
+button.das-gardu:hover { border-color: var(--brand-600); }
+.das-gardu--kosong { color: var(--neutral-500); font-weight: 600; }
 .das-kartu-kepala { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .das-kartu-kepala b { font-size: 14px; font-weight: 900; color: var(--brand-950); text-transform: capitalize; }
 .das-kartu-kepala strong { font-size: 20px; font-weight: 900; color: var(--brand-950); font-variant-numeric: tabular-nums; }

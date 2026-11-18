@@ -46,7 +46,7 @@ export const bolehBacaMysql = (action, data) => !!AKSI_BACA[action] && AKSI_BACA
  * Modul tiang di Hostinger (tiang.php, POST { action, data }): dipakai bila tiket bertanda tiang = true (TIANG_API_URL terisi di backend).
  * Selalu dari server (tanpa "langsung"): data MySQL tidak punya salinan basi seperti Sheet. Gagal = Apps Script seperti biasa.
  */
-const AKSI_TIANG = new Set(['getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'getSegmen', 'getMasterSwitching']);
+const AKSI_TIANG = new Set(['getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'getPetaKoordinatTiang', 'getSegmen', 'getMasterSwitching']);
 export const bolehBacaTiang = (action) => AKSI_TIANG.has(action);
 
 const SISA_MS = 60000;   // tiket diperbarui bila sisa < 1 menit

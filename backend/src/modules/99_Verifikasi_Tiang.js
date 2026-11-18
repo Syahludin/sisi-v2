@@ -86,9 +86,12 @@ function sirkuitKeApi_(r, tiang) {
 }
 
 function tiangKeApi_(r, sirkuit) {
+  var kt = koordinatTerdaftarTiang_(r);
   var o = {
     tiangId: teksSwc_(r.tiang_id), nama: teksSwc_(r.nama), kode: kodeJalurTiang_(r),
-    latAset: angkaSwc_(r.lat_aset), lngAset: angkaSwc_(r.lng_aset), lat: angkaSwc_(r.lat), lng: angkaSwc_(r.lng),
+    // latAset / lngAset = koordinat TERDAFTAR (GIS dulu, lalu ITB; nama kunci tetap demi kontrak HP / web)
+    latAset: kt ? kt.lat : null, lngAset: kt ? kt.lng : null,
+    lat: angkaSwc_(r.lat), lng: angkaSwc_(r.lng),
     sumberKoordinat: teksSwc_(r.sumber_koordinat), jenisTiangAset: teksSwc_(r.jenis_tiang_aset), ukuranTiangAset: teksSwc_(r.ukuran_tiang_aset),
     jenisTiang: teksSwc_(r.jenis_tiang), ukuranTiang: teksSwc_(r.ukuran_tiang), sisiJalan: teksSwc_(r.sisi_jalan),
     jumlahSirkuit: angkaSwc_(r.jumlah_sirkuit) || 1, tandaCek: teksSwc_(r.tanda_cek), statusVerifikasi: teksSwc_(r.status_verifikasi) || 'BELUM',
@@ -181,7 +184,7 @@ function getPetaTiang_(sesi, data) {
     var id = teksSwc_(r.tiang_id);
     if (!id || !isAktif_(r.aktif) || teksSwc_(r.status_verifikasi) !== 'TERVERIFIKASI') return;
     var lat = angkaSwc_(r.lat), lng = angkaSwc_(r.lng);
-    if (lat === null || lng === null) { lat = angkaSwc_(r.lat_aset); lng = angkaSwc_(r.lng_aset); }
+    if (lat === null || lng === null) { var kt = koordinatTerdaftarTiang_(r); lat = kt ? kt.lat : null; lng = kt ? kt.lng : null; }
     if (lat === null || lng === null) { tanpa++; return; }
     var pny = [];
     (sirkuit[id] || []).forEach(function (c) { var p = teksSwc_(c.penyulang); if (p && pny.indexOf(p) < 0) pny.push(p); });
@@ -196,6 +199,31 @@ function getPetaTiang_(sesi, data) {
     });
   });
   return { titik: titik, garis: garis, tanpaKoordinat: tanpa };
+}
+
+/**
+ * getPetaKoordinatTiang {} -> { tiang: [[tiangId, nama, latAset, lngAset, latGis, lngGis, latTaksir, lngTaksir, latLap, lngLap, sumberKoordinat,
+ * indukTiangId, gawangM, tandaGawang, statusVerifikasi]] }. Untuk peta cek koordinat (ITB vs GIS vs taksiran vs lapangan) di Master Jaringan:
+ * semua tiang aktif, larik (bukan objek) supaya ±15.000 tiang tetap ringkas. Induk / gawang = sirkuit pertama tiang. Kosong = ''.
+ */
+function getPetaKoordinatTiang_(sesi, data) {
+  wajibAdminTiang_(sesi);
+  validasi_(data || {}, {});
+  var awal = {};
+  tabelTiangSisi_('db_Tiang_Sirkuit').rows.forEach(function (r) {
+    var id = teksSwc_(r.tiang_id);
+    if (id && isAktif_(r.aktif) && !awal[id]) awal[id] = r;
+  });
+  var an = function (v) { var n = angkaSwc_(v); return n === null ? '' : n; };
+  var tiang = [];
+  tabelTiangSisi_('db_Tiang').rows.forEach(function (r) {
+    var id = teksSwc_(r.tiang_id);
+    if (!id || !isAktif_(r.aktif)) return;
+    var c = awal[id] || {}, g = angkaSwc_(c.gawang_m);
+    tiang.push([id, teksSwc_(r.nama), an(r.lat_aset), an(r.lng_aset), an(r.lat_gis), an(r.lng_gis), an(r.lat_taksir), an(r.lng_taksir),
+      an(r.lat), an(r.lng), teksSwc_(r.sumber_koordinat), teksSwc_(c.induk_tiang_id), g === null ? '' : g, teksSwc_(c.tanda_cek_gawang), teksSwc_(r.status_verifikasi)]);
+  });
+  return { tiang: tiang };
 }
 
 /** Validasi daftar sirkuit kiriman (1-3 item, sirkuitId unik). */
@@ -290,15 +318,15 @@ function simpanVerifikasiTiang_(sesi, data, platform) {
     var selisih = null, pakaiAset = false;
     if (!hilang) {
       // selisih dari koordinat terdaftar > toleransi: admin wajib memilih koordinat mana yang jadi dasar (TERDAFTAR = koordinat aset dipakai)
-      var jarakAset = lama && angkaSwc_(lama.lat_aset) !== null && angkaSwc_(lama.lng_aset) !== null
-        ? jarakTiang_({ lat_aset: angkaSwc_(lama.lat_aset), lng_aset: angkaSwc_(lama.lng_aset) }, { lat_aset: d.koordinat.lat, lng_aset: d.koordinat.lng }) : null;
+      var terdaftar = lama ? koordinatTerdaftarTiang_(lama) : null;
+      var jarakAset = terdaftar ? jarakTiang_({ lat_aset: terdaftar.lat, lng_aset: terdaftar.lng }, { lat_aset: d.koordinat.lat, lng_aset: d.koordinat.lng }) : null;
       if (jarakAset !== null && jarakAset > TIANG_TOLERANSI_M_) {
         if (!d.dasarKoordinat) throw new SisiError_('FIELD_WAJIB', 'dasarKoordinat');
         pakaiAset = d.dasarKoordinat === 'TERDAFTAR';
       }
       selisih = jarakAset === null ? null : Math.round(jarakAset);
-      u.lat = pakaiAset ? angkaSwc_(lama.lat_aset) : d.koordinat.lat;
-      u.lng = pakaiAset ? angkaSwc_(lama.lng_aset) : d.koordinat.lng;
+      u.lat = pakaiAset ? terdaftar.lat : d.koordinat.lat;
+      u.lng = pakaiAset ? terdaftar.lng : d.koordinat.lng;
       var dariPeta = !pakaiAset && d.sumberKoordinat === 'PETA';
       u.sumber_koordinat = pakaiAset ? 'aset' : (dariPeta ? 'peta' : 'lapangan');
       u.akurasi_m = pakaiAset || dariPeta || d.akurasiM === undefined ? '' : d.akurasiM;

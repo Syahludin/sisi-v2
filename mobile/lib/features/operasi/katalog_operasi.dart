@@ -59,7 +59,8 @@ class KatalogOperasi {
         ikon: Icons.calendar_month_rounded, warna: AppColors.plnRed, grup: 'Pekerjaan Teknik', siap: true), // v1.0.17
     ModulOperasi(
         // v1.0.17: nama "Temuan Inspeksi" + ikon baru (tab Input + Daftar Temuan offline)
-        kode: 'OPS_INPUT_TEMUAN', nama: 'Temuan Inspeksi', desc: 'Input temuan inspeksi + daftar temuan offline dengan filter dan ringkasan per jenis',
+        // C4A (15 Nov 2026): menu Temuan Inspeksi menjadi C4A (Laporan C4A + Daftar Temuan + Arsip C4A)
+        kode: 'OPS_INPUT_TEMUAN', nama: 'C4A', desc: 'Laporan C4A (titik awal, temuan, titik akhir, jarak jalan), daftar temuan offline, arsip C4A',
         ikon: Icons.content_paste_search_rounded, warna: AppColors.cyan600, grup: 'Pekerjaan Teknik', siap: true),
     // v1.0.11: Penerusan WO Temuan (ADMIN / ADMIN_ES): teruskan / pindah / tarik WO temuan ke tim ROW, Hartek, Yandal
     ModulOperasi(

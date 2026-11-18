@@ -612,3 +612,19 @@ button.ggn-bd-kol:hover { background: var(--neutral-50); }
 .ggn-rp-tabel .ggn-rp-kosong { font-style: italic; color: var(--red-700); }
 .ggn-rp-tabel .ggn-rp-tiada { font-style: italic; color: var(--neutral-400); background: var(--neutral-100); }
 span.ggn-bd-jalur { display: block; }
+
+/* ===== Kejadian per bulan sebagai card yang bisa di-expand / minimize ===== */
+.ggn-grup--kartu { margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--neutral-150); background: var(--putih); overflow: hidden; }
+.ggn-grup--kartu ul { padding: 0 12px 12px; }
+.ggn-grup-kepala { display: grid; grid-template-columns: auto auto auto 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border: 0; background: var(--neutral-50); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.ggn-grup-kepala:hover { background: var(--brand-50); }
+.ggn-grup-kepala > svg { color: var(--neutral-400); transition: transform .15s; transform: rotate(90deg); }
+.ggn-grup--tutup .ggn-grup-kepala > svg { transform: none; }
+.ggn-grup-kepala b { font-size: 14px; font-weight: 900; color: var(--brand-950); }
+.ggn-grup-n { padding: 1px 9px; border-radius: 99px; background: var(--neutral-150); color: var(--neutral-700); font-size: 11.5px; font-weight: 800; }
+.ggn-grup-kepala small { font-size: 11.5px; font-weight: 600; color: var(--neutral-500); }
+.ggn-grup-kepala em { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--brand-700); }
+@media (max-width: 640px) {
+  .ggn-grup-kepala { grid-template-columns: auto 1fr auto; }
+  .ggn-grup-kepala small { grid-column: 2 / -1; }
+}

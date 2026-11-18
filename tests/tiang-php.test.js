@@ -101,6 +101,19 @@ test('tiang skema: kolom mengikuti header sheet SiSi_Tiang dan dibuat sekali (ve
   assert.ok(kolom.versi);
 });
 
+test('tiang skema: tabel lama yang kekurangan kolom (lat_gis / lng_gis) ditambah, baris lama utuh', { skip: SKIP }, async () => {
+  await panggil('tiangStatus', {});
+  const ada = () => JSON.parse(phpKode(`$p = new PDO('sqlite:${dbFile}'); echo json_encode(array_column($p->query("PRAGMA table_info(tiang_tiang)")->fetchAll(PDO::FETCH_ASSOC), 'name'));`));
+  // tabel versi lama: kolom baru belum ada + penanda versi lama, ada satu baris
+  phpKode(`$p = new PDO('sqlite:${dbFile}'); $p->exec("INSERT INTO tiang_tiang (tiang_id, nama, urut) VALUES ('LAMA-1', 'PLS0001', 1)");
+    $p->exec('ALTER TABLE tiang_tiang DROP COLUMN lat_gis'); $p->exec('ALTER TABLE tiang_tiang DROP COLUMN lng_gis'); $p->exec("DELETE FROM sinkron_info WHERE modul = 'skema_tiang'");`);
+  assert.ok(!ada().includes('lat_gis'));
+  await panggil('tiangStatus', {});
+  assert.ok(ada().includes('lat_gis') && ada().includes('lng_gis'), 'kolom baru ditambahkan');
+  const n = phpKode(`$p = new PDO('sqlite:${dbFile}'); echo $p->query("SELECT nama || '|' || COALESCE(lat_gis, 'kosong') FROM tiang_tiang WHERE tiang_id = 'LAMA-1'")->fetchColumn(); $p->exec("DELETE FROM tiang_tiang WHERE tiang_id = 'LAMA-1'");`);
+  assert.strictEqual(n, 'PLS0001|kosong');
+});
+
 test('tiang laju: >120 permintaan/menit per pengguna → 429 TERLALU_SERING, pengguna lain tidak terkena', { skip: SKIP }, async () => {
   // hitungan per menit kalender: jangan mulai dekat pergantian menit supaya 125 permintaan jatuh di menit yang sama
   const dtk = new Date().getSeconds();
@@ -177,7 +190,7 @@ function semai(w) {
 }
 
 const tiketAdmin = () => tiket(isiTiket({ m: ['OPS_VERIFIKASI_TIANG', 'OPS_MASTER_SWITCHING'], t: [] }));
-const JS_AKSI = { getVerifikasiTiang: 'getVerifikasiTiang_', getTiangJalur: 'getTiangJalur_', getPetaTiang: 'getPetaTiang_', getSegmen: 'getSegmen_', getMasterSwitching: 'getMasterSwitching_' };
+const JS_AKSI = { getVerifikasiTiang: 'getVerifikasiTiang_', getTiangJalur: 'getTiangJalur_', getPetaTiang: 'getPetaTiang_', getPetaKoordinatTiang: 'getPetaKoordinatTiang_', getSegmen: 'getSegmen_', getMasterSwitching: 'getMasterSwitching_' };
 
 /** Jawaban PHP sama persis dengan jawaban Apps Script (kunci `waktu` diabaikan). */
 async function samaDenganAppsScript(w, aksi, data = {}) {
@@ -214,7 +227,7 @@ function duniaTerisi() {
 test('tiang baca: dunia awal (hasil migrasi ITB) sama dengan Apps Script untuk kelima aksi', { skip: SKIP }, async () => {
   const w = dunia();
   semai(w);
-  for (const a of ['getVerifikasiTiang', 'getPetaTiang', 'getSegmen', 'getMasterSwitching']) await samaDenganAppsScript(w, a);
+  for (const a of ['getVerifikasiTiang', 'getPetaTiang', 'getPetaKoordinatTiang', 'getSegmen', 'getMasterSwitching']) await samaDenganAppsScript(w, a);
   const jalur = await samaDenganAppsScript(w, 'getTiangJalur', { kode: 'PLS' });
   assert.ok(jalur.tiang.length >= 3);
   await samaDenganAppsScript(w, 'getTiangJalur', { kode: 'LAINNYA' });
@@ -227,6 +240,8 @@ test('tiang baca: dunia terisi (segmen, tiang terverifikasi induk-anak, tidak di
   assert.ok(v.jalur.some((x) => x.terverifikasi > 0) && v.jalur.some((x) => x.perluDilengkapi > 0 || x.tidakDitemukan > 0), 'data uji harus beragam');
   const peta = await samaDenganAppsScript(w, 'getPetaTiang');
   assert.ok(peta.titik.length >= 2 && peta.garis.length >= 1, 'peta: titik dan garis induk-anak');
+  const pk = await samaDenganAppsScript(w, 'getPetaKoordinatTiang');
+  assert.ok(pk.tiang.length >= 3 && pk.tiang.every((x) => x.length === 15), 'peta koordinat: larik 15 kolom per tiang');
   await samaDenganAppsScript(w, 'getSegmen');
   const sw = (await samaDenganAppsScript(w, 'getMasterSwitching')).switching;
   assert.ok(sw.some((x) => x.proteksiHuluId), 'proteksi hulu terhitung');
@@ -444,6 +459,19 @@ test('simpan: TIDAK_DITEMUKAN, tiang baru dari lapangan, koordinat jauh (dasar T
   assert.strictEqual(aset.dapat.tiang.sumberKoordinat, 'aset');
   const peta = await bandingSimpan(w, { ...verifAwal(w, t0, seg), koordinat: '-3, 106.50001', sumberKoordinat: 'PETA', akurasiM: 7 });
   assert.strictEqual(peta.dapat.tiang.sumberKoordinat, 'peta');
+});
+
+test('simpan: koordinat terdaftar GIS = Apps Script (selisih, dasar TERDAFTAR memakai GIS, latAset ke klien)', { skip: SKIP }, async () => {
+  const { w, seg, jalur } = duniaSimpan();
+  const t0 = jalur[0], H = w.g.TIANG_HEADER_.db_Tiang;
+  const b = w.sheets.t.db_Tiang.data.find((r, i) => i > 0 && String(r[H.indexOf('tiang_id')]) === t0.tiangId);
+  b[H.indexOf('lat_gis')] = -3.001; b[H.indexOf('lng_gis')] = 106.5;   // GIS ±111 m di selatan koordinat ITB (-3, 106.5)
+  const dekatItb = { ...verifAwal(w, t0, seg), koordinat: '-3.0001, 106.5' };
+  assert.ok((await bandingSimpan(w, dekatItb)).ditolak, 'dekat ITB tapi jauh dari GIS: wajib pilih dasar');
+  const terdaftar = await bandingSimpan(w, { ...dekatItb, dasarKoordinat: 'TERDAFTAR', akurasiM: 4 });
+  assert.deepStrictEqual([terdaftar.dapat.tiang.sumberKoordinat, terdaftar.dapat.tiang.lat, terdaftar.dapat.tiang.latAset], ['aset', -3.001, -3.001], 'TERDAFTAR memakai GIS');
+  const dekatGis = await bandingSimpan(w, { ...verifAwal(w, t0, seg), koordinat: '-3.00105, 106.5' });
+  assert.strictEqual(dekatGis.dapat.selisihM, 6, 'dekat GIS: dalam toleransi');
 });
 
 test('simpan: dua penyulang (posisi berbeda) diterima, posisi kembar ditolak, revision basi = 409', { skip: SKIP }, async () => {
@@ -1115,7 +1143,7 @@ test('cadangan.php: tulis jsonl.gz utuh (meta + semua baris, unicode / baris bar
   const berkas = fs.readdirSync(dir);
   assert.deepStrictEqual(berkas.length, 1, 'tidak ada berkas .tmp tersisa: ' + berkas.join(','));
   const baris = bacaCadangan(path.join(dir, berkas[0]));
-  assert.deepStrictEqual([baris[0].meta.format, baris[0].meta.skema], ['sisi-tiang-cadangan-1', '2']);
+  assert.deepStrictEqual([baris[0].meta.format, baris[0].meta.skema], ['sisi-tiang-cadangan-1', '4']);
   const sebut = (t) => baris.filter((x) => x.t === t);
   assert.strictEqual(sebut('tiang_tiang')[0].r.keterangan_sumber, 'baris 1\nbaris 2 "kutip" \\ ✓ unicode');
   const dump = dumpSemua();

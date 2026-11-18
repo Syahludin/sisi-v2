@@ -72,10 +72,11 @@ class SinkronLatar with WidgetsBindingObserver {
     }
   }
 
-  /// Sesi petugas dimulai (admin tidak punya antrean HP).
+  /// Sesi dimulai (petugas dan admin: keduanya punya antrean HP).
   void mulai(Sesi s) {
     _sesi = s;
-    if (s.modeAdmin || !_android) return;
+    // admin ikut (dulu dikecualikan): admin kini punya antrean HP (temuan / laporan C4A, tiang, absensi)
+    if (!_android) return;
     if (!_aktif) {
       _aktif = true;
       WidgetsBinding.instance.addObserver(this);

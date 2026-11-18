@@ -88,7 +88,7 @@
 }
 
 /* jaga isi kartu jalur tidak melewati batas (kode panjang, banyak lencana) */
-.vt-daftar { min-width: 0; overflow: hidden; }
+.vt-daftar { min-width: 0; overflow: hidden; grid-template-rows: auto minmax(0, 1fr); }   /* baris daftar menyusut ke max-height, jadi ul bisa digulir */
 .vt-daftar ul { grid-template-columns: minmax(0, 1fr); }
 .vt-daftar li { min-width: 0; }
 .vt-jalur { min-width: 0; overflow: hidden; }

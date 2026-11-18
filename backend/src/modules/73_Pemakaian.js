@@ -26,7 +26,9 @@ var PAKAI_OVERHEAD_MS_ = 500;   // waktu mulai eksekusi yang tidak terukur dari 
 var PAKAI_PRIORITAS_ = {
   ADMIN_rekapShiftYandal: 'PENTING', ADMIN_buatBarisHarian: 'PENTING', ADMIN_pantauPemakaian: 'PENTING',
   ADMIN_pengingatYandal: 'NORMAL', ADMIN_sinkronGarduLama: 'NORMAL',
-  ADMIN_migrasiFoto: 'RENDAH', ADMIN_migrasiCekFoto: 'RENDAH', ADMIN_migrasiP0Foto: 'RENDAH'
+  ADMIN_migrasiFoto: 'RENDAH', ADMIN_migrasiCekFoto: 'RENDAH', ADMIN_migrasiP0Foto: 'RENDAH',
+  // C4A (15 Nov 2026): sinkron file UIW boleh direm lebih dulu; tutup otomatis harian tetap jalan
+  ADMIN_pemicuSinkronUiw: 'RENDAH', ADMIN_pemicuHarianC4A: 'NORMAL'
 };
 var PAKAI_REM_ = { RENDAH: 0.8, NORMAL: 0.95 };
 var PAKAI_SIMPAN_HARI_ = 8;

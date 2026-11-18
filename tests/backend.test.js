@@ -227,6 +227,7 @@ function sheetPalsu(log) {
     getRange: (r, c, nr = 1, nc = 1) => ({
       getValues: () => { log.push('BACA:' + nama); return data.slice(r - 1, r - 1 + nr).map((x) => x.slice(c - 1, c - 1 + nc)); },
       getDisplayValues: () => { log.push('BACA:' + nama); return data.slice(r - 1, r - 1 + nr).map((x) => { const b = x.slice(c - 1, c - 1 + nc); while (b.length < nc) b.push(''); return b.map((v) => (v === null || v === undefined ? '' : String(v))); }); },
+      getFormulas: () => data.slice(r - 1, r - 1 + nr).map(() => Array(nc).fill('')),
       getValue: () => { log.push('BACA:' + nama); return data[r - 1][c - 1]; },
       setValue: (v) => { log.push('TULIS:' + nama); data[r - 1][c - 1] = sel(v); },
       setValues: (vals) => {
@@ -955,7 +956,8 @@ test('audit guard: hanya doPost/doGet/rpc + ADMIN_* (wajib pastikanPemilik_) yan
   const publik = [];
   for (const f of file) {
     const isi = fs.readFileSync(f, 'utf8');
-    for (const m of isi.matchAll(/^function\s+([A-Za-z0-9]+)\s*\(/gm)) if (!m[1].endsWith('_')) publik.push(m[1]);
+    // review 15 Nov 2026: garis bawah ikut (dulu [A-Za-z0-9]+ tidak cocok dengan ADMIN_*, jadi tidak satu pun ADMIN_ diperiksa)
+    for (const m of isi.matchAll(/^function\s+([A-Za-z0-9_]+)\s*\(/gm)) if (!m[1].endsWith('_')) publik.push(m[1]);
     assert.ok(!/^(var|let|const)\s+[A-Za-z0-9]*[^_\s]\s*=\s*function/m.test(isi), 'tidak ada fungsi anonim global (lolos audit nama): ' + f);
   }
   const bebas = ['doPost', 'doGet', 'rpc'];
@@ -998,7 +1000,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   // v0.84.0: pemakaian server = ADMIN / SUPER saja (hanya baca Script Properties)
   assert.match(g.getPemakaian_.toString(), /^function getPemakaian_\(sesi, data\) \{\s*if \(!sesi \|\| \(sesi\.role !== 'ADMIN' && sesi\.role !== 'SUPER'\)\)/);
   assert.match(g.daftarNotif_.toString(), /platform !== 'MOBILE'[\s\S]*penerimaNotif_\(sesi\)[\s\S]*sesi\.deviceId/);
-  const tulis = Object.keys(ep).filter((k) => ep[k].tulis && !ep[k].publik && !/Hartek|InsJar|InsDu|TemuanInspeksi|JadwalPadam|(Wo|WoAdmin|WoTim|WoGanda)_$/.test(ep[k].fn.name)).sort();
+  const tulis = Object.keys(ep).filter((k) => ep[k].tulis && !ep[k].publik && !/Hartek|InsJar|InsDu|TemuanInspeksi|C4A|JadwalPadam|(Wo|WoAdmin|WoTim|WoGanda)_$/.test(ep[k].fn.name)).sort();
   // v1.0.17: Jadwal Padam = admin paling awal, menu OPS_JADWAL_PADAM, tulis butuh UBAH
   const epJp = Object.keys(ep).filter((k) => /JadwalPadam/.test(ep[k].fn.name)).sort();
   assert.deepStrictEqual(epJp.filter((k) => ep[k].tulis), ['hapusJadwalPadam', 'simpanJadwalPadam', 'ubahJadwalPadam', 'ubahStatusJadwalPadam']);
@@ -1040,7 +1042,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   for (const k of Object.keys(ep).filter((k) => /Hartek/.test(ep[k].fn.name))) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?(, platform)?\\) \\{\\s*wajibPetugasHartek_\\(sesi\\)');
   // v1.0.0: Inspeksi Jaringan petugas = peran PETUGAS INSPEKSI_JARINGAN paling awal; Input Temuan Inspeksi = admin paling awal
   for (const k of Object.keys(ep).filter((k) => /InsJar/.test(ep[k].fn.name))) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibPetugasInsJar_\\(sesi\\)');
-  for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi/.test(ep[k].fn.name))) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibAdminTemuan_\\(sesi\\)');
+  for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi|C4A/.test(ep[k].fn.name))) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibAdminTemuan_\\(sesi\\)');
   // v1.0.8: Inspeksi Gardu petugas = peran PETUGAS INSPEKSI_GARDU paling awal, tulis butuh UBAH di OPS_INSDU_INPUT
   for (const k of Object.keys(ep).filter((k) => /InsDu/.test(ep[k].fn.name))) cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi(, data)?\\) \\{\\s*wajibPetugasInsDu_\\(sesi\\)');
   assert.deepStrictEqual(Object.keys(ep).filter((k) => /InsDu/.test(ep[k].fn.name) && ep[k].tulis).sort(), ['buatHeaderInsDu', 'hapusRealisasiInsDu', 'segelSinkronInsDu', 'simpanPengukuranInsDu', 'simpanRealisasiInsDu', 'simpanTemuanInsDu', 'ubahHeaderInsDu', 'ubahRealisasiInsDu', 'ubahTemuanInsDu', 'uploadFotoInsDu'], 'endpoint tulis InsDu butuh UBAH');
@@ -1073,10 +1075,10 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
     cekMilik[k] = new RegExp('^function ' + ep[k].fn.name + '\\(sesi, data\\) \\{\\s*wajibAdminWo_\\(sesi\\)');
     assert.deepStrictEqual([ep[k].menu, !!ep[k].tulis], ['OPS_PETA_TEMUAN', false], k);
   }
-  const tulisInsJar = Object.keys(ep).filter((k) => /InsJar|TemuanInspeksi/.test(ep[k].fn.name) && ep[k].tulis).sort();
-  assert.deepStrictEqual(tulisInsJar, ['buatHeaderInsJar', 'segelSinkronInsJar', 'simpanRealisasiInsJar', 'simpanTemuanInsJar', 'simpanTemuanInspeksi', 'ubahHeaderInsJar', 'ubahRealisasiInsJar', 'ubahTemuanInsJar', 'uploadFotoInsJar', 'uploadFotoTemuanInspeksi'], 'endpoint tulis InsJar butuh UBAH');
+  const tulisInsJar = Object.keys(ep).filter((k) => /InsJar|TemuanInspeksi|C4A/.test(ep[k].fn.name) && ep[k].tulis).sort();
+  assert.deepStrictEqual(tulisInsJar, ['buatHeaderInsJar', 'buatLaporanC4A', 'segelSinkronInsJar', 'simpanRealisasiInsJar', 'simpanTemuanInsJar', 'simpanTemuanInspeksi', 'tutupLaporanC4A', 'ubahHeaderInsJar', 'ubahRealisasiInsJar', 'ubahTemuanInsJar', 'ubahTemuanInspeksi', 'uploadFotoInsJar', 'uploadFotoTemuanInspeksi'], 'endpoint tulis InsJar butuh UBAH');
   for (const k of Object.keys(ep).filter((k) => /InsJar/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INSJAR_INPUT', k);
-  for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INPUT_TEMUAN', k);
+  for (const k of Object.keys(ep).filter((k) => /TemuanInspeksi|C4A/.test(ep[k].fn.name))) assert.strictEqual(ep[k].menu, 'OPS_INPUT_TEMUAN', k);
   // v1.0.17: riwayat gardu = data bersama ULP, khusus admin paling awal
   cekMilik.getRiwayatGardu = /^function getRiwayatGardu_\(sesi, data\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;
   // v1.0.35: form Update Data Gardu (HI) 3 sheet lama, admin paling awal
@@ -1114,7 +1116,7 @@ test('audit guard: semua endpoint lewat guard_, menu & tulis sesuai, kepemilikan
   cekMilik.getDataAset = /^function getDataAset_\(sesi, data\) \{\s*wajibAdminAset_\(sesi\)/;   // v1.0.56
   cekMilik.sinkronDataAset = /^function sinkronDataAset_\(sesi, data\) \{\s*wajibAdminAset_\(sesi\)/;
   // 8 Nov 2026: Master Switching (OPS_MASTER_SWITCHING), peran admin dicek paling awal
-  for (const k of ['getSegmen', 'simpanSegmen', 'getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'simpanVerifikasiTiang', 'sinkronTiang', 'uploadFotoTiang', 'getFotoTiang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi(, data(, platform)?)?\\) \\{\\s*wajibAdminTiang_\\(sesi\\)');
+  for (const k of ['getSegmen', 'simpanSegmen', 'getVerifikasiTiang', 'getTiangJalur', 'getPetaTiang', 'getPetaKoordinatTiang', 'simpanVerifikasiTiang', 'sinkronTiang', 'uploadFotoTiang', 'getFotoTiang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi(, data(, platform)?)?\\) \\{\\s*wajibAdminTiang_\\(sesi\\)');
   for (const k of ['getMasterSwitching', 'simpanSwitching', 'uploadFotoSwitching', 'getFotoSwitching', 'getJaringan', 'simpanSection', 'setAktifPenyulang']) cekMilik[k] = new RegExp('^function ' + k + '_\\(sesi, data(, platform)?\\) \\{\\s*wajibAdminSwitching_\\(sesi\\)');
   cekMilik.updateUkurMasterGardu = /^function updateUkurMasterGardu_\(sesi, data, platform\) \{\s*wajibAdminRiwayatGardu_\(sesi\)/;   // v1.0.22, v1.0.34 web
   // v1.0.17: Jadwal Padam = admin paling awal; v1.0.34 web: fungsi tulis + platform
@@ -3913,7 +3915,8 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     simpanMaterialHartek: [], simpanGroundingHartek: [], simpanPemerataanHartek: [], uploadFotoHartek: [],
     // v1.0.0: OPS_INSJAR_INPUT / OPS_INPUT_TEMUAN tidak ada di db_Menu uji = semua ditolak (fail closed)
     getMasterInsJar: [], getInsJarHarian: [], buatHeaderInsJar: [], ubahHeaderInsJar: [], simpanRealisasiInsJar: [], ubahRealisasiInsJar: [], simpanTemuanInsJar: [], ubahTemuanInsJar: [], uploadFotoInsJar: [],
-    getMasterTemuanInspeksi: [], getTemuanInspeksi: [], simpanTemuanInspeksi: [], uploadFotoTemuanInspeksi: [],
+    getMasterTemuanInspeksi: [], getTemuanInspeksi: [], simpanTemuanInspeksi: [], ubahTemuanInspeksi: [], uploadFotoTemuanInspeksi: [],
+    buatLaporanC4A: [], tutupLaporanC4A: [], getLaporanC4A: [], getArsipC4A: [],   // C4A (15 Nov 2026), menu OPS_INPUT_TEMUAN
     // v1.0.8: OPS_INSDU_INPUT tidak ada di db_Menu uji = semua ditolak (fail closed)
     getMasterInsDu: [], getInsDuHarian: [], buatHeaderInsDu: [], ubahHeaderInsDu: [], simpanRealisasiInsDu: [], ubahRealisasiInsDu: [], simpanPengukuranInsDu: [], hapusRealisasiInsDu: [], simpanTemuanInsDu: [], ubahTemuanInsDu: [], uploadFotoInsDu: [],
     // v1.0.10: OPS_PENERUSAN_WO / OPS_WO_TIM tidak ada di db_Menu uji = semua ditolak (fail closed)
@@ -3938,7 +3941,7 @@ test('v0.66.2: matriks guard: tiap endpoint bersesi hanya lolos untuk akun + pla
     getHistoriGangguan: [], sinkronHistoriGangguan: [],   // v1.0.37: OPS_REKAP_GANGGUAN tidak ada di db_Menu uji
     getDataAset: [], sinkronDataAset: [],   // v1.0.56: OPS_DATA_ASET tidak ada di db_Menu uji
     getMasterSwitching: [], simpanSwitching: [], uploadFotoSwitching: [], getFotoSwitching: [], getJaringan: [], simpanSection: [], setAktifPenyulang: [],
-    getSegmen: [], simpanSegmen: [], getVerifikasiTiang: [], getTiangJalur: [], getPetaTiang: [], simpanVerifikasiTiang: [], sinkronTiang: [], uploadFotoTiang: [], getFotoTiang: [],   // OPS_VERIFIKASI_TIANG tidak ada di db_Menu uji   // 8 Nov 2026: OPS_MASTER_SWITCHING tidak ada di db_Menu uji
+    getSegmen: [], simpanSegmen: [], getVerifikasiTiang: [], getTiangJalur: [], getPetaTiang: [], getPetaKoordinatTiang: [], simpanVerifikasiTiang: [], sinkronTiang: [], uploadFotoTiang: [], getFotoTiang: [],   // OPS_VERIFIKASI_TIANG tidak ada di db_Menu uji   // 8 Nov 2026: OPS_MASTER_SWITCHING tidak ada di db_Menu uji
     getTiketApi: ['admin/MOBILE', 'admin/WEB'],   // v1.0.38: tiket API MySQL khusus website admin; 11 Nov 2026: HP admin (modul tiang Hostinger)
     // v0.75.0: OPS_VERIFIKASI_P0 tidak ada di db_Menu uji = semua ditolak (peran admin dicek di test approval)
     getApprovalP0: [], getFotoApprovalP0: [], simpanApprovalP0: [], ubahJenisP0: [], simpanAturanYandal: [],
@@ -5661,7 +5664,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (/InsDu/.test(nama)) awal[k] = 'wajibPetugasInsDu_(sesi)';   // v1.0.8
     if (['getWoAdmin_', 'getFotoWoAdmin_', 'teruskanWo_', 'tarikWo_', 'getWoGanda_', 'getFotoWoGanda_', 'putuskanWoGanda_', 'getWoPindah_', 'getFotoWoPindah_', 'pindahWo_', 'getPetaTemuan_', 'getFotoPetaTemuan_', 'getRekapJenisTemuan_'].includes(nama)) awal[k] = 'wajibAdminWo_(sesi)';   // v1.0.10, v1.0.15 foto, v1.0.16 ganda
     else if (/(Wo|WoTim)_$/.test(nama)) awal[k] = 'wajibPetugasWo_(sesi, platform)';
-    if (/TemuanInspeksi/.test(nama)) awal[k] = 'wajibAdminTemuan_(sesi)';   // v1.0.0
+    if (/TemuanInspeksi|C4A/.test(nama)) awal[k] = 'wajibAdminTemuan_(sesi)';   // v1.0.0, C4A 15 Nov 2026
     if (/JadwalPadam/.test(nama)) awal[k] = 'wajibAdminJadwalPadam_(sesi)';   // v1.0.17
     if (nama === 'getKalenderTim_') awal[k] = 'wajibSesiKalender_(sesi)';   // v1.0.17, v1.0.18 semua akun
     if (['getNotifikasi_', 'tandaiNotifikasi_'].includes(nama)) awal[k] = 'wajibSesiLonceng_(sesi)';   // v1.0.19
@@ -5671,7 +5674,7 @@ test('v0.76.1: audit guard: semua endpoint bersesi punya rem per menit, peran di
     if (['getHistoriGangguan_', 'sinkronHistoriGangguan_', 'getCoverGardu_', 'getCheckpoint_'].includes(nama)) awal[k] = 'wajibAdminGgn_(sesi)';   // v1.0.37, v1.0.51
     if (['getDataAset_', 'sinkronDataAset_'].includes(nama)) awal[k] = 'wajibAdminAset_(sesi)';   // v1.0.56
     if (['getMasterSwitching_', 'simpanSwitching_', 'uploadFotoSwitching_', 'getFotoSwitching_', 'getJaringan_', 'simpanSection_', 'setAktifPenyulang_'].includes(nama)) awal[k] = 'wajibAdminSwitching_(sesi)';
-    if (['getSegmen_', 'simpanSegmen_', 'getVerifikasiTiang_', 'getTiangJalur_', 'getPetaTiang_', 'simpanVerifikasiTiang_', 'sinkronTiang_', 'uploadFotoTiang_', 'getFotoTiang_'].includes(nama)) awal[k] = 'wajibAdminTiang_(sesi)';   // 8 Nov 2026
+    if (['getSegmen_', 'simpanSegmen_', 'getVerifikasiTiang_', 'getTiangJalur_', 'getPetaTiang_', 'getPetaKoordinatTiang_', 'simpanVerifikasiTiang_', 'sinkronTiang_', 'uploadFotoTiang_', 'getFotoTiang_'].includes(nama)) awal[k] = 'wajibAdminTiang_(sesi)';   // 8 Nov 2026
     if (['getApprovalP0', 'getFotoApprovalP0', 'simpanApprovalP0', 'ubahJenisP0', 'simpanAturanYandal'].includes(k)) awal[k] = 'wajibAdminP0_(sesi)';
   }
   const bebasAwal = ['ping', 'login', 'mulaiShiftYandal', 'getUpdateAppPublik', 'cekSesi', 'logout', 'getMaster'];   // publik / milik sesi sendiri (modul dicek per modul)
@@ -10994,6 +10997,29 @@ test('kirimGaspolUp3: tulis per BLOK baris berurutan (bukan 2 panggilan per bari
   assert.deepStrictEqual([data[1][0], data[2][0], data[3][0], data[4][0]], [1, 2, 3, 4], 'kolom A dinomori ulang');
 });
 
+// review 15 Nov 2026: dua kiriman bersamaan tidak boleh menghitung baris kosong berikut yang sama
+test('kirimGaspolUp3: kiriman lain masih jalan = SERVER_SIBUK tanpa menulis; penanda dilepas sesudah selesai / gagal', () => {
+  const gx = buatKonteks({ ...PROPS, GASPOL_SHEET_ID: 'gs' });
+  let tulis = 0;
+  const sh = { getMaxRows: () => 5, getRange: () => ({ getDataValidation: () => null, getValues: () => [[''], ['']], setValues: () => { tulis++; } }) };
+  gx.peranLaporanUp3_ = () => {};
+  gx.bukaSpreadsheet_ = () => ({ getSheetByName: () => sh });
+  gx.rentangGaspol_ = (d) => d;
+  const b = Array.from({ length: 38 }, () => 0); b[1] = '2026-11-01'; b[5] = 1;
+  gx.rekapGaspol_ = () => [{ penyulang: 'TBL1', baris: b }];
+  const p = gx.PropertiesService.getScriptProperties();
+  p.setProperty('GASPOL_KIRIM_JALAN', String(Date.now()));
+  assert.throws(() => gx.kirimGaspolUp3_({ role: 'ADMIN' }, { dari: '2026-11-01', sampai: '2026-11-01' }), (e) => e.kode === 'SERVER_SIBUK');
+  assert.strictEqual(tulis, 0);
+  p.setProperty('GASPOL_KIRIM_JALAN', String(Date.now() - 8 * 60000));   // basi: eksekusi lama mati di tengah
+  gx.kirimGaspolUp3_({ role: 'ADMIN' }, { dari: '2026-11-01', sampai: '2026-11-01' });
+  assert.ok(tulis > 0);
+  assert.strictEqual(p.getProperty('GASPOL_KIRIM_JALAN'), null);
+  gx.rekapGaspol_ = () => { throw new Error('gagal'); };
+  assert.throws(() => gx.kirimGaspolUp3_({ role: 'ADMIN' }, { dari: '2026-11-01', sampai: '2026-11-01' }));
+  assert.strictEqual(p.getProperty('GASPOL_KIRIM_JALAN'), null, 'gagal = penanda tetap dilepas');
+});
+
 test('kirimGaspolUp3: Section di luar daftar pemeriksaan data kolom C dilewati + dilaporkan (tidak menolak seluruh tulis); beda huruf besar memakai tulisan daftar', () => {
   const gx = buatKonteks({ ...PROPS, GASPOL_SHEET_ID: 'gs' });
   const g2 = gx;
@@ -11023,4 +11049,88 @@ test('kirimGaspolUp3: Section di luar daftar pemeriksaan data kolom C dilewati +
   assert.deepStrictEqual([data[1][2], data[2][2], data[3][2]], ['PMT TANJUNG LABU', '', 'ACR PALAS'], 'Section tak dikenal = sel kosong');
   assert.deepStrictEqual([data[1][5], data[2][5], data[3][5]], [3, 3, 3], 'data lain tetap terisi');
   assert.deepStrictEqual([g2.normSectionGaspol_('ACR Sp. Lingkup'), g2.normSectionGaspol_('FCO Jar Tj.  Limau')], ['ACR SIMPANG LINGKUP', 'FCO JAR TANJUNG LIMAU']);
+});
+
+// ---------- koreksi hitung ulang realisasi dari semua eksekusi ----------
+test('hitung ulang realisasi ROW: semua eksekusi AKTIF (foto lengkap atau tidak), pratinjau tidak menulis, WA tim yang berubah dibuat ulang', () => {
+  const x = siapkanRow();
+  const hId = U(), rId = U(), rId2 = U(), e1 = U(), e2 = U(), e3 = U();
+  x.sheets.m.db_Jaringan.data.push([U(), 'TB-02', 'GH Lain', '', 1, true]);   // penyulang kedua untuk realisasi tanpa eksekusi
+  // tab laporan dibuat server: tiruan Sheets minimal
+  const sheetLapor = (nama) => {
+    const sh = sheetPalsu([])(nama, []);
+    const asli = sh.getRange;
+    sh.getRange = (...a) => { const r = asli(...a); const sv = r.setValues; r.setValues = (v) => { sv(v); return r; }; r.setFontWeight = () => r; return r; };
+    sh.clear = () => { sh.data.length = 0; };
+    sh.setFrozenRows = () => {};
+    return sh;
+  };
+  x.g.SpreadsheetApp = { openById: (id) => ({ getSheetByName: (n) => x.sheets[id][n], insertSheet: (n) => { x.sheets[id][n] = sheetLapor(n); return x.sheets[id][n]; } }) };
+  x.sync([x.op('header', 'buat', hId, x.kodeH, { tanggal: x.hariIni }),
+          x.op('realisasi', 'buat', rId, x.kodeH + '-PNY.001', { headerId: hId, penyulang: 'TB-01' }),
+          x.op('eksekusi', 'buat', e1, x.kodeH + '-PNY.001-EKS.001', { realisasiId: rId, sectionId: x.sekB, nomorTiang: 'T1', koordinatPekerjaan: '-3.0, 106.5', diameter: 30, jenisId: x.jSedang }),
+          x.op('eksekusi', 'buat', e2, x.kodeH + '-PNY.001-EKS.002', { realisasiId: rId, sectionId: x.sekB, nomorTiang: 'T2', koordinatPekerjaan: '-3.0, 106.5', diameter: 60, jenisId: x.jBesar }),
+          x.op('eksekusi', 'buat', e3, x.kodeH + '-PNY.001-EKS.003', { realisasiId: rId, sectionId: x.sekC, nomorTiang: 'T3', koordinatPekerjaan: '-3.0, 106.5', diameter: 30, jenisId: x.jSedang })]);
+  x.sync([x.op('header', 'ubah', hId, undefined, { koordinatAwal: '-3.01, 106.51', koordinatAkhir: '-3.02, 106.52', kmAwal: 10, kmAkhir: 12 }, 1)]);
+  // realisasi kedua tanpa eksekusi sama sekali (angka lama = satu-satunya catatan)
+  x.sync([x.op('realisasi', 'buat', rId2, x.kodeH + '-PNY.002', { headerId: hId, penyulang: 'TB-02' })]);
+  const sk = x.skema, R = x.sheets.r.row_Realisasi.data, E = x.sheets.r.row_Eksekusi.data;
+  const iR = (k) => sk.row_Realisasi.indexOf(k), iE = (k) => sk.row_Eksekusi.indexOf(k);
+  E[1][iE('foto_lengkap')] = true;     // hanya eksekusi pertama berfoto lengkap
+  // keadaan hasil migrasi: angka realisasi tidak sama dengan jumlah eksekusi
+  R[1][iR('Rabas')] = 4; R[1][iR('Sedang')] = 9; R[1][iR('Besar')] = 7;
+  R[2][iR('Rabas')] = 5; R[2][iR('Sedang')] = 5; R[2][iR('Besar')] = 5;
+  // satu eksekusi BATAL tidak ikut dihitung
+  E[3][iE('status')] = 'BATAL';
+
+  const cek = JSON.parse(JSON.stringify(x.g.jalankanHitungUlangRow_(false)));
+  assert.deepStrictEqual([cek.terapkan, cek.realisasiDiubah, cek.tanpaEksekusi], [false, 1, 1]);
+  assert.deepStrictEqual([R[1][iR('Rabas')], R[1][iR('Sedang')], R[1][iR('Besar')]], [4, 9, 7], 'pratinjau tidak menulis');
+  assert.strictEqual(x.sheets.r.mig_HitungUlang.data[1][0], 'AKAN_DIUBAH');
+
+  const hasil = JSON.parse(JSON.stringify(x.g.jalankanHitungUlangRow_(true)));
+  assert.deepStrictEqual([hasil.realisasiDiubah, hasil.timBerubah], [1, ['ROW 01']]);
+  assert.deepStrictEqual([R[1][iR('Rabas')], R[1][iR('Sedang')], R[1][iR('Besar')]], [0, 1, 1],
+    'sedang: 1 (e1) + e3 BATAL tidak dihitung; besar: e2 walau foto belum lengkap');
+  assert.deepStrictEqual([R[2][iR('Rabas')], R[2][iR('Sedang')], R[2][iR('Besar')]], [5, 5, 5], 'tanpa eksekusi: tidak diubah');
+  const lap = x.sheets.r.mig_HitungUlang.data;
+  assert.deepStrictEqual([lap[1][0], lap[1][5], lap[1][6], lap[1][7], lap[1][8], lap[1][9], lap[1][10]], ['DIUBAH', 4, 9, 7, 0, 1, 1]);
+  assert.ok(lap.some((b) => b[0] === 'TANPA_EKSEKUSI_TIDAK_DIUBAH'));
+  const wa = x.sheets.r.row_Header.data[1][x.skema.row_Header.indexOf('WA Text')];
+  assert.ok(wa.startsWith('*Realisasi Team ROW 01 ULP Toboali*'), 'WA tim yang berubah dibuat ulang');
+  assert.ok(wa.includes('Total Bulanan'), wa);
+  // dijalankan lagi: tidak ada lagi yang berubah
+  const lagi = JSON.parse(JSON.stringify(x.g.jalankanHitungUlangRow_(true)));
+  assert.deepStrictEqual([lagi.realisasiDiubah, lagi.waTextBerubah], [0, 0]);
+});
+
+// review 15 Nov 2026: baris yang tidak diubah ditulis kembali tanpa diurai ulang oleh Sheets
+test('tulisKolomRow_: baris tidak diubah = teks diberi awalan kutip, rumus dipertahankan; baris diubah lewat amanSheet_', () => {
+  const g = buatKonteks(PROPS);
+  let ditulis = null;
+  const rg = { getFormulas: () => [[''], ['=A3*2'], [''], [''], ['']], setValues: (v) => { ditulis = v; } };
+  const t = { header: ['x', 'kol'], sheet: { getRange: (r, c, n) => { assert.deepStrictEqual([r, c, n], [2, 2, 5]); return rg; } },
+    nilai: [['a', '0012'], ['b', 4], ['c', '2026-11-12T00:00:00.000Z'], ['d', ''], ['e', 7]] };
+  g.tulisKolomRow_(t, 'kol', { 6: '+62 baru' });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ditulis)), [["'0012"], ['=A3*2'], ["'2026-11-12T00:00:00.000Z"], [''], ["'+62 baru"]]);
+  ditulis = null;
+  g.tulisKolomRow_(t, 'kol', {});
+  assert.strictEqual(ditulis, null, 'tanpa perubahan = tidak menulis');
+});
+
+test('rencanaHitungUlangRealisasi_: jenis dari jenis_id, cadangan teks Jenis Pekerjaan, realisasi BATAL dilewati, eksekusi tanpa jenis dilaporkan', () => {
+  const jenisById = { j1: { nama: 'Rabas / Pangkas' }, j2: { nama: 'Tebang Sedang' }, j3: { nama: 'Tebang Besar' } };
+  const e = (r, j, s = 'AKTIF', teks = '') => ({ realisasi_id: r, jenis_id: j, status: s, 'Jenis Pekerjaan': teks });
+  const real = [
+    { realisasi_id: 'a', status: 'AKTIF', Rabas: 1, Sedang: '2', Besar: 0 },
+    { realisasi_id: 'b', status: 'AKTIF', Rabas: 0, Sedang: 0, Besar: 0 },
+    { realisasi_id: 'c', status: 'BATAL', Rabas: 9, Sedang: 9, Besar: 9 },
+    { realisasi_id: 'd', status: 'AKTIF', Rabas: 3, Sedang: 3, Besar: 3 },
+  ];
+  const eks = [e('a', 'j1'), e('a', 'j2'), e('a', 'j2'), e('b', 'hilang', 'AKTIF', 'Tebang Besar'), e('b', 'j3', 'BATAL'), e('b', 'x', 'AKTIF', 'lain-lain'), e('c', 'j1')];
+  const r = g.rencanaHitungUlangRealisasi_(real, eks, jenisById);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.ubah.map((u) => [u.realisasi.realisasi_id, u.baru.Rabas, u.baru.Sedang, u.baru.Besar]))), [['b', 0, 0, 1]], 'b: jenis dari teks bila jenis_id tidak ada di master; BATAL dan jenis tak dikenal tidak dihitung');
+  assert.strictEqual(r.sama, 1, 'a sudah sama (angka teks "2" = 2)');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.tanpaEksekusi.map((x) => x.realisasi_id))), ['d'], 'tanpa eksekusi AKTIF: tidak diubah');
+  assert.strictEqual(r.tanpaJenis, 1);
 });

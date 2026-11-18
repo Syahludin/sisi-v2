@@ -42,6 +42,10 @@ class MasterInsJar {
                 for (final t in (j['tierInspeksi'] as List<dynamic>? ?? const <dynamic>[])) '$t',
               ],
         },
+        kategoriUiw = {
+          for (final j in InsJarLokal.daftar(m['jenisTemuan']))
+            if ('${j['jenisTemuanId'] ?? ''}'.trim().isNotEmpty) '${j['jenisTemuanId']}'.trim(): '${j['uiwKategori'] ?? ''}'.trim(),
+        },
         tier = [for (final t in (m['tier'] as List<dynamic>? ?? const ['Tier 1', 'Tier 2'])) '$t'],
         gardu = {
           for (final g in InsJarLokal.daftar(m['gardu']))
@@ -55,6 +59,9 @@ class MasterInsJar {
   final Map<String, String> jenisTemuan;
   final Map<String, List<String>> objekJenisTemuan;
   final Map<String, List<String>> tierJenisTemuan;
+
+  /// C4A (15 Nov 2026): jenisTemuanId -> kategori Daftar Kategori UIW (Komponen / Peralatan / Pohon, kosong = belum dipetakan).
+  final Map<String, String> kategoriUiw;
   final List<String> tier;
 
   /// v1.0.11: gardu AKTIF db_Gardu (master admin) untuk temuan object Gardu: garduId -> gardu.
@@ -116,7 +123,8 @@ List<IsianHartek> isianTemuan(Sesi s, MasterInsJar m,
     bool denganFoto = true,
     Map<String, String>? pilihanRealisasi,
     bool sectionTetap = false,
-    bool pilihGardu = false}) {
+    bool pilihGardu = false,
+    bool denganKetTindakLanjut = false}) {
   final objek = objekTetap ?? nilai['objekInspeksi'];
   // v1.0.11: admin + object Gardu = pilih gardu (penyulang + section ikut gardu, dibaca saja), tanpa nomor tiang
   final gardu = pilihGardu && penyulangTetap == null && (objek ?? '').trim() == 'Gardu';
@@ -179,6 +187,8 @@ List<IsianHartek> isianTemuan(Sesi s, MasterInsJar m,
     if (!gardu) IsianHartek('nomorTiang', 'Nomor tiang', maks: 30, baris: segmenBerlaku(objek) ? 'tiang' : null, contoh: 'TB-12'),
     if (segmenBerlaku(objek)) const IsianHartek('segmen', 'Segmen', maks: 60, baris: 'tiang', contoh: 'Opsional'),
     const IsianHartek('deskripsi', 'Deskripsi', multi: true, maks: 500, bantuan: 'Opsional, maksimal 5 baris.'),
+    // 16 Nov 2026 (permintaan Master Guswan): hanya form temuan C4A
+    if (denganKetTindakLanjut) const IsianHartek('ketTindakLanjut', 'Keterangan Tindak Lanjut', wajib: true, pilihan: ['P0', 'Perlu Padam', 'Tidak Padam']),
     // v1.0.14: koordinat temuan wajib (petugas Inspeksi Jaringan + admin)
     const IsianHartek('koordinat', 'Koordinat temuan', wajib: true, koordinat: true, contoh: '-3.012345, 106.512345'),
     if (denganFoto) ...[
@@ -207,6 +217,7 @@ List<IsianHartek> isianTemuan(Sesi s, MasterInsJar m,
     if (v('nomorTiang').isNotEmpty) 'nomorTiang': v('nomorTiang'),
     if (segmen.isNotEmpty) 'segmen': segmen,
     if (v('deskripsi').isNotEmpty) 'deskripsi': v('deskripsi'),
+    if (admin && v('ketTindakLanjut').isNotEmpty) 'ketTindakLanjut': v('ketTindakLanjut'),
     if (v('koordinat').isNotEmpty) 'koordinat': v('koordinat'),
     if (admin && !gardu) 'penyulang': v('penyulang'),
   };
@@ -222,6 +233,7 @@ List<IsianHartek> isianTemuan(Sesi s, MasterInsJar m,
     if (gardu) 'noGardu': m.gardu[v('garduId')]?.noGardu ?? '',
     'segmen': segmen,
     'deskripsi': v('deskripsi'),
+    'ketTindakLanjut': v('ketTindakLanjut'),
     'koordinat': v('koordinat'),
     'status': 'Penugasan Tim',
     'sumber': admin ? 'ADMIN' : 'INSPEKSI',
@@ -235,7 +247,7 @@ List<IsianHartek> isianTemuan(Sesi s, MasterInsJar m,
 
 /// v1.0.5: isian awal form ubah temuan dari node temuan (HP / server).
 Map<String, String> awalTemuan(Map<String, dynamic> t) => {
-      for (final k in const ['objekInspeksi', 'tierInspeksi', 'jenisTemuan', 'penyulang', 'section', 'nomorTiang', 'segmen', 'deskripsi', 'koordinat'])
+      for (final k in const ['objekInspeksi', 'tierInspeksi', 'jenisTemuan', 'penyulang', 'section', 'nomorTiang', 'segmen', 'deskripsi', 'ketTindakLanjut', 'koordinat'])
         if ('${t[k] ?? ''}'.trim().isNotEmpty) k: '${t[k]}'.trim(),
       if ('${t['objekInspeksi'] ?? ''}'.trim().isEmpty) 'objekInspeksi': objekSegmen,
     };

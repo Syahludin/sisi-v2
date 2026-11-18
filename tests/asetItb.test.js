@@ -141,7 +141,7 @@ function siapSinkron(itbData, props = {}) {
   const sheets = {
     si: { db_Aset_ITB: sheetPalsu([gs.ASET_HEADER_.slice()]) },
     m: { db_Jaringan: sheetPalsu([['section', 'penyulang', 'aktif'], ['ACR TEBING PANJANG', 'TANGIT', true]]) },
-    gd: { db_Gardu: sheetPalsu([['No Gardu', 'Penyulang'], ['PY0088', 'Palas']]) },
+    gd: { db_Gardu: sheetPalsu([['No Gardu', 'Penyulang', 'Status Gardu', 'Kapasitas (kVA)', 'Alamat'], ['PY0088', 'Palas', 'AKTIF', '100', 'Jl A'], ['PY0173', 'Palas', 'Aktif', '', 'Jl B'], ['PY0200', 'Palas', 'BATAL', '50', 'Jl C']]) },
     [ID_ITB]: { Data_Penyulang: sheetPalsu(itbData) },
   };
   gs.SpreadsheetApp = { openById: (id) => ({ getName: () => 'ITB ULP Toboali September 2026', getSheetByName: (n) => sheets[id][n] }) };
@@ -176,6 +176,7 @@ test('aset ITB: sinkron menulis master, ulang idempotent, getDataAset', () => {
   assert.deepStrictEqual([d.segmen[0].pnyLap, d.segmen[0].sumber, d.segmen[0].kategori, d.segmen[0].panjang, d.segmen[0].hilang], ['PALAS', 'GARDU', 'SUTM', 0.1, false]);
   assert.deepStrictEqual([d.segmen[1].pnyLap, d.segmen[1].sumber, d.segmen[1].status], ['TANGIT', 'SECTION', 'INVALID']);
   assert.strictEqual(d.sinkron.itbSheetId, ID_ITB);
+  assert.deepStrictEqual(d.gardu, { PALAS: [{ no: 'PY0088', kva: 100, alamat: 'Jl A' }, { no: 'PY0173', kva: 0, alamat: 'Jl B' }] }, 'hanya gardu AKTIF; kVA kosong = 0');
 });
 
 test('aset ITB: file ITB kosong / tanpa sheet tidak menyentuh master', () => {

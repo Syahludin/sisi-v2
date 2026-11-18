@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { alamatRute, bacaRute } from '../src/rute.js';
+import { alihkanRute, tujuanMasuk, alamatRute, bacaRute } from '../src/rute.js';
 import { bacaTembolok, bolehTembolok, kosongkanTembolok, kunciSesi, kunciTembolok, tulisTembolok } from '../src/tembolok.js';
 
 test('rute: baca alamat di bawah folder /sisi/ (halaman, id, query)', () => {
@@ -51,4 +51,22 @@ test('v1.0.45 tembolok laporan: per akun di localStorage (bertahan login ulang),
   } finally {
     delete globalThis.window;
   }
+});
+
+test('rute: alamat login / beranda: tujuan sesudah login + pengalihan menurut status login', () => {
+  // tujuan = halaman yang tadinya dibuka (id + query ikut); alamat kosong / login / beranda = beranda
+  assert.deepEqual(tujuanMasuk(bacaRute('/sisi/ukur-gardu/TB0002', '?tab=2', '/sisi/')), { halaman: 'ukur-gardu', id: 'TB0002', query: { tab: '2' } });
+  for (const p of ['/sisi/', '/sisi/login', '/sisi/beranda']) assert.deepEqual(tujuanMasuk(bacaRute(p, '', '/sisi/')), { halaman: 'beranda' });
+  assert.deepEqual(tujuanMasuk(null), { halaman: 'beranda' });
+  // belum login: semua alamat selain login dialihkan ke /sisi/login
+  assert.deepEqual(alihkanRute({ halaman: '' }, false), { halaman: 'login' });
+  assert.deepEqual(alihkanRute({ halaman: 'berita-acara' }, false), { halaman: 'login' });
+  assert.equal(alihkanRute({ halaman: 'login' }, false), null);
+  // sudah login: alamat kosong dan login dialihkan ke /sisi/beranda, halaman lain tetap
+  assert.deepEqual(alihkanRute({ halaman: '' }, true), { halaman: 'beranda' });
+  assert.deepEqual(alihkanRute({ halaman: 'login' }, true), { halaman: 'beranda' });
+  assert.equal(alihkanRute({ halaman: 'beranda' }, true), null);
+  assert.equal(alihkanRute({ halaman: 'berita-acara' }, true), null);
+  assert.equal(alamatRute({ halaman: 'beranda' }, '/sisi/'), '/sisi/beranda');
+  assert.equal(alamatRute({ halaman: 'login' }, '/sisi/'), '/sisi/login');
 });

@@ -339,6 +339,8 @@ function selesaiWo_(sesi, data, platform) {
       timestamp_update: sekarang, diubah_oleh: sesi.userId
     };
     var rev = ubahBaris_(tt, 'temuan_id', d.temuanId, u, d.revision);
+    // temuan C4A selesai: foto / lokasi / keterangan akhir masuk antrean UIW (pemicu sekali jalan ±2 menit, cadangan: pemicu 5 menit)
+    if (String(t.c4a_id || '')) { try { jadwalkanSinkronUiw_(); } catch (e) { console.warn('Pemicu UIW gagal dijadwalkan: ' + (e.message || e)); } }
     auditLog_(sesi, 'WO_SELESAI', teksWo_(t.kode_temuan), sesi.jenisTim + ' ' + hasil.map(function (h) { return h.kode; }).join(', '),
       platform, headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
     return {

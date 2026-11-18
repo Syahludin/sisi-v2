@@ -70,6 +70,8 @@ function cfg_() {
     // v1.0.56: Data Aset (modul 67_AsetItb.js): file ITB sumber (HANYA DIBACA saat sinkron) + file SiSi tujuan (tab db_Aset_ITB)
     MASTER_ITB_SHEET_ID: p.MASTER_ITB_SHEET_ID || '',
     SISI_ITB_SHEET_ID: p.SISI_ITB_SHEET_ID || '',
+    // 17 Nov 2026: ekspor GIS tiang (sheet "Tiang TBL", HANYA DIBACA) sumber lat_gis / lng_gis (modules/109_Tiang_Gis.js)
+    TIANG_GIS_SHEET_ID: p.TIANG_GIS_SHEET_ID || '',
     // v1.0.44: spreadsheet GASPOL UP3 (tab 'Input TBL', modul 64_Laporan_Gaspol.js); kosong = tombol Kirim ke GASPOL mati
     GASPOL_SHEET_ID: p.GASPOL_SHEET_ID || '',
     // v1.0.50: Command Center (modul 28_Yandal_CC.js): spreadsheet berisi tab P0_PENUGASAN (bukan file SiSi), folder Drive
@@ -91,6 +93,10 @@ function cfg_() {
     // v1.0.0: folder Drive privat foto temuan inspeksi. v1.0.34 (permintaan Master Guswan 25 Okt 2026): nama umum FOTO_TEMUAN_FOLDER_ID
     // (gabungan foto temuan InsJar, InsDu, admin, foto WO); nama lama INSJAR_FOTO_FOLDER_ID masih dibaca sampai diganti.
     FOTO_TEMUAN_FOLDER_ID: p.FOTO_TEMUAN_FOLDER_ID || p.INSJAR_FOTO_FOLDER_ID || '',
+    // C4A (permintaan Master Guswan 15 Nov 2026): file Template_Inspeksi.xlsx milik UIW (staging = SALINAN), folder Temuan_Images, nama UP3
+    UIW_FILE_ID: p.UIW_FILE_ID || '',
+    UIW_FOTO_FOLDER_ID: p.UIW_FOTO_FOLDER_ID || '',
+    UIW_UP3: p.UIW_UP3 || '',
     GARDU_FOTO_FOLDER_ID: p.GARDU_FOTO_FOLDER_ID || '',   // v0.70.0: folder Drive privat foto BA gardu   // v0.67.0: spreadsheet Pengukuran Gardu Toboali (tab Rekap_BA, db_Gardu)   // v0.65.0: folder Drive foto P0 (privat)     // v0.63.0: SiSi_Yandal (yan_Shift, yan_Login)   // v0.51: SiSi_Laporan (lap_Harian, lap_C4A), file terpisah dari SiSi_ROW
     KODE_ULP: p.KODE_ULP,
     ADMIN_EMAIL: String(p.ADMIN_EMAIL).trim().toLowerCase(),

@@ -138,7 +138,7 @@ export default function Dashboard({ sesi, env, config, onKeluar, onSesiHabis }) 
     if (h === halaman && !rute.id) return;
     if (!bolehTinggal()) return;
     penjaga.current = false;
-    navigasi({ halaman: h });
+    navigasi({ halaman: h || 'beranda' });   // beranda = /sisi/beranda (bukan alamat kosong)
   };
 
   /** Tutup satu menu di rel. Menu yang sedang aktif ditutup = pindah ke menu terakhir di rel (atau Beranda bila rel kosong). */
@@ -151,7 +151,7 @@ export default function Dashboard({ sesi, env, config, onKeluar, onSesiHabis }) 
     const tujuan = menuSiap.find((x) => x.kode === sisa[sisa.length - 1]);
     penjaga.current = false;
     pribadi.lepas(kode);
-    navigasi({ halaman: tujuan ? tujuan.halaman : '' });
+    navigasi({ halaman: tujuan ? tujuan.halaman : 'beranda' });
   };
 
   /** Simpan pilihan halaman di alamat: id (gardu / BA) dan query (tanggal, tab, filter). ganti = tanpa riwayat Back. */

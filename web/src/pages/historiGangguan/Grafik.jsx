@@ -270,23 +270,43 @@ export function GrafikBulanTigaTahun({ isi, onPilih }) {
   );
 }
 
+// pie donat: tiap potongan = busur sungguhan (bukan cincin bergaris tebal), garis pemisah sewarna kartu, potongan aktif digeser keluar
+const PIE_PUSAT = 90, PIE_LUAR = 85, PIE_DALAM = 55, PIE_GESER = 5;
+const titikPie = (r, rad, dx = 0, dy = 0) => [PIE_PUSAT + dx + r * Math.cos(rad), PIE_PUSAT + dy + r * Math.sin(rad)].map((v) => +v.toFixed(3));
+
+/** Path donat dari sudut a0 ke a1 (radian, 0 = atas, searah jarum jam). */
+function jalurPie(a0, a1, dx, dy) {
+  const mulai = a0 - Math.PI / 2, akhir = a1 - Math.PI / 2, besar = a1 - a0 > Math.PI ? 1 : 0;
+  const [x0, y0] = titikPie(PIE_LUAR, mulai, dx, dy), [x1, y1] = titikPie(PIE_LUAR, akhir, dx, dy);
+  const [x2, y2] = titikPie(PIE_DALAM, akhir, dx, dy), [x3, y3] = titikPie(PIE_DALAM, mulai, dx, dy);
+  return `M${x0} ${y0} A${PIE_LUAR} ${PIE_LUAR} 0 ${besar} 1 ${x1} ${y1} L${x2} ${y2} A${PIE_DALAM} ${PIE_DALAM} 0 ${besar} 0 ${x3} ${y3} Z`;
+}
+
 export function Pie({ isi, onPilih, aktif }) {
   const total = isi.reduce((n, x) => n + x.jumlah, 0);
   if (!total) return <p className="ggn-kosong">Belum ada kejadian dengan Kode FGTM untuk pilihan ini.</p>;
   let sudut = 0;
-  const R = 70, K = 2 * Math.PI * R;
+  const tengah = (PIE_LUAR + PIE_DALAM) / 2;
   return (
     <div className="ggn-pie">
       <svg viewBox="0 0 180 180" role="img" aria-label="Komposisi Kode FGTM">
-        <circle cx="90" cy="90" r={R} fill="none" stroke="var(--neutral-100)" strokeWidth="30" />
         {isi.map((x, i) => {
-          const pjg = (x.jumlah / total) * K, el = (
-            <circle key={x.kode || '-'} cx="90" cy="90" r={R} fill="none" stroke={WARNA_PIE[i % WARNA_PIE.length]} strokeWidth={aktif && aktif === x.kode ? 36 : 30}
-              strokeDasharray={`${pjg} ${K - pjg}`} strokeDashoffset={-sudut} transform="rotate(-90 90 90)"
-              style={{ cursor: x.kode ? 'pointer' : 'default' }} onClick={() => onPilih(x.kode)}><title>{`${x.label}: ${x.jumlah}`}</title></circle>
+          const a0 = sudut, a1 = sudut + (x.jumlah / total) * 2 * Math.PI;
+          sudut = a1;
+          const warna = WARNA_PIE[i % WARNA_PIE.length], terpilih = !!aktif && aktif === x.kode;
+          const sel = { cursor: x.kode ? 'pointer' : 'default' };
+          const judul = <title>{`${x.label}: ${x.jumlah}`}</title>;
+          // satu potongan penuh: cincin utuh (busur 360 derajat tidak bisa digambar satu path)
+          if (isi.length === 1) {
+            return (
+              <circle key={x.kode || '-'} cx={PIE_PUSAT} cy={PIE_PUSAT} r={tengah} fill="none" stroke={warna} strokeWidth={PIE_LUAR - PIE_DALAM} style={sel} onClick={() => onPilih(x.kode)}>{judul}</circle>
+            );
+          }
+          const mid = (a0 + a1) / 2 - Math.PI / 2, geser = terpilih ? PIE_GESER : 0;
+          return (
+            <path key={x.kode || '-'} d={jalurPie(a0, a1, geser * Math.cos(mid), geser * Math.sin(mid))} fill={warna} stroke="var(--putih)" strokeWidth="1.5" strokeLinejoin="round"
+              style={sel} onClick={() => onPilih(x.kode)}>{judul}</path>
           );
-          sudut += pjg;
-          return el;
         })}
         <text x="90" y="86" textAnchor="middle" className="ggn-pie-total">{total}</text>
         <text x="90" y="106" textAnchor="middle" className="ggn-pie-label">kejadian</text>

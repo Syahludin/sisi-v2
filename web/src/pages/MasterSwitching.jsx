@@ -17,6 +17,7 @@ import { LATAR_PETA, PUSAT_PETA } from '../petaTemuan.js';
 import { kodeGalat, pesan } from '../pesan.js';
 import useKirimLatar from '../useKirimLatar.jsx';
 import TabJaringan from './jaringan/TabJaringan.jsx';
+import TabPetaKoordinat from './jaringan/TabPetaKoordinat.jsx';
 import TabSegmen from './jaringan/TabSegmen.jsx';
 import './masterSwitching.css';
 import './verifikasiTiang.css';
@@ -31,7 +32,7 @@ import './verifikasiTiang.css';
  */
 export default function MasterJaringan({ api, sesi, rute, keRute }) {
   const bolehUbah = aksiMenu(sesi, MENU_SWITCHING) === 'UBAH';
-  const tab = ['jaringan', 'segmen'].includes(rute?.query?.tab) ? rute.query.tab : 'switching';
+  const tab = ['jaringan', 'segmen', 'peta'].includes(rute?.query?.tab) ? rute.query.tab : 'switching';
   const { kirim, popup, galat, hapusGalat } = useKirimLatar(api);
   return (
     <div className="hlm msw">
@@ -42,7 +43,7 @@ export default function MasterJaringan({ api, sesi, rute, keRute }) {
         </div>
       </header>
       <div className="k-tab vt-tab" role="tablist">
-        {[['switching', 'Switching'], ['jaringan', 'Jaringan'], ['segmen', 'Segmen']].map(([k, label]) => (
+        {[['switching', 'Switching'], ['jaringan', 'Jaringan'], ['segmen', 'Segmen'], ['peta', 'Peta Koordinat']].map(([k, label]) => (
           <button type="button" key={k} role="tab" aria-selected={tab === k} className={'k-tab-tombol' + (tab === k ? ' k-tab-tombol--aktif' : '')}
             onClick={() => { hapusGalat(); keRute({ query: { tab: k === 'switching' ? '' : k } }, { ganti: true }); }}>{label}</button>
         ))}
@@ -51,6 +52,7 @@ export default function MasterJaringan({ api, sesi, rute, keRute }) {
       {tab === 'switching' && <PanelSwitching api={api} sesi={sesi} kirim={kirim} />}
       {tab === 'jaringan' && <TabJaringan api={api} bolehUbah={bolehUbah} kirim={kirim} />}
       {tab === 'segmen' && <TabSegmen api={api} bolehUbah={bolehUbah} kirim={kirim} />}
+      {tab === 'peta' && <TabPetaKoordinat api={api} />}
       {popup}
     </div>
   );

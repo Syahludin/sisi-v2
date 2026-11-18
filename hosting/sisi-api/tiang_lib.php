@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) { http_response_code(404); exit; }
 
-const SKEMA_TIANG_VERSI = '2';
+const SKEMA_TIANG_VERSI = '4';
 const TIANG_BODY_MAKS = 6 * 1024 * 1024;   // data + 2 foto (batas keras 2 MB per foto sebelum base64)
 const TIANG_LAJU_MENIT = 120;
 
@@ -18,7 +18,7 @@ const TIANG_KOLOM = [
         'lat_aset', 'lng_aset', 'konstruksi_aset', 'jenis_tiang_aset', 'ukuran_tiang_aset', 'kelas_area', 'status_aset', 'bulan_sumber', 'keterangan_sumber',
         'jumlah_sirkuit', 'jenis_tiang', 'ukuran_tiang', 'konstruksi_lapangan', 'lat', 'lng', 'sumber_koordinat', 'akurasi_m', 'gardu_id',
         'foto_tiang_id', 'foto_kepala_id', 'tanda_cek', 'status_verifikasi', 'verifikasi_terakhir', 'diverifikasi_oleh',
-        'aktif', 'revision', 'diubah_pada', 'diubah_oleh', 'sisi_jalan'],
+        'aktif', 'revision', 'diubah_pada', 'diubah_oleh', 'sisi_jalan', 'lat_gis', 'lng_gis', 'lat_taksir', 'lng_taksir'],
     'tiang_sirkuit' => ['sirkuit_id', 'tiang_id', 'penyulang', 'posisi', 'induk_tiang_id', 'gawang_m', 'peran_titik',
         'section_id', 'segmen_id', 'segmen_aset', 'switching_id', 'switching_di_tiang',
         'jenis_kabel', 'ukuran_mm2', 'penghantar_id', 'tanda_cek_gawang', 'status_verifikasi',
@@ -55,7 +55,7 @@ const TIANG_INDEKS = [
     'tiang_switching' => [['penyulang'], ['tiang_id']],
 ];
 
-const TIANG_DOUBLE = ['lat_aset', 'lng_aset', 'lat', 'lng', 'akurasi_m', 'gawang_m', 'ukuran_mm2', 'panjang_m', 'panjang_kabel_m', 'gmd_m',
+const TIANG_DOUBLE = ['lat_aset', 'lng_aset', 'lat', 'lng', 'lat_gis', 'lng_gis', 'lat_taksir', 'lng_taksir', 'akurasi_m', 'gawang_m', 'ukuran_mm2', 'panjang_m', 'panjang_kabel_m', 'gmd_m',
     'tahun_pasang', 'rating_kv', 'rating_a', 'kapasitas_putus_ka'];
 const TIANG_INT = ['revision', 'urutan', 'jumlah_sirkuit', 'jumlah_tiang', 'jumlah_terverifikasi'];
 const TIANG_BOOL = ['aktif', 'wajib', 'titik_hubung', 'bisa_trip', 'catat_gangguan', 'baca_arus', 'baca_tegangan', 'terhubung_scada'];
@@ -89,6 +89,12 @@ function skemaTiang(PDO $pdo): void
         $inline = [];
         foreach (TIANG_INDEKS[$tabel] ?? [] as $i) $inline[] = 'INDEX ix_' . $tabel . '_' . implode('_', $i) . ' (' . implode(', ', $i) . ')';
         $pdo->exec("CREATE TABLE IF NOT EXISTS $tabel (" . implode(', ', array_merge($def, $mysql ? $inline : [])) . ")$akhir");
+        // tabel lama yang kekurangan kolom baru (CREATE ... IF NOT EXISTS tidak menambah kolom): tambahkan di belakang
+        $ada = $mysql ? $pdo->query("SHOW COLUMNS FROM $tabel")->fetchAll(PDO::FETCH_COLUMN, 0)
+            : $pdo->query("PRAGMA table_info($tabel)")->fetchAll(PDO::FETCH_COLUMN, 1);
+        foreach ($kolom as $k) {
+            if (!in_array($k, $ada, true)) $pdo->exec("ALTER TABLE $tabel ADD COLUMN $k " . tipeKolomTiang($k, $mysql) . ' NULL');
+        }
         if (!$mysql) foreach (TIANG_INDEKS[$tabel] ?? [] as $i) {
             $pdo->exec('CREATE INDEX IF NOT EXISTS ix_' . $tabel . '_' . implode('_', $i) . " ON $tabel (" . implode(', ', $i) . ')');
         }
@@ -124,6 +130,19 @@ function angka($v): int|float|null
 function aktif($v): bool
 {
     return $v === true || $v === 1 || $v === '1' || strtoupper(trim((string)$v)) === 'TRUE';
+}
+
+/**
+ * Koordinat terdaftar: GIS (lat_gis / lng_gis) bila keduanya ada, kalau tidak taksiran tetangga (lat_taksir / lng_taksir), kalau tidak
+ * koordinat aset ITB. [lat, lng] atau null. Sama dengan koordinatTerdaftarTiang_ di Apps Script; koordinat verifikasi lapangan tidak termasuk.
+ */
+function koordinatTerdaftar(array $r): ?array
+{
+    foreach (['gis', 'taksir', 'aset'] as $j) {
+        $la = angka($r["lat_$j"] ?? null); $ln = angka($r["lng_$j"] ?? null);
+        if ($la !== null && $ln !== null) return [(float)$la, (float)$ln];
+    }
+    return null;
 }
 
 /** Bilangan -> teks seperti JavaScript (-3 -> "-3", 106.5 -> "106.5"). */
@@ -599,6 +618,9 @@ function simpanFotoPaket(PDO $pdo, string $pemilik, string $id, string $folder, 
 {
     $kolom = [];
     $konfirmasi = [];
+    // folder dari data (kode_nama_aset hasil impor sheet): hanya huruf / angka / _ / - supaya tidak pernah jadi path lain (../, /)
+    $folder = preg_replace('/[^0-9A-Za-z_-]/', '_', $folder);
+    if ($folder === '' || trim($folder, '_') === '') $folder = 'LAINNYA';
     foreach ($fotoBaru as $slot => $p) {
         $rel = $folder . '/' . $id . '_' . $slot . '_' . substr($p['sha256'], 0, 8) . '.jpg';
         $q = $pdo->prepare('SELECT path FROM tiang_foto WHERE pemilik = ? AND pemilik_id = ? AND slot = ?');

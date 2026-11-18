@@ -251,12 +251,27 @@ function keluarAset_(r) {
     bulan: teksGgn_(r.bulan_itb) };
 }
 
-/** getDataAset {} -> { sinkron, segmen: [...] }. Rekap dihitung di klien. */
+/** Gardu AKTIF db_Gardu per penyulang (nama dirapikan seperti peta pemetaan): { PENYULANG: [{ no, kva, alamat }] } urut No Gardu. */
+function garduPerPenyulangAset_(garduRows) {
+  var hasil = {};
+  (garduRows || []).forEach(function (r) {
+    var no = normSegItb_(r['No Gardu']), pny = normSegItb_(r.Penyulang);
+    if (!no || !pny || teksGarduLama_(r['Status Gardu']).toUpperCase() !== 'AKTIF') return;
+    var kva = angkaGgn_(r['Kapasitas (kVA)']);
+    if (!hasil[pny]) hasil[pny] = [];
+    hasil[pny].push({ no: no, kva: kva === '' ? 0 : kva, alamat: teksGarduLama_(r.Alamat) });
+  });
+  Object.keys(hasil).forEach(function (k) { hasil[k].sort(function (a, b) { return a.no < b.no ? -1 : a.no > b.no ? 1 : 0; }); });
+  return hasil;
+}
+
+/** getDataAset {} -> { sinkron, segmen: [...], gardu: { PENYULANG: [{ no, kva, alamat }] } }. Rekap dihitung di klien. */
 function getDataAset_(sesi, data) {
   wajibAdminAset_(sesi);
   cekDataGgn_(data, []);
   var t = tabel_('SISI_ITB_SHEET_ID', ASET_SHEET_);
-  return { sinkron: infoPublikAset_(bacaInfoAset_()), segmen: t.rows.filter(function (r) { return r.kunci; }).map(keluarAset_) };
+  return { sinkron: infoPublikAset_(bacaInfoAset_()), segmen: t.rows.filter(function (r) { return r.kunci; }).map(keluarAset_),
+    gardu: garduPerPenyulangAset_(tabel_('GARDU_SHEET_ID', 'db_Gardu').rows) };
 }
 
 function pastikanHeaderAset_(header) {

@@ -57,7 +57,7 @@ export function TabTop({ sumber, ubah, tahunTop, tahunKini, tt, onTahun, onPilih
       </div>
 
       <div className="ggn-bagian-kepala">
-        <h2 className="ggn-bagian">Perbandingan bulanan 3 tahun <small>{tigaTahun(tahunTop).join(' · ')} · tiap batang = total, PMT (bawah) | Section (atas) dipisah garis putih</small></h2>
+        <h2 className="ggn-bagian">Perbandingan bulanan 3 tahun</h2>
         <LegendaAlat />
       </div>
       <div className="ggn-top-grid" aria-label="Perbandingan bulanan 3 tahun">

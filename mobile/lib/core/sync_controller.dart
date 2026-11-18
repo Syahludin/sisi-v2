@@ -95,6 +95,8 @@ class SyncController extends ChangeNotifier {
       terakhirBerhasil = null;
     }
     _sesi = s;
+    _temuanAdmin?.removeListener(_antreTemuanBerubah);
+    _temuanAdmin?.addListener(_antreTemuanBerubah); // antrean temuan C4A berubah = hitungan belum terkirim ikut (layanan latar)
     _timer?.cancel();
     _timerProbe?.cancel();
     // v1.0.3: status ONLINE/OFFLINE tidak menunggu sync data 5 menit; ping ringan tiap 15 detik.
@@ -113,6 +115,7 @@ class SyncController extends ChangeNotifier {
     _timer = null;
     _timerProbe?.cancel();
     _timerProbe = null;
+    _temuanAdmin?.removeListener(_antreTemuanBerubah);
     _sesi = null;
   }
 
@@ -148,13 +151,21 @@ class SyncController extends ChangeNotifier {
   /// v0.63.4: data akun [s] yang belum sampai server (outbox + foto tertunda). Dipakai gerbang sync akhir shift YANDAL.
   Future<int> jumlahTertunda(Sesi s) async =>
       await _outbox.jumlahBelumTerkirim(s.userId) + await _foto.jumlahTertunda(s.userId) + await _jumlahP0(s) + await _jumlahHartek(s) + await _jumlahInsJar(s) + await _jumlahInsDu(s) +
-      await _jumlahWo(s) + await _jumlahAbsensi(s);
+      await _jumlahWo(s) + await _jumlahAbsensi(s) + await _jumlahTemuanAdmin(s);
 
   /// v1.0.51: isian absensi tanpa galat yang belum diterima server (bergalat = ditolak server, tidak menahan layanan latar).
   Future<int> _jumlahAbsensi(Sesi sesi) async {
     final a = _absensi;
     return a != null && sesi.bisaUbah(AntreanAbsensi.menu) ? await a.jumlahTertunda(sesi.userId) : 0;
   }
+
+  /// Temuan / Laporan C4A admin yang belum diterima server (dulu tidak dihitung: layanan latar tidak hidup, kiriman menunggu app dibuka lagi).
+  Future<int> _jumlahTemuanAdmin(Sesi s) async {
+    final a = _temuanAdmin;
+    return a != null && s.bisaUbah(AntreanTemuanAdmin.menu) ? await a.jumlahTertunda(s.userId) : 0;
+  }
+
+  void _antreTemuanBerubah() => unawaited(hitungUlang());
 
   Future<int> _jumlahTiang(Sesi s) async {
     final a = _drafTiang;
@@ -232,7 +243,8 @@ class SyncController extends ChangeNotifier {
         await _jumlahInsDu(s) +
         await _jumlahWo(s) +
         await _jumlahAbsensi(s) +
-        await _jumlahTiang(s);
+        await _jumlahTiang(s) +
+        await _jumlahTemuanAdmin(s);
     final tindakan = await _outbox.jumlahPerluTindakan(s.userId);
     final gagal = await _foto.jumlahGagal(s.userId);
     if (_sesi?.userId != s.userId) return; // v0.62.5: sesi berganti selama menghitung
@@ -275,7 +287,8 @@ class SyncController extends ChangeNotifier {
     unawaited(_sinkronAbsensi(s)); // v1.0.51
     unawaited(_sinkronTiang(s)); // v1.0.71
     final ta = _temuanAdmin;
-    if (ta != null && s.bisaUbah(AntreanTemuanAdmin.menu)) unawaited(ta.kirim(s)); // v1.0.29: penjaga jalan-ganda sendiri
+    if (ta != null && s.bisaUbah(AntreanTemuanAdmin.menu)) unawaited(ta.kirim(s).then((_) => hitungUlang())); // v1.0.29: penjaga jalan-ganda sendiri
+    if (ta != null) unawaited(ta.segarkanMaster(s)); // master penyulang + section untuk form C4A offline
     if (_jalan) {
       if (s.petugasHartek || s.petugasInsJar || s.petugasInsGardu) _lagi = true;
       return;

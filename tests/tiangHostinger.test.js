@@ -351,7 +351,7 @@ test('cekRuangTiang_: cadangan harian tidak ada / lebih dari 36 jam = terlambat 
 // ---------------------------------------------------------------------------------------------------------------------------
 
 const TULIS_TIANG = { simpanVerifikasiTiang: 'simpanVerifikasiTiang_', sinkronTiang: 'sinkronTiang_', uploadFotoTiang: 'uploadFotoTiang_', simpanSegmen: 'simpanSegmen_', simpanSwitching: 'simpanSwitching_', uploadFotoSwitching: 'uploadFotoSwitching_' };
-const BACA_TIANG = { getVerifikasiTiang: 'getVerifikasiTiang_', getTiangJalur: 'getTiangJalur_', getPetaTiang: 'getPetaTiang_', getSegmen: 'getSegmen_', getMasterSwitching: 'getMasterSwitching_', getFotoTiang: 'getFotoTiang_', getFotoSwitching: 'getFotoSwitching_' };
+const BACA_TIANG = { getVerifikasiTiang: 'getVerifikasiTiang_', getTiangJalur: 'getTiangJalur_', getPetaTiang: 'getPetaTiang_', getPetaKoordinatTiang: 'getPetaKoordinatTiang_', getSegmen: 'getSegmen_', getMasterSwitching: 'getMasterSwitching_', getFotoTiang: 'getFotoTiang_', getFotoSwitching: 'getFotoSwitching_' };
 const TULIS_MASTER = { simpanSection: 'simpanSection_', setAktifPenyulang: 'setAktifPenyulang_' };
 
 function duniaBeku(beku) {
@@ -416,6 +416,7 @@ test('master jaringan berubah (simpanSection / setAktifPenyulang): tidak menungg
     const g = buatKonteks({ ...PROPS, ...(api ? { TIANG_API_URL: 'https://contoh.id/sisi-api-staging' } : {}) });
     const impor = [], pemicu = [];
     let n = 0;
+    g.pastikanPemilik_ = () => {};   // pemicu berjalan dengan otorisasi pemilik
     g.guard_ = () => ({ role: 'ADMIN', userId: 'u-admin', username: 'a' });
     g.simpanSection_ = () => ({ ok: 1 });
     g.setAktifPenyulang_ = () => ({ ok: 2 });

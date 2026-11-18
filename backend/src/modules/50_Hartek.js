@@ -1320,10 +1320,10 @@ function cadanganSheetHartek_(id, label) {
  * Dikunci LockService supaya tidak bentrok dengan petugas yang sedang menyimpan.
  * Untuk melihat rencananya saja tanpa mengubah apa pun: jalankan ADMIN_cekSheetHartek.
  */
-function ADMIN_siapkanSheetHartek() { jalankanSiapkanHartek_(false); }
+function ADMIN_siapkanSheetHartek() { pastikanPemilik_(); jalankanSiapkanHartek_(false); }
 
 /** v0.91.1: sama seperti ADMIN_siapkanSheetHartek tapi hanya menampilkan rencana (tidak membuat / mengubah apa pun). */
-function ADMIN_cekSheetHartek() { jalankanSiapkanHartek_(true); }
+function ADMIN_cekSheetHartek() { pastikanPemilik_(); jalankanSiapkanHartek_(true); }
 
 function jalankanSiapkanHartek_(uji) {
   pastikanPemilik_();

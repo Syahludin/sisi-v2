@@ -1,7 +1,7 @@
 name: sisi_row
 description: SiSi ULP Toboali (offline first).
 publish_to: none
-version: 1.0.78+252
+version: 1.0.83+257
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

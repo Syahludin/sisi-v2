@@ -170,7 +170,13 @@ function endpoints_() {
     getTemuanInspeksi: { fn: getTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 30 },
     simpanTemuanInspeksi: { fn: simpanTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 40 },
     uploadFotoTemuanInspeksi: { fn: uploadFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 60 },   // v1.0.0
+    ubahTemuanInspeksi: { fn: ubahTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 40 },   // 16 Nov 2026: ubah temuan admin C4A
     getFotoTemuanInspeksi: { fn: getFotoTemuanInspeksi_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 80 },   // v1.0.19: foto di kartu temuan
+    // C4A (permintaan Master Guswan 15 Nov 2026): Laporan C4A (titik awal / akhir, jarak jalan) + arsip. Lihat modules/104_C4A.js
+    buatLaporanC4A: { fn: buatLaporanC4A_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 30 },
+    tutupLaporanC4A: { fn: tutupLaporanC4A_, menu: 'OPS_INPUT_TEMUAN', tulis: true, batasMenit: 30 },
+    getLaporanC4A: { fn: getLaporanC4A_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 30 },
+    getArsipC4A: { fn: getArsipC4A_, menu: 'OPS_INPUT_TEMUAN', batasMenit: 30 },
     // v1.0.10: WO tindak lanjut temuan. Admin (OPS_PENERUSAN_WO) teruskan / pindah / tarik; tim ROW / HARTEK / YANDAL
     // (OPS_WO_TIM) mulai, catat pekerjaan + foto, selesai (= masuk realisasi tim). Lihat modules/57_TindakLanjut_Tim.js + 58_TindakLanjut_Selesai.js
     getWoAdmin: { fn: getWoAdmin_, menu: 'OPS_PENERUSAN_WO', batasMenit: 30 },
@@ -256,6 +262,7 @@ function endpoints_() {
     setAktifPenyulang: { fn: setAktifPenyulang_, menu: 'OPS_MASTER_SWITCHING', tulis: true, batasMenit: 20, imporMasterTiang: true },
     getVerifikasiTiang: { fn: getVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
     getPetaTiang: { fn: getPetaTiang_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
+    getPetaKoordinatTiang: { fn: getPetaKoordinatTiang_, menu: 'OPS_MASTER_SWITCHING', batasMenit: 30 },
     getTiangJalur: { fn: getTiangJalur_, menu: 'OPS_VERIFIKASI_TIANG', batasMenit: 30 },
     simpanVerifikasiTiang: { fn: simpanVerifikasiTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 60, bekuTiang: true },
     sinkronTiang: { fn: sinkronTiang_, menu: 'OPS_VERIFIKASI_TIANG', tulis: true, batasMenit: 30, bekuTiang: true },

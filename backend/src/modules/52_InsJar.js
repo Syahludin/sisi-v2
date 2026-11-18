@@ -66,7 +66,21 @@ var TEMUAN_HEADER_ = {
     // v1.0.10: WO tindak lanjut. status_wo '' (belum diteruskan) / TERKIRIM (boleh dipindah) / DIKERJAKAN (terkunci) / SELESAI
     'status_wo', 'tim_tindak_lanjut', 'jenis_tim_tindak_lanjut', 'catatan_admin', 'diteruskan_oleh', 'waktu_diteruskan',
     'dimulai_oleh', 'waktu_mulai', 'tindak_lanjut', 'jumlah_pekerjaan', 'diselesaikan_oleh', 'waktu_selesai',
-    'tim_tindak_lanjut_id'].concat(INSJAR_AUDIT_),
+    'tim_tindak_lanjut_id'].concat(INSJAR_AUDIT_,
+    // C4A (permintaan Master Guswan 15 Nov 2026): penghubung ke laporan C4A + baris Temuan file UIW (8 hex, dibuat di HP)
+    ['c4a_id', 'uniqueid',
+    // permintaan Master Guswan 16 Nov 2026: rencana tindak lanjut dari admin saat input (P0 / Perlu Padam / Tidak Padam)
+    'keterangan_tindak_lanjut']),
+  // C4A: satu baris per Laporan C4A (1 penyulang + 1 section, titik awal / akhir, jarak jalan). c4a_id = InspeksiID / id KMS UIW.
+  c4a_laporan: ['nomor', 'kode_c4a', 'tanggal', 'hari', 'ulp', 'penyulang', 'section',
+    'koordinat_awal', 'lat_awal', 'lng_awal', 'waktu_awal', 'sumber_awal',
+    'koordinat_akhir', 'lat_akhir', 'lng_akhir', 'waktu_akhir', 'sumber_akhir',
+    'jarak_km', 'metode_jarak', 'status_jarak', 'status', 'ditutup_otomatis', 'jumlah_temuan',
+    'c4a_id', 'section_id', 'user_id',
+    'dibuat_oleh', 'waktu_perangkat', 'diubah_oleh', 'timestamp', 'timestamp_update', 'revision'],
+  // C4A: antrean kirim ke file UIW. jenis INSPEKSI / TEMUAN / KMS, kunci = c4a_id (INSPEKSI / KMS) atau uniqueid (TEMUAN).
+  uiw_antrean: ['nomor', 'jenis', 'kunci', 'c4a_id', 'status', 'bantu', 'percobaan', 'coba_lagi_setelah', 'waktu_coba',
+    'waktu_terkirim', 'sidik', 'foto_awal_uiw', 'foto_akhir_uiw', 'antrean_id'].concat(INSJAR_AUDIT_),
   // v1.0.10: rincian pekerjaan tindak lanjut WO (1 temuan bisa banyak baris). DRAFT selama dikerjakan, TERCATAT sesudah
   // WO selesai (baris masuk realisasi modul tim: row_Eksekusi / db_Hartek_Pekerjaan / yan_P0, id baris modul = tl_id).
   db_temuan_tindak_lanjut: ['nomor', 'kode_temuan', 'kode_tl', 'tanggal', 'tim', 'jenis_tim', 'objek_inspeksi', 'penyulang',
@@ -87,8 +101,12 @@ var TEMUAN_HEADER_ = {
 
 /** Master di SiSi_Master. Pola sama dengan db_Material / db_Kepemilikan_Material. */
 var INSJAR_MASTER_HEADER_ = {
-  db_Jenis_Temuan: ['nomor', 'jenis_temuan', 'objek_inspeksi', 'tier_inspeksi', 'urutan', 'aktif', 'jenis_temuan_id', 'revision', 'timestamp_update', 'diubah_oleh']
+  // C4A: uiw_* = padanan Daftar Kategori file UIW (kode A1..C3, kategori Komponen / Peralatan / Pohon, nama temuan UIW)
+  db_Jenis_Temuan: ['nomor', 'jenis_temuan', 'objek_inspeksi', 'tier_inspeksi', 'urutan', 'aktif', 'jenis_temuan_id', 'revision', 'timestamp_update', 'diubah_oleh',
+    'uiw_kode', 'uiw_kategori', 'uiw_temuan']
 };
+
+var INSJAR_KET_TL_ = ['P0', 'Perlu Padam', 'Tidak Padam'];
 
 var INSJAR_JENIS_TIM_ = 'INSPEKSI_JARINGAN';
 var INSDU_JENIS_TIM_ = 'INSPEKSI_GARDU';
@@ -248,7 +266,9 @@ function jenisTemuanAktifInsJar_(objek, tier) {
   }).map(function (r) {
     return {
       jenisTemuanId: String(r.jenis_temuan_id), nama: String(r.jenis_temuan).trim(),
-      objekInspeksi: objekTemuanMaster_(r), tierInspeksi: tierTemuanMaster_(r)
+      objekInspeksi: objekTemuanMaster_(r), tierInspeksi: tierTemuanMaster_(r),
+      // C4A (15 Nov 2026): padanan Daftar Kategori UIW, untuk ringkasan / label kategori di HP
+      uiwKode: String(r.uiw_kode || '').trim(), uiwKategori: String(r.uiw_kategori || '').trim(), uiwTemuan: String(r.uiw_temuan || '').trim()
     };
   });
 }
@@ -282,6 +302,7 @@ function temuanKeHpInsJar_(t) {
     status: String(t.status || ''), sumber: String(t.sumber || ''), tim: String(t.tim || ''), realisasiId: String(t.realisasi_id || ''),
     noGardu: String(t.no_gardu || ''), garduId: String(t.gardu_id || ''), temuanAsalId: String(t.temuan_asal_id || ''),
     belumDiperbaiki: String(t.belum_diperbaiki || ''),
+    c4aId: String(t.c4a_id || ''), uniqueid: String(t.uniqueid || ''), ketTindakLanjut: String(t.keterangan_tindak_lanjut || ''),   // C4A (15 Nov 2026)
     // v1.0.10: WO tindak lanjut
     wo: { status: String(t.status_wo || ''), timId: String(t.tim_tindak_lanjut_id || ''), tim: String(t.tim_tindak_lanjut || ''),
           jenisTim: String(t.jenis_tim_tindak_lanjut || ''), catatanAdmin: String(t.catatan_admin || ''),
@@ -572,7 +593,9 @@ function barisTemuanInsJar_(t, d, lokasi, jenis, konteks, sesi, sekarang, id) {
     temuan_id: id, jenis_temuan_id: jenis.jenisTemuanId, section_id: lokasi.sectionId,
     realisasi_id: konteks.realisasiId || '', header_id: konteks.headerId || '', tim_id: konteks.timId || '',
     no_gardu: konteks.noGardu || '', gardu_id: konteks.garduId || '', temuan_asal_id: konteks.temuanAsalId || '',
-    belum_diperbaiki: konteks.belumDiperbaiki || ''
+    belum_diperbaiki: konteks.belumDiperbaiki || '',
+    c4a_id: konteks.c4aId || '', uniqueid: konteks.uniqueid || '',
+    keterangan_tindak_lanjut: d.ketTindakLanjut || ''
   }, sesi, sekarang);
 }
 
@@ -664,6 +687,43 @@ function ubahTemuanInsJar_(sesi, data) {
 
 /* ===== Input Temuan Inspeksi (admin) ===== */
 
+/**
+ * ubahTemuanInspeksi (admin C4A, permintaan Master Guswan 16 Nov 2026): ubah temuan admin yang sudah di server. Hanya temuan sumber ADMIN
+ * milik Laporan C4A; penyulang / section / tanggal / foto tidak berubah. Isian dikirim LENGKAP: nomor tiang / deskripsi / koordinat
+ * yang tidak dikirim = dikosongkan; jenis temuan + Keterangan Tindak Lanjut wajib. Revision wajib (KONFLIK_REVISION); WO sudah dimulai = terkunci.
+ */
+function ubahTemuanInspeksi_(sesi, data) {
+  wajibAdminTemuan_(sesi);
+  var d = validasi_(data, {
+    temuanId: { tipe: 'uuid', wajib: true }, revision: { tipe: 'angka', wajib: true, bulat: true, min: 0 },
+    jenisTemuanId: INSJAR_ISI_TEMUAN_.jenisTemuanId, nomorTiang: INSJAR_ISI_TEMUAN_.nomorTiang, deskripsi: INSJAR_ISI_TEMUAN_.deskripsi,
+    koordinat: INSJAR_ISI_TEMUAN_.koordinat, ketTindakLanjut: { tipe: 'pilihan', wajib: true, pilihan: INSJAR_KET_TL_ }
+  });
+  return denganLock_(function () {
+    var tt = tabelInsJar_(INSJAR_SHEET_.TEMUAN);
+    var t = tt.rows.filter(function (x) { return String(x.temuan_id) === String(d.temuanId); })[0];
+    if (!t) throw new SisiError_('DATA_TIDAK_DITEMUKAN', d.temuanId);
+    if (String(t.sumber) !== 'ADMIN' || !String(t.c4a_id || '')) throw new SisiError_('AKSES_DITOLAK', 'hanya temuan admin C4A');
+    cekTemuanBolehDiubahWo_(t);
+    if (Number(t.revision) !== d.revision) throw new SisiError_('KONFLIK_REVISION', d.temuanId);
+    var jenis = jenisTemuanInsJar_(d.jenisTemuanId, INSJAR_OBJEK_, String(t.tier_inspeksi || t.tier || ''));
+    var u = {
+      jenis_temuan: jenis.nama, jenis_temuan_id: jenis.jenisTemuanId,
+      nomor_tiang: d.nomorTiang ? String(d.nomorTiang).toUpperCase() : '', deskripsi: d.deskripsi || '',
+      koordinat: d.koordinat ? d.koordinat.teks : '', lat: d.koordinat ? d.koordinat.lat : '', lng: d.koordinat ? d.koordinat.lng : '',
+      keterangan_tindak_lanjut: d.ketTindakLanjut, timestamp_update: sekarangIso_(), diubah_oleh: sesi.userId
+    };
+    var rev = ubahBaris_(tt, 'temuan_id', d.temuanId, u, d.revision);
+    var baru = {};
+    Object.keys(t).forEach(function (k) { baru[k] = t[k]; });
+    Object.keys(u).forEach(function (k) { baru[k] = u[k]; });
+    baru.revision = rev;
+    auditLog_(sesi, 'C4A_TEMUAN_UBAH', t.kode_temuan, jenis.nama + ' · ' + d.ketTindakLanjut, 'MOBILE', headerTabel_('AUTH_SHEET_ID', 'log_Audit'));
+    jadwalkanSinkronUiw_();
+    return { temuanId: String(d.temuanId), kodeTemuan: String(t.kode_temuan || ''), revision: rev, temuan: temuanKeHpInsJar_(baru) };
+  }, 20000);
+}
+
 function getMasterTemuanInspeksi_(sesi) {
   wajibAdminTemuan_(sesi);
   var m = masterInsJar_();
@@ -739,11 +799,18 @@ function simpanTemuanInspeksi_(sesi, data) {
     tierInspeksi: { tipe: 'pilihan', pilihan: INSJAR_TIER_ },
     penyulang: { tipe: 'teks', maks: 80 },
     garduId: { tipe: 'teks', maks: 60 },
-    tanggal: { tipe: 'tanggal' }
+    tanggal: { tipe: 'tanggal' },
+    // C4A (permintaan Master Guswan 15 Nov 2026): temuan Laporan C4A. Penyulang / section / tanggal ikut laporan.
+    c4aId: skemaIdC4A_(false),
+    uniqueid: skemaIdC4A_(false),
+    // 16 Nov 2026 (permintaan Master Guswan): rencana tindak lanjut, HANYA admin (petugas ditolak FIELD_TIDAK_DIKENAL)
+    ketTindakLanjut: { tipe: 'pilihan', pilihan: INSJAR_KET_TL_ }
   }));
+  if (d.c4aId) return simpanTemuanC4A_(sesi, d);
   var tanggal = tanggalTemuanAdmin_(d.tanggal);
   // v1.0.11: object Gardu = pilih gardu (penyulang + section dari db_Gardu); object Jaringan = penyulang wajib, tanpa gardu
   var garduAdmin = null;
+  if (d.uniqueid) throw new SisiError_('FIELD_TIDAK_DIKENAL', 'uniqueid');
   if ((d.objekInspeksi || INSJAR_OBJEK_) === 'Gardu') {
     if (!d.garduId) throw new SisiError_('FIELD_WAJIB', 'garduId');
     garduAdmin = garduInsDu_(d.garduId);
@@ -763,7 +830,7 @@ function simpanTemuanInspeksi_(sesi, data) {
     var id = d.idBaris || uuid_(), sekarang = sekarangIso_();
     tambahBaris_(tt, barisTemuanInsJar_(tt, d, lokasi, jenis, {
       kodeHeader: k.kodeHeader, kodeRealisasi: k.kodeRealisasi, kodeTemuan: k.kodeTemuan, tanggal: tanggal,
-      ulp: cfg_().ULP_NAMA, tim: sesi.timNama || 'Admin ULP', tier: '', tierInspeksi: tierInspeksi, objekInspeksi: objek,
+      ulp: cfg_().ULP_NAMA, tim: sesi.nama || sesi.username, tier: '', tierInspeksi: tierInspeksi, objekInspeksi: objek,
       headerId: '', realisasiId: '',
       timId: sesi.timId || '', sumber: 'ADMIN',
       noGardu: garduAdmin ? String(garduAdmin['No Gardu'] || '').trim() : '', garduId: garduAdmin ? String(garduAdmin.gardu_id) : ''

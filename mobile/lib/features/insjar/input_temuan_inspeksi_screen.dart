@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../c4a/c4a_arsip_tab.dart';
+import '../c4a/c4a_laporan_tab.dart';
+import '../c4a/c4a_model.dart';
 import '../wo/wo_foto_server.dart';
 import 'package:uuid/uuid.dart';
 
@@ -68,7 +71,8 @@ class InputTemuanInspeksiScreen extends StatefulWidget {
 class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> with SingleTickerProviderStateMixin {
   static const _uuid = Uuid();
 
-  late final TabController _tab = TabController(length: 2, vsync: this)..addListener(_gantiTab);
+  // C4A (15 Nov 2026): tiga tab Laporan C4A / Daftar Temuan / Arsip C4A
+  late final TabController _tab = TabController(length: 3, vsync: this)..addListener(_gantiTab);
   late final SimpananTemuanOffline _simpanan = SimpananTemuanOffline(GudangHartekSql(widget.deps.db));
 
   MasterInsJar? _master;
@@ -172,7 +176,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   void _pesan(String p) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(p)));
 
   /// v1.0.18: master form temuan disimpan di HP supaya tombol + langsung membuka form (tanpa menunggu server).
-  String get _kunciMaster => 'master_temuan_inspeksi_${_sesi.userId}';
+  String get _kunciMaster => AntreanTemuanAdmin.kunciMaster(_sesi.userId);
 
   /// Daftar + master form dari HP dulu (instan), lalu perbarui keduanya di latar kalau ada sinyal.
   Future<void> _mulai() async {
@@ -192,6 +196,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     });
     unawaited(_antre.kirim(_sesi)); // v1.0.29: sisa antrean (mis. app ditutup sebelum terkirim)
     unawaited(_muatMaster());
+    unawaited(_muatLaporan());
     if (!_bukaTujuan()) {
       await _unduh(diam: o != null);
       _bukaTujuan();
@@ -225,6 +230,53 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
     } catch (_) {
       // tanpa sinyal: master simpanan HP (kalau ada) tetap dipakai
     }
+  }
+
+  /// C4A: riwayat laporan selesai hari ini dari server (kode C4A, jarak) digabung ke salinan HP. Gagal = salinan HP tetap.
+  Future<void> _muatLaporan() async {
+    try {
+      final r = await _api('getLaporanC4A', const {});
+      final l = [for (final x in (r['riwayat'] as List<dynamic>? ?? const [])) if (x is Map) LaporanC4A.fromJson(Map<String, dynamic>.from(x))];
+      await _antre.gabungRiwayat(_sesi.userId, _iso(_hariIni), l);
+    } catch (_) {
+      // tanpa sinyal: riwayat HP tetap dipakai
+    }
+  }
+
+  /// C4A: tarik layar tab Laporan C4A = kirim antrean, lalu perbarui master, temuan, dan riwayat laporan.
+  Future<void> _segarkanLaporan() async {
+    await _antre.kirim(_sesi);
+    await Future.wait([_muatMaster(), _unduh(), _muatLaporan()]);
+  }
+
+  /// C4A: ketuk kartu laporan (aktif / riwayat) = SEMUA temuan C4A penyulang + tanggal laporan itu (termasuk laporan lain hari itu).
+  void _lihatLaporan(LaporanC4A l) {
+    final t = [
+      for (final x in _semua)
+        if (_teks(x['c4aId']).isNotEmpty && _teks(x['penyulang']) == l.penyulang && _teks(x['tanggal']) == l.tanggal) x
+    ];
+    if (t.isEmpty) {
+      _pesan('Belum ada temuan di laporan ini.');
+      return;
+    }
+    unawaited(bukaDaftarTemuan(context, DataRingkasTemuan(temuan: t, urutan: const {}, kartu: (c, x) => _kartuTemuan(x)),
+        judul: l.kodeC4a.isEmpty ? 'Laporan C4A' : l.kodeC4a, sub: '${l.penyulang} · ${tanggalHartek(l.tanggal)}'));
+  }
+
+  /// C4A: ketuk angka ringkasan = temuan C4A hari ini pada kategori UIW itu.
+  void _lihatKategori(String kategori) {
+    final peta = _master?.kategoriUiw ?? const <String, String>{};
+    final hariIni = _iso(_hariIni);
+    final t = [
+      for (final x in _semua)
+        if (_teks(x['tanggal']) == hariIni && _teks(x['c4aId']).isNotEmpty && peta[_teks(x['jenisTemuanId'])] == kategori) x
+    ];
+    if (t.isEmpty) {
+      _pesan('Belum ada temuan $kategori hari ini.');
+      return;
+    }
+    unawaited(bukaDaftarTemuan(context, DataRingkasTemuan(temuan: t, urutan: const {}, kartu: (c, x) => _kartuTemuan(x)),
+        judul: 'C4A $kategori', sub: tanggalHartek(hariIni)));
   }
 
   /// Unduh temuan rentang [dari]..[sampai] (bawaan = rentang simpanan / 30 hari terakhir) lalu simpan di HP.
@@ -347,17 +399,19 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   /// Tombol + (tab Input): form temuan. Tanggal temuan = hari ini.
   /// v1.0.18: penanda sibuk dipasang SEBELUM menunggu apa pun (dulu sesudah memuat master dari server, sehingga ketukan
   /// berulang selama jeda membuka beberapa form sekaligus). Master dari HP = form langsung terbuka.
-  Future<void> _catat() async {
+  Future<void> _catat(LaporanC4A l) async {
     if (_sibuk || !_boleh) return;
     setState(() => _sibuk = true);
     try {
-      await _catatForm();
+      await _catatForm(l);
     } finally {
       if (mounted) setState(() => _sibuk = false);
     }
   }
 
-  Future<void> _catatForm() async {
+  /// C4A (15 Nov 2026): temuan selalu di dalam Laporan C4A [l]. Penyulang + section ikut laporan (dibaca saja, tidak dikirim:
+  /// server mengambilnya dari laporan), object Jaringan; c4aId + uniqueid (8 hex) ikut dikirim.
+  Future<void> _catatForm(LaporanC4A l) async {
     if (_master == null) await _muatMaster();
     final m = _master;
     if (!mounted) return;
@@ -365,21 +419,31 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       _pesan('Butuh sinyal sekali untuk memuat pilihan form temuan.');
       return;
     }
-    final tanggal = Wib.tanggal(DateTime.now());
+    final tanggal = l.tanggal;
     final idBaris = _uuid.v4(); // sekali per form: simpan ulang sesudah gangguan sinyal = duplikat, bukan baris kembar
+    final uniqueid = buatUniqueIdC4a();
     final hasil = await bukaFormHartek(
       context,
-      judulApp: 'Temuan Inspeksi',
-      judul: 'Temuan inspeksi',
-      keterangan: '${tanggalHartek(tanggal)} · ${_sesi.nama}\nTersimpan di HP, dikirim otomatis ke server.',
+      judulApp: 'C4A',
+      judul: 'Temuan C4A',
+      keterangan: '${tanggalHartek(tanggal)} · ${l.penyulang} · ${l.section}\nTersimpan di HP, dikirim otomatis ke server.',
       tombol: 'Simpan temuan',
-      // v1.0.5: segmen hanya tampil untuk object Jaringan
+      awal: {'objekInspeksi': objekSegmen, 'penyulang': l.penyulang, 'section': l.section},
       daftar: (n) => isianTemuan(_sesi, m,
-          kode: 'Admin ${tanggalHartek(tanggal)}', folderFoto: AntreanTemuanAdmin.folderFoto, nilai: n, pilihGardu: true), // v1.0.11: + gardu
+          objekTetap: objekSegmen,
+          penyulangTetap: l.penyulang,
+          sectionTetap: true,
+          denganKetTindakLanjut: true,
+          kode: l.kodeC4a.isEmpty ? 'C4A ${tanggalHartek(tanggal)}' : l.kodeC4a,
+          folderFoto: AntreanTemuanAdmin.folderFoto,
+          nilai: n),
       // v1.0.29: simpan = tulis HP + antre, tanpa menunggu server
       simpan: (n) async {
         final p = pisahTemuan(n, m, admin: true);
-        return {'data': p.data, 'tampil': p.tampil, 'foto': p.foto};
+        final data = {...p.data, 'c4aId': l.c4aId, 'uniqueid': uniqueid}
+          ..remove('penyulang')
+          ..remove('section');
+        return {'data': data, 'tampil': {...p.tampil, 'c4aId': l.c4aId, 'uniqueid': uniqueid}, 'foto': p.foto};
       },
     );
     if (!mounted || hasil == null) return;
@@ -404,8 +468,7 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
       _jumlahAntre = _hitungAntre();
     });
     unawaited(tampilDataTersimpan(context));
-    _tab.animateTo(1);
-    unawaited(_antre.kirim(_sesi));
+    unawaited(_antre.kirim(_sesi)); // C4A: tetap di tab Laporan C4A (admin lanjut mencatat temuan berikutnya)
   }
 
   /// v1.0.29: foto yang masih di antrean kirim (jam = menunggu, merah = ditolak server).
@@ -582,30 +645,28 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
 
   // ---------- tampilan ----------
 
-  Widget _tabInput() => LayoutBuilder(
-        builder: (context, c) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: c.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(32, 24, 32, 120),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(color: AppColors.brand100, borderRadius: BorderRadius.circular(30)),
-                  child: const Icon(Icons.content_paste_search_rounded, size: 46, color: HartekGaya.merek),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Silahkan klik tanda + di kanan bawah untuk membuat temuan inspeksi',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, height: 1.45, fontWeight: FontWeight.w700, color: HartekGaya.tinta),
-                ),
-              ]),
-            ),
-          ),
-        ),
+  /// C4A (15 Nov 2026): tab Laporan C4A (ringkasan hari ini + laporan aktif). Temuan hari ini = temuan C4A di daftar HP.
+  Widget _tabInput() {
+    final hariIni = _iso(_hariIni);
+    return LaporanC4ATab(
+      sesi: _sesi,
+      antre: _antre,
+      master: _master,
+      hariIni: hariIni,
+      temuanHariIni: [for (final t in _semua) if (_teks(t['tanggal']) == hariIni && _teks(t['c4aId']).isNotEmpty) t],
+      onTambahTemuan: _catat,
+      onLihatLaporan: _lihatLaporan,
+      onLihatKategori: _lihatKategori,
+      onRefresh: _segarkanLaporan,
+    );
+  }
+
+  /// C4A (15 Nov 2026): tab Arsip C4A (hari sebelum hari ini, butuh sinyal).
+  Widget _tabArsip() => ArsipC4ATab(
+        hariIni: _iso(_hariIni),
+        muatArsip: (dari, sampai) => _api('getArsipC4A', {'dari': dari, 'sampai': sampai}),
+        muatRincian: (tanggal) async => InsJarLokal.daftar((await _api('getTemuanInspeksi', {'tanggal': tanggal}))['temuan']),
+        kartuTemuan: _kartuTemuan,
       );
 
   Widget _tabDaftar() {
@@ -742,9 +803,65 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
 
   /// v1.0.19: kartu satu temuan (foto server, status WO), dipakai halaman daftar temuan terpisah.
   /// v1.0.29: desain baru (KartuDaftarTemuan).
+  /// 16 Nov 2026 (permintaan Master Guswan): temuan C4A yang sudah diterima server bisa diubah admin (online) selama WO belum dimulai.
+  bool _bisaUbah(Map<String, dynamic> t) =>
+      _boleh &&
+      _teks(t['sumber']) == 'ADMIN' &&
+      _teks(t['c4aId']).isNotEmpty &&
+      _teks(t['kodeTemuan']).isNotEmpty &&
+      !{'DIKERJAKAN', 'SELESAI'}.contains(_teks((t['wo'] is Map ? (t['wo'] as Map)['status'] : '')));
+
+  Future<void> _ubahTemuan(Map<String, dynamic> t) async {
+    if (_master == null) await _muatMaster();
+    final m = _master;
+    if (!mounted) return;
+    if (m == null) {
+      _pesan('Butuh sinyal untuk memuat pilihan form temuan.');
+      return;
+    }
+    final hasil = await bukaFormHartek(
+      context,
+      judulApp: 'C4A',
+      judul: 'Ubah temuan',
+      keterangan: '${_teks(t['penyulang'])} · ${_teks(t['section'])}\nPerubahan langsung dikirim ke server (butuh sinyal). Foto diatur dari kartu temuan.',
+      tombol: 'Simpan perubahan',
+      awal: {...awalTemuan(t), 'objekInspeksi': objekSegmen, 'penyulang': _teks(t['penyulang']), 'section': _teks(t['section'])},
+      daftar: (n) => isianTemuan(_sesi, m,
+          objekTetap: objekSegmen,
+          penyulangTetap: _teks(t['penyulang']),
+          sectionTetap: true,
+          denganKetTindakLanjut: true,
+          kode: _teks(t['kodeTemuan']),
+          nilai: n,
+          denganFoto: false),
+      simpan: (n) async {
+        final p = pisahTemuan(n, m, admin: true).data;
+        final r = await _api('ubahTemuanInspeksi', {
+          'temuanId': _teks(t['temuanId']),
+          'revision': int.tryParse(_teks(t['revision'])) ?? 0,
+          for (final k in const ['jenisTemuanId', 'nomorTiang', 'deskripsi', 'koordinat', 'ketTindakLanjut'])
+            if (p[k] != null) k: p[k],
+        });
+        return {'temuan': r['temuan']};
+      },
+    );
+    if (!mounted || hasil == null || hasil['temuan'] is! Map) return;
+    final node = {...t, ...Map<String, dynamic>.from(hasil['temuan'] as Map)};
+    final baru = SimpananTemuanOffline.sisipkan(_offline ?? {'dari': '', 'sampai': '', 'diambil': '', 'temuan': const []}, node);
+    await _simpanan.tulis(_sesi.userId, baru);
+    if (!mounted) return;
+    setState(() => _offline = baru);
+    unawaited(tampilDataTersimpan(context));
+  }
+
   Widget _kartuTemuan(Map<String, dynamic> t) {
     final wo = _statusWo(t);
     final galat = _galatKirim(t);
+    final kartu = _kartuDasar(t, wo, galat);
+    return _bisaUbah(t) ? InkWell(borderRadius: BorderRadius.circular(18), onTap: () => unawaited(_ubahTemuan(t)), child: kartu) : kartu;
+  }
+
+  Widget _kartuDasar(Map<String, dynamic> t, Widget? wo, Widget? galat) {
     return KartuDaftarTemuan(
       t: t,
       foto: FotoRincian(
@@ -765,24 +882,17 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
   @override
   Widget build(BuildContext context) {
     final semua = _semua.length;
+    // C4A (15 Nov 2026): tanpa tombol + mengambang; temuan dibuat dari kartu Laporan C4A (+ Tambah Temuan)
     return Scaffold(
       backgroundColor: HartekGaya.latar,
-      floatingActionButton: _tab.index == 0 && _boleh
-          ? FloatingActionButton(
-              tooltip: 'Buat temuan inspeksi',
-              onPressed: _sibuk ? null : () => unawaited(_catat()),
-              child: _sibuk ? const SisiLoader(ukuran: 24, warna: Colors.white) : const Icon(Icons.add_rounded, size: 30),
-            )
-          : null,
       body: SafeArea(
         bottom: false,
         child: Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: HeaderInsJar(
-              kicker: 'Temuan Inspeksi',
+              kicker: 'C4A',
               judul: '$semua temuan',
-              sub: 'Tersimpan di HP (offline)',
               ikon: Icons.content_paste_search_rounded,
               aksi: [
                 tombolHeaderInsJar(Icons.arrow_back_rounded, 'Kembali', () => Navigator.maybePop(context)),
@@ -804,14 +914,16 @@ class _InputTemuanInspeksiScreenState extends State<InputTemuanInspeksiScreen> w
               indicator: BoxDecoration(gradient: HartekGaya.gradien, borderRadius: BorderRadius.circular(12)),
               labelColor: Colors.white,
               unselectedLabelColor: HartekGaya.redup,
-              labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 4),
               tabs: [
-                const Tab(height: 42, text: 'Input Temuan'),
+                const Tab(height: 42, text: 'Laporan C4A'),
                 Tab(height: 42, text: semua == 0 ? 'Daftar Temuan' : 'Daftar Temuan ($semua)'),
+                const Tab(height: 42, text: 'Arsip C4A'),
               ],
             ),
           ),
-          Expanded(child: TabBarView(controller: _tab, children: [_tabInput(), _tabDaftar()])),
+          Expanded(child: TabBarView(controller: _tab, children: [_tabInput(), _tabDaftar(), _tabArsip()])),
         ]),
       ),
     );

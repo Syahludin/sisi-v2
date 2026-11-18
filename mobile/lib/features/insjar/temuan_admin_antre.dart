@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/api_client.dart';
 import '../../core/kode_error.dart';
 import '../../core/sesi.dart';
+import '../c4a/c4a_model.dart';
 import '../hartek/foto_lapangan.dart';
 import '../hartek/hartek_store.dart' show GudangHartek;
 import 'insjar_store.dart' show pesanInsJar;
@@ -78,6 +79,11 @@ class AntreanTemuanAdmin extends ChangeNotifier {
         return _item;
       });
 
+  /// Entri antrean akun [userId] yang masih akan dikirim (yang ditolak server tidak dihitung: menunggu Kirim ulang / Buang).
+  /// Dihitung SyncController sebagai "data belum terkirim" supaya layanan latar hidup saat app ditutup tanpa force close.
+  Future<int> jumlahTertunda(String userId) async =>
+      (await daftar(userId)).where((x) => _t(x['galat']).isEmpty).length;
+
   /// Item antrean untuk temuan [temuanId] (null = sudah terkirim semua / bukan antrean akun ini).
   Map<String, dynamic>? item(String userId, String temuanId) {
     if (_userItem != userId) return null;
@@ -101,6 +107,135 @@ class AntreanTemuanAdmin extends ChangeNotifier {
         });
         await _tulis(s.userId, l);
       });
+
+  /* ===== C4A (permintaan Master Guswan 15 Nov 2026): Laporan C4A ikut antrean yang sama ===== */
+  // Item laporan: {jenis: C4A_BUKA | C4A_TUTUP, idBaris, temuanId (bukan id temuan), c4aId, data, galat}. Item tanpa jenis = temuan.
+  // Urutan antrean = urutan kirim: BUKA, temuan laporan itu, TUTUP.
+
+  static String kunciAktif(String userId) => 'c4a_aktif_$userId';
+
+  /// Master form temuan (penyulang + section + jenis temuan) di HP, dipakai form C4A saat sinyal lemah.
+  static String kunciMaster(String userId) => 'master_temuan_inspeksi_$userId';
+  DateTime? _masterSegar;
+
+  /// Unduh master form temuan di latar (dipanggil sinkron: app dibuka, tiap 5 menit, sinyal pulih) supaya penyulang + section tetap
+  /// bisa dipilih saat sinyal lemah, tanpa harus membuka layar C4A dulu. Ulang paling cepat tiap 6 jam; gagal = simpanan lama dipakai.
+  Future<void> segarkanMaster(Sesi s) async {
+    if (!s.bisaUbah(menu)) return;
+    final segar = _masterSegar;
+    if (segar != null && DateTime.now().difference(segar) < const Duration(hours: 6)) return;
+    try {
+      final r = await _api(s, 'getMasterTemuanInspeksi', const {});
+      await _gudang.tulisMaster(kunciMaster(s.userId), jsonEncode(r));
+      _masterSegar = DateTime.now();
+    } catch (_) {
+      // tanpa sinyal: simpanan lama tetap dipakai, dicoba lagi sinkron berikutnya
+    }
+  }
+
+  /// Laporan C4A aktif akun ini (TERBUKA dan dibuat [hariIni]), atau null.
+  Future<LaporanC4A?> laporanAktif(String userId, String hariIni) async {
+    final r = await _gudang.bacaMaster(kunciAktif(userId));
+    if (r == null || r.json == 'null') return null;
+    try {
+      final l = LaporanC4A.fromJson(Map<String, dynamic>.from(jsonDecode(r.json) as Map));
+      return l.terbukaHariIni(hariIni) ? l : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _tulisAktif(String userId, LaporanC4A? l) async {
+    await _gudang.tulisMaster(kunciAktif(userId), jsonEncode(l?.toJson()));
+    notifyListeners();
+  }
+
+  /// Laporan baru: simpan sebagai laporan aktif + antre buatLaporanC4A.
+  Future<void> bukaLaporan(Sesi s, LaporanC4A l) => _kunci(() async {
+        await _tulisAktif(s.userId, l);
+        final daftar = [
+          ...await _baca(s.userId),
+          {'jenis': 'C4A_BUKA', 'idBaris': 'c4a:${l.c4aId}', 'temuanId': 'c4a:${l.c4aId}', 'c4aId': l.c4aId, 'data': l.isiBuat(), 'galat': ''},
+        ];
+        await _tulis(s.userId, daftar);
+      });
+
+  /// Riwayat tab Laporan C4A (permintaan Master Guswan 15 Nov 2026): laporan akun yang sudah ditutup, terbaru dulu.
+  static String kunciRiwayat(String userId) => 'c4a_riwayat_$userId';
+
+  Future<List<LaporanC4A>> _bacaRiwayat(String userId) async {
+    try {
+      final r = await _gudang.bacaMaster(kunciRiwayat(userId));
+      final l = r == null ? const <dynamic>[] : (jsonDecode(r.json) as List<dynamic>);
+      return [for (final x in l) if (x is Map) LaporanC4A.fromJson(Map<String, dynamic>.from(x))];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Disimpan hanya laporan [hariIni] (hari lalu ada di tab Arsip C4A).
+  Future<void> _tulisRiwayat(String userId, String hariIni, List<LaporanC4A> l) async {
+    await _gudang.tulisMaster(kunciRiwayat(userId), jsonEncode([for (final x in l) if (x.tanggal == hariIni) x.toJson()]));
+    notifyListeners();
+  }
+
+  /// Laporan yang sudah ditutup hari [hariIni].
+  Future<List<LaporanC4A>> riwayat(String userId, String hariIni) async =>
+      [for (final l in await _bacaRiwayat(userId)) if (l.tanggal == hariIni) l];
+
+  /// Riwayat dari server (getLaporanC4A) menimpa salinan HP per c4aId; laporan yang belum sampai server tetap tampil.
+  Future<void> gabungRiwayat(String userId, String hariIni, List<LaporanC4A> server) => _kunci(() async {
+        final peta = {for (final l in server) l.c4aId: l};
+        final lokal = await riwayat(userId, hariIni);
+        final ada = {for (final l in lokal) l.c4aId};
+        await _tulisRiwayat(userId, hariIni, [for (final l in lokal) peta[l.c4aId] ?? l, for (final l in server) if (!ada.contains(l.c4aId)) l]);
+      });
+
+  /// Titik akhir: laporan tidak aktif lagi, masuk riwayat hari itu + antre tutupLaporanC4A.
+  Future<void> tutupLaporan(Sesi s, LaporanC4A laporan, double lat, double lng, String sumber) => _kunci(() async {
+        final c4aId = laporan.c4aId;
+        await _tulisAktif(s.userId, null);
+        await _tulisRiwayat(s.userId, laporan.tanggal,
+            [laporan.selesai(lat, lng), for (final l in await _bacaRiwayat(s.userId)) if (l.c4aId != c4aId) l]);
+        final daftar = [
+          ...await _baca(s.userId),
+          {
+            'jenis': 'C4A_TUTUP', 'idBaris': 'c4a-tutup:$c4aId', 'temuanId': 'c4a-tutup:$c4aId', 'c4aId': c4aId,
+            'data': {'c4aId': c4aId, 'koordinatAkhir': '$lat, $lng', 'sumberAkhir': sumber}, 'galat': ''
+          },
+        ];
+        await _tulis(s.userId, daftar);
+      });
+
+  /// Server menolak laporan HP ini (akun sudah punya laporan terbuka): temuan dipindah ke laporan server,
+  /// item BUKA + TUTUP laporan lokal dibuang, laporan aktif = laporan server.
+  Future<void> _pindahKeLaporanServer(String userId, String c4aLama, Map<String, dynamic> laporan) async {
+    final baru = LaporanC4A.fromJson(laporan);
+    final l = [...await _baca(userId)]..removeWhere((y) => _t(y['c4aId']) == c4aLama && _t(y['jenis']).startsWith('C4A_'));
+    for (final y in l) {
+      final d = y['data'];
+      if (y['jenis'] == null && d is Map && _t(d['c4aId']) == c4aLama) y['data'] = {...Map<String, dynamic>.from(d), 'c4aId': baru.c4aId};
+    }
+    await _tulis(userId, l);
+    await _tulisAktif(userId, baru);
+    await _tulisRiwayat(userId, baru.tanggal, [for (final r in await _bacaRiwayat(userId)) if (r.c4aId != c4aLama) r]);
+  }
+
+  /// Kirim satu item laporan (BUKA / TUTUP). Diterima = item keluar dari antrean (true); ditolak C4A_SUDAH_ADA = false.
+  Future<bool> _kirimLaporan(Sesi s, Map<String, dynamic> x) async {
+    final c4aId = _t(x['c4aId']);
+    final buka = x['jenis'] == 'C4A_BUKA';
+    final r = await _api(s, buka ? 'buatLaporanC4A' : 'tutupLaporanC4A', Map<String, dynamic>.from(x['data'] as Map));
+    return _kunci(() async {
+      if (buka && r['ditolak'] == 'C4A_SUDAH_ADA' && r['laporan'] is Map) {
+        await _pindahKeLaporanServer(s.userId, c4aId, Map<String, dynamic>.from(r['laporan'] as Map));
+        return false;
+      }
+      final l = [...await _baca(s.userId)]..removeWhere((y) => _t(y['idBaris']) == _t(x['idBaris']));
+      await _tulis(s.userId, l);
+      return true;
+    });
+  }
 
   /// Temuan yang belum diterima server (node kartu), untuk dipasang lagi ke daftar sesudah unduh ulang dari server.
   List<Map<String, dynamic>> belumDiServer(String userId) => [
@@ -197,6 +332,10 @@ class AntreanTemuanAdmin extends ChangeNotifier {
         if (x == null) break;
         final id = _t(x['temuanId']);
         try {
+          if (_t(x['jenis']).startsWith('C4A_')) {
+            if (await _kirimLaporan(s, x)) selesai++;
+            continue;
+          }
           if (x['data'] is Map) {
             final r = await _api(s, 'simpanTemuanInspeksi',
                 {...Map<String, dynamic>.from(x['data'] as Map), 'tanggal': _t(x['tanggal']), 'idBaris': _t(x['idBaris'])});

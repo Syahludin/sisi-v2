@@ -7,6 +7,10 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase __BASE__
+  # Alamat resmi production = sisi-ulp-toboali.com/sisi/ (folder sama dengan subdomain sisi.; API baca /sisi-api hanya ada di domain utama).
+  # Permintaan lewat subdomain dialihkan beserta alamat halamannya; permintaan lewat domain utama tidak terpengaruh.
+  RewriteCond %{HTTP_HOST} ^sisi\.sisi-ulp-toboali\.com$ [NC]
+  RewriteRule ^(.*)$ https://sisi-ulp-toboali.com/sisi/$1 [R=302,L,QSA]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]

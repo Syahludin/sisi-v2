@@ -90,7 +90,7 @@
 /* v1.0.76 desain Hijau Rimba: kepala halaman = bilah hijau tua bermotif SUTM (tiang, kawat, trafo, pohon) untuk SEMUA halaman (.hlm-header),
    judul putih + kalimat tujuan, garis bawah kuning petir, tombol utama kuning; tombol garis tetap putih. */
 .hlm-header {
-  position: relative; overflow: hidden;
+  position: relative; /* tanpa overflow: hidden: menu turun (mis. Buat BA) harus bisa keluar dari bilah; latar motif sudah ikut radius */
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
   margin-bottom: 18px; padding: 18px 22px; border-radius: 16px;
   color: #fff; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 420 120' preserveAspectRatio='xMaxYMax slice'%3E%3Cg fill='none' stroke='rgba(255,255,255,.22)' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M60 122V62M30 66h60M180 122V40M146 44h68M300 122V22M262 26h76M410 122V10M370 14h80'/%3E%3Cpath stroke-width='1.6' d='M30 66Q105 72 146 44M60 66Q120 70 180 44M90 66Q150 66 214 44M146 44Q225 50 262 26M180 44Q240 48 300 26M214 44Q275 44 338 26M262 26Q335 30 370 14M300 26Q355 28 410 14M338 26Q385 24 450 14'/%3E%3C/g%3E%3Cpath d='M186 62v-18M206 62v-18' stroke='rgba(255,255,255,.4)' stroke-width='2'/%3E%3Crect x='180' y='62' width='32' height='34' rx='4' fill='%23ffd21e' fill-opacity='.85'/%3E%3Cpath d='M198 68l-7 12h6l-3 10 9-14h-6l3-8z' fill='%230d2a1d'/%3E%3Cg fill='rgba(143,214,173,.28)'%3E%3Ccircle cx='112' cy='100' r='20'/%3E%3Ccircle cx='128' cy='108' r='13'/%3E%3Ccircle cx='360' cy='104' r='17'/%3E%3C/g%3E%3C/svg%3E") right bottom / auto 100% no-repeat, var(--gradien-sisi);

@@ -41,6 +41,7 @@ function cekBekuTiang_(ep) {
 
 /** Jalankan dari editor Apps Script: cabut tiket akun nonaktif di Hostinger. */
 function ADMIN_sinkronCabutTiketTiang() {
+  pastikanPemilik_();
   var h = sinkronCabutTiketTiang_();
   console.log(h ? 'Tiket dicabut untuk ' + h.jumlah + ' akun nonaktif.' : 'MYSQL_API_URL belum diatur: tidak ada yang dikirim.');
   return h;
@@ -146,12 +147,14 @@ function imporMasterTiangBila_(ep) {
 
 /** Pemicu sekali jalan dari imporMasterTiangBila_: salin db_Jaringan ke MySQL lalu hapus pemicunya sendiri. */
 function ADMIN_pemicuImporJaringanTiang() {
+  pastikanPemilik_();
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'ADMIN_pemicuImporJaringanTiang') ScriptApp.deleteTrigger(t); });
   try { imporMasterTiang_(['tiang_jaringan']); } catch (e) { console.error('impor master tiang: ' + ((e && (e.kode || e.message)) || e)); }
 }
 
 /** Jalankan dari editor Apps Script (boleh berulang sampai "selesai"): sheet -> MySQL Hostinger. */
 function ADMIN_imporTiangKeHostinger(opsi) {
+  pastikanPemilik_();
   var h = imporTiangKeHostinger_(opsi);
   Object.keys(h.tabel).forEach(function (k) { console.log(k + ': ' + h.tabel[k].ditulis + '/' + h.tabel[k].total + ' ditulis, ' + h.tabel[k].ditolak + ' ditolak'); });
   h.ditolak.forEach(function (x) { console.warn('DITOLAK ' + x); });
@@ -206,6 +209,7 @@ function imporFotoTiang_() {
 
 /** Jalankan dari editor Apps Script (boleh berulang sampai "selesai"): foto lama Drive -> Hostinger. */
 function ADMIN_imporFotoTiang() {
+  pastikanPemilik_();
   var h = imporFotoTiang_();
   console.log('Foto: ' + h.terkirim + ' dikirim, ' + h.dilewati + ' sudah ada, ' + h.gagal.length + ' gagal. ' + (h.selesai ? 'Selesai.' : 'Belum selesai: jalankan lagi.'));
   h.gagal.slice(0, 20).forEach(function (x) { console.warn('GAGAL ' + x); });
@@ -283,6 +287,7 @@ function nilaiTeksSheet_(v) {
 
 /** Editor: tarik data tiang dari Hostinger ke Sheet (opsi { paksa: true } untuk menimpa walau server kosong / API belum aktif). */
 function ADMIN_tarikDataTiang(opsi) {
+  pastikanPemilik_();
   var h = tarikDataTiang_(opsi);
   Object.keys(h.tabel).forEach(function (k) { console.log(k + ': ' + h.tabel[k].baris + ' baris' + (h.tabel[k].dilewati ? ' (DILEWATI: ' + h.tabel[k].dilewati + ')' : '')); });
   return h;
@@ -349,6 +354,7 @@ function cekRuangTiang_() {
 
 /** Editor: arsipkan foto tiang dari Hostinger ke Drive (boleh berulang sampai "selesai"). */
 function ADMIN_arsipFotoTiang() {
+  pastikanPemilik_();
   var h = arsipFotoTiang_();
   console.log('Arsip foto: ' + h.diarsip + ' berkas ke Drive, ' + h.gagal.length + ' gagal. ' + (h.selesai ? 'Selesai.' : 'Belum selesai: jalankan lagi.'));
   h.gagal.slice(0, 20).forEach(function (x) { console.warn('GAGAL ' + x); });
@@ -361,6 +367,7 @@ var TIANG_PEMICU_ = ['ADMIN_pemicuTiangJam', 'ADMIN_pemicuTiangMalam'];
 
 /** Tiap jam: cabut tiket akun nonaktif, salin tab master ke MySQL, arsipkan foto baru ke Drive, cek ruang foto. Galat satu langkah tidak menghentikan yang lain. */
 function ADMIN_pemicuTiangJam() {
+  pastikanPemilik_();
   [['cabut tiket', sinkronCabutTiketTiang_], ['impor master', imporMasterTiang_], ['arsip foto', arsipFotoTiang_], ['cek ruang', cekRuangTiang_]].forEach(function (x) {
     try { x[1](); } catch (e) { console.error('pemicu tiang (' + x[0] + '): ' + ((e && (e.kode || e.message)) || e)); }
   });
@@ -368,6 +375,7 @@ function ADMIN_pemicuTiangJam() {
 
 /** Tiap malam 01.30 WIB: tarik data tiang dari Hostinger ke Sheet (salinan + cadangan kedua). */
 function ADMIN_pemicuTiangMalam() {
+  pastikanPemilik_();
   try { tarikDataTiang_({}); } catch (e) { console.error('pemicu tiang (tarik): ' + ((e && (e.kode || e.message)) || e)); }
 }
 
@@ -382,6 +390,7 @@ function ADMIN_pasangPemicuTiang() {
 
 /** Editor: hapus pemicu tiang. */
 function ADMIN_hapusPemicuTiang() {
+  pastikanPemilik_();
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (TIANG_PEMICU_.indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
   });

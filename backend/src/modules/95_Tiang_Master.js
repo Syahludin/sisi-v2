@@ -19,7 +19,9 @@ var TIANG_HEADER_ = {
     'foto_tiang_id', 'foto_kepala_id', 'tanda_cek', 'status_verifikasi', 'verifikasi_terakhir', 'diverifikasi_oleh',
     'aktif', 'revision', 'diubah_pada', 'diubah_oleh',
     // sisi jalan tiang (ditambah 10 Nov 2026; di belakang supaya tab lama cukup diperpanjang)
-    'sisi_jalan'],
+    'sisi_jalan',
+    // koordinat dari GIS (ditambah 17 Nov 2026; lebih akurat daripada lat_aset / lng_aset ITB; diisi 109_Tiang_Gis.js)
+    'lat_gis', 'lng_gis', 'lat_taksir', 'lng_taksir'],
   // 1 baris per sirkuit di sebuah tiang (tiang satu sirkuit = satu baris); gawang = dari tiang induk sirkuit ini ke tiang ini
   db_Tiang_Sirkuit: [
     'No', 'sirkuit_id', 'tiang_id', 'penyulang', 'posisi', 'induk_tiang_id', 'gawang_m', 'peran_titik',

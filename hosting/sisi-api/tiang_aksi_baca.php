@@ -128,9 +128,10 @@ function kurangLengkapTiang(array $t): array
 
 function tiangKeApi(array $r, array $sirkuit): array
 {
+    $kt = koordinatTerdaftar($r);   // latAset / lngAset = koordinat TERDAFTAR (GIS dulu, lalu ITB; nama kunci tetap demi kontrak HP / web)
     $o = [
         'tiangId' => teks($r['tiang_id']), 'nama' => teks($r['nama']), 'kode' => kodeJalurTiang($r),
-        'latAset' => angka($r['lat_aset']), 'lngAset' => angka($r['lng_aset']), 'lat' => angka($r['lat']), 'lng' => angka($r['lng']),
+        'latAset' => $kt[0] ?? null, 'lngAset' => $kt[1] ?? null, 'lat' => angka($r['lat']), 'lng' => angka($r['lng']),
         'sumberKoordinat' => teks($r['sumber_koordinat']), 'jenisTiangAset' => teks($r['jenis_tiang_aset']), 'ukuranTiangAset' => teks($r['ukuran_tiang_aset']),
         'jenisTiang' => teks($r['jenis_tiang']), 'ukuranTiang' => teks($r['ukuran_tiang']), 'sisiJalan' => teks($r['sisi_jalan']),
         'jumlahSirkuit' => angka($r['jumlah_sirkuit']) ?: 1, 'tandaCek' => teks($r['tanda_cek']), 'statusVerifikasi' => teks($r['status_verifikasi']) ?: 'BELUM',
@@ -285,7 +286,7 @@ function aksiGetPetaTiang(array $d, array $tiket): array
         if ($id === '') continue;
         $lat = angka($r['lat']);
         $lng = angka($r['lng']);
-        if ($lat === null || $lng === null) { $lat = angka($r['lat_aset']); $lng = angka($r['lng_aset']); }
+        if ($lat === null || $lng === null) { [$lat, $lng] = koordinatTerdaftar($r) ?? [null, null]; }
         if ($lat === null || $lng === null) { $tanpa++; continue; }
         $pny = [];
         foreach ($sirkuit[$id] ?? [] as $c) {
@@ -304,6 +305,26 @@ function aksiGetPetaTiang(array $d, array $tiket): array
         }
     }
     return ['titik' => $titik, 'garis' => $garis, 'tanpaKoordinat' => $tanpa];
+}
+
+/** Peta cek koordinat: semua tiang aktif, larik ringkas. Sama dengan getPetaKoordinatTiang_ di Apps Script. */
+function aksiGetPetaKoordinatTiang(array $d, array $tiket): array
+{
+    $pdo = db();
+    $awal = [];
+    foreach (sirkuitAktifPerTiang($pdo) as $id => $baris) if ($id !== '') $awal[$id] = $baris[0];
+    $an = fn($v) => angka($v) ?? '';
+    $tiang = [];
+    foreach (barisTiang($pdo, 'tiang_tiang', 'aktif = 1') as $r) {
+        $id = teks($r['tiang_id']);
+        if ($id === '') continue;
+        $c = $awal[$id] ?? [];
+        $g = angka($c['gawang_m'] ?? null);
+        $tiang[] = [$id, teks($r['nama']), $an($r['lat_aset']), $an($r['lng_aset']), $an($r['lat_gis'] ?? null), $an($r['lng_gis'] ?? null),
+            $an($r['lat_taksir'] ?? null), $an($r['lng_taksir'] ?? null), $an($r['lat']), $an($r['lng']), teks($r['sumber_koordinat'] ?? null),
+            teks($c['induk_tiang_id'] ?? null), $g ?? '', teks($c['tanda_cek_gawang'] ?? null), teks($r['status_verifikasi'] ?? null)];
+    }
+    return ['tiang' => $tiang];
 }
 
 /** Proteksi hulu tiap switching: ke hulu lewat switching_hulu_id sampai switching aktif yang bisa_trip (proteksiHuluSwc_). */
@@ -359,6 +380,7 @@ return [
     'getVerifikasiTiang' => ['menu' => TIANG_MENU, 'ubah' => false, 'fn' => 'aksiGetVerifikasiTiang'],
     'getTiangJalur' => ['menu' => TIANG_MENU, 'ubah' => false, 'fn' => 'aksiGetTiangJalur'],
     'getPetaTiang' => ['menu' => SWITCHING_MENU, 'ubah' => false, 'fn' => 'aksiGetPetaTiang'],
+    'getPetaKoordinatTiang' => ['menu' => SWITCHING_MENU, 'ubah' => false, 'fn' => 'aksiGetPetaKoordinatTiang'],
     'getSegmen' => ['menu' => SWITCHING_MENU, 'ubah' => false, 'fn' => 'aksiGetSegmen'],
     'getMasterSwitching' => ['menu' => SWITCHING_MENU, 'ubah' => false, 'fn' => 'aksiGetMasterSwitching'],
 ];

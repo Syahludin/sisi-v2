@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { panggil } from './api.js';
 import { simpanTiket } from './apiBaca.js';
 import { bacaConfig } from './config.js';
 import { pesan, SESI_HABIS } from './pesan.js';
+import { alihkanRute, navigasi, ruteSekarang, tujuanMasuk } from './rute.js';
 import { bacaSesi, hapusSesi, KUNCI_SESI, simpanSesi } from './sesi.js';
 import { kosongkanTembolok } from './tembolok.js';
 import Ikon from './components/Ikon.jsx';
@@ -21,8 +22,11 @@ export default function App() {
   const [sesi, setSesi] = useState(() => bacaSesi(config.env));
   const [tahap, setTahap] = useState(() => (bacaSesi(config.env) ? 'masuk' : 'login'));
   const [pesanLogin, setPesanLogin] = useState('');
+  // halaman yang dituju sebelum login (alamat yang dibuka saat belum login, atau halaman terakhir saat sesi habis); keluar sendiri = beranda
+  const tujuan = useRef(tujuanMasuk(ruteSekarang()));
 
-  const keLogin = useCallback((teks = '') => {
+  const keLogin = useCallback((teks = '', ingat = false) => {
+    tujuan.current = ingat ? tujuanMasuk(ruteSekarang()) : { halaman: 'beranda' };
     hapusSesi();
     kosongkanTembolok(true);   // v1.0.45: termasuk laporan tersimpan lokal per akun
     setSesi(null);
@@ -43,7 +47,7 @@ export default function App() {
       setTahap('masuk');
     } catch (e) {
       const kode = (e && e.kode) || 'JARINGAN';
-      if (SESI_HABIS.has(kode) || kode === 'AKSES_DITOLAK') keLogin(pesan(kode));
+      if (SESI_HABIS.has(kode) || kode === 'AKSES_DITOLAK') keLogin(pesan(kode), true);
       else if (!diam) { setPesanLogin(pesan(kode)); setTahap('putus'); }
     }
   }, [config, keLogin]);
@@ -60,6 +64,17 @@ export default function App() {
     return () => window.removeEventListener('storage', dengar);
   }, [keLogin]);
 
+  // alamat mengikuti keadaan: belum login = /sisi/login, sudah login = /sisi/beranda (bukan alamat kosong / login)
+  useEffect(() => {
+    if (tahap === 'login') {
+      const a = alihkanRute(ruteSekarang(), false);
+      if (a) navigasi(a, { ganti: true });
+    } else if (tahap === 'masuk') {
+      const a = alihkanRute(ruteSekarang(), true);
+      if (a) navigasi(a, { ganti: true });
+    }
+  }, [tahap]);
+
   const keluar = useCallback(async () => {
     const s = bacaSesi(config.env);
     if (s) {
@@ -69,7 +84,7 @@ export default function App() {
   }, [config, keLogin]);
 
   if (tahap === 'masuk' && sesi) {
-    return <Dashboard sesi={sesi} env={config.env} config={config} onKeluar={keluar} onSesiHabis={(kode) => keLogin(pesan(kode))} />;
+    return <Dashboard sesi={sesi} env={config.env} config={config} onKeluar={keluar} onSesiHabis={(kode) => keLogin(pesan(kode), true)} />;
   }
 
   if (tahap === 'cek' || tahap === 'putus') {
@@ -96,7 +111,7 @@ export default function App() {
       key={pesanLogin}
       config={config}
       pesanAwal={pesanLogin}
-      onMasuk={(s) => { setSesi(s); setPesanLogin(''); setTahap('masuk'); }}
+      onMasuk={(s) => { setSesi(s); setPesanLogin(''); navigasi(tujuan.current, { ganti: true }); setTahap('masuk'); }}
     />
   );
 }

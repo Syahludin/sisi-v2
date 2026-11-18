@@ -1,0 +1,17 @@
+/* tab Peta Koordinat (Master Jaringan): peta + rincian */
+.pk-ringkas { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-bottom: 10px; font-size: 13px; color: var(--neutral-700); }
+.pk-ringkas b { color: var(--brand-950); font-weight: 900; }
+.pk-ringkas i, .pk-titik { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.pk-cari { width: 230px; max-width: 100%; }
+.pk-isi { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.pk-peta { height: calc(100dvh - 330px); min-height: 420px; border-radius: 14px; border: 1px solid var(--neutral-150); overflow: hidden; z-index: 0; }
+.pk-rincian { display: grid; gap: 10px; padding: 12px; border-radius: 14px; background: var(--putih); border: 1px solid var(--neutral-150); }
+.pk-hitung { margin: 0; font-weight: 800; color: var(--brand-950); }
+.pk-bantu { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--neutral-500); }
+.pk-kartu { display: grid; gap: 6px; min-width: 0; }
+.pk-kartu b { font-size: 16px; color: var(--brand-950); overflow-wrap: anywhere; }
+.pk-kartu small { color: var(--neutral-500); }
+.pk-kartu dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 6px 0; font-size: 13px; }
+.pk-kartu dt { color: var(--neutral-500); }
+.pk-kartu dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .pk-isi { grid-template-columns: minmax(0, 1fr); } .pk-peta { height: 60dvh; } }

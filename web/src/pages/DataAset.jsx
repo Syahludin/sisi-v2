@@ -8,6 +8,7 @@ import { kodeGalat, pesan } from '../pesan.js';
 import { KartuPenyulang } from './dataAset/KartuPenyulang.jsx';
 import { PanelSegmen } from './dataAset/PanelSegmen.jsx';
 import { Rincian } from './dataAset/Rincian.jsx';
+import { RincianGardu } from './dataAset/RincianGardu.jsx';
 import './dataAset.css';
 
 const TAB = [['eam', 'Data Aset Berdasarkan EAM'], ['lapangan', 'Data Aset Berdasarkan Lapangan']];
@@ -26,6 +27,7 @@ export default function DataAset({ api, sesi, rute, keRute }) {
   const [galat, setGalat] = useState('');
   const [info, setInfo] = useState('');
   const [rincian, setRincian] = useState(null);
+  const [rincianGardu, setRincianGardu] = useState(null);
   const [sibuk, setSibuk] = useState(false);
 
   const muat = useCallback(async () => {
@@ -101,7 +103,10 @@ export default function DataAset({ api, sesi, rute, keRute }) {
           </div>
           {kartu.length ? (
             <div className="das-grid">
-              {kartu.map((k) => <KartuPenyulang key={k.kunci} k={k} onBuka={() => setRincian({ tab, kunci: k.kunci, nama: k.nama })} />)}
+              {kartu.map((k) => {
+                const gardu = data.gardu?.[String(k.nama).toUpperCase()] || [];
+                return <KartuPenyulang key={k.kunci} k={k} gardu={gardu} onBuka={() => setRincian({ tab, kunci: k.kunci, nama: k.nama })} onGardu={() => setRincianGardu({ nama: k.nama, gardu })} />;
+              })}
             </div>
           ) : <p className="das-ket">Tidak ada penyulang untuk pilihan ini.</p>}
           {tab === 'lapangan' && <PanelSegmen kelas="das-panel--kuning" judul="Segmen belum terpetakan" daftar={belum} />}
@@ -111,6 +116,7 @@ export default function DataAset({ api, sesi, rute, keRute }) {
       )}
 
       <Rincian segmen={segmen} rincian={rincian} onTutup={() => setRincian(null)} />
+      <RincianGardu daftar={rincianGardu} onTutup={() => setRincianGardu(null)} />
     </div>
   );
 }
